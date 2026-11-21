@@ -273,3 +273,10 @@ button.info::after { content: ''; position: absolute; inset: -12px; }
 .progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 .spinner { width: 32px; height: 32px; border-radius: 50%; border: 3px solid var(--card2); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Aviso flotante */
+.toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0;
+  background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: .9rem; z-index: 30;
+  transition: opacity .2s, transform .2s; pointer-events: none; max-width: calc(100vw - 32px); text-align: center; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+code { font-size: .85em; background: var(--card2); padding: 1px 5px; border-radius: 5px; }
