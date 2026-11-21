@@ -12,6 +12,7 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
 - **Intensidad relativa (%1RM)** por serie con la tabla RTS de Tuchscherer (repeticiones + RIR). Solo de 1 a 12 repeticiones y RIR 0–3,5; fuera de ese rango no se calcula. El 1RM estimado sale de la misma tabla.
 - **Índice de estrés (Stress Index)** como sistema de cuantificación de cada sesión (o por defecto en Ajustes): multiarticular 1,4 − 0,2·RIR y monoarticular 1,3 − 0,2·RIR (RIR 0–5), con el índice por serie, ejercicio y grupo muscular.
 - **Análisis** con pestañas: factores y rendimiento; carga semanal (índice de estrés por semana y por grupo); intensidad (zonas de %1RM y %1RM medio semanal).
+- **Informe de evolución en PDF** (Progreso → Informe): periodo de 1, 3, 6 o 12 meses; resumen con comparación frente al periodo anterior; evolución por ejercicio (media de las 2 primeras frente a las 2 últimas sesiones, con gráfica); carga semanal (solo semanas completas); reparto por grupo y por zona de %1RM; bienestar, peso corporal y comentarios del entrenador. Se genera con «Guardar como PDF» del diálogo de impresión, en A4 y con tema claro.
 - **Fatiga**: aviso de caída de rendimiento entre series (1RM estimado ≥10% por debajo de la mejor serie del día) y recuento de series al fallo, con RIR 0 o RPE ≥ 9,5.
 - **Carga interna** de la sesión (sRPE × minutos, método de Foster).
 - **Ayuda ⓘ** junto a los términos técnicos (RPE, RIR, 1RM estimado, volumen, carga interna, error estándar, correlación…), que abre una explicación.

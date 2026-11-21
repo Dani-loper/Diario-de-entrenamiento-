@@ -223,3 +223,40 @@ button.info::after { content: ''; position: absolute; inset: -12px; }
 .avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; color: #fff; font-weight: 700; letter-spacing: .02em; }
 .card.active-user { border-color: var(--accent); }
 .tag.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+/* Informe */
+.report { margin-top: 8px; }
+.r-head { border-bottom: 2px solid var(--accent); padding-bottom: 12px; margin-bottom: 8px; }
+.r-kicker { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); font-weight: 700; }
+.rsec { margin-top: 18px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.kpi b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.kpi span { display: block; font-size: .72rem; color: var(--muted); }
+.r-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 10px; }
+.rcard { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.rcard .mini { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .78rem; color: var(--muted); margin-top: 4px; }
+.rcard .mini b { color: var(--text); }
+.rtable { font-size: .82rem; font-variant-numeric: tabular-nums; }
+.rtable td:not(:first-child), .rtable th:not(:first-child) { text-align: right; }
+.rtable td.up { color: var(--accent); }
+.rtable td.down { color: var(--danger); }
+.r-note { white-space: normal; line-height: 1.5; }
+.r-foot { margin-top: 20px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+@media print {
+  :root, :root[data-theme] {
+    --bg: #fff; --card: #fff; --card2: #eef1f5; --line: #d5dbe3; --text: #111820; --muted: #5a6575;
+    --accent: #0c8a66; --accent-ink: #fff; --warn: #b7791f; --danger: #c53030; color-scheme: light;
+  }
+  @page { size: A4; margin: 14mm 12mm; }
+  html, body { background: #fff !important; }
+  body { padding: 0 !important; font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  main { max-width: none; padding: 0; }
+  .tabbar, .timer, .userbar, .no-print, button.info, dialog { display: none !important; }
+  .rsec { break-inside: auto; }
+  .rcard, .kpi, .rtable tr, .r-head { break-inside: avoid; }
+  h2 { break-after: avoid; font-size: 13pt; }
+  .r-grid { grid-template-columns: 1fr 1fr; }
+  .chart { max-height: 55mm; }
+}

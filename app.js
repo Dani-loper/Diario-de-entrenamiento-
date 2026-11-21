@@ -162,11 +162,11 @@ function route() {
 function render() {
   const r = route();
   document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active',
-    a.dataset.tab === (r.name === 'session' ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis'].includes(r.name) ? 'exercises' : r.name)));
+    a.dataset.tab === (r.name === 'session' ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis', 'report'].includes(r.name) ? 'exercises' : r.name)));
   const app = $('#app');
-  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers }[r.name] || viewCalendar;
+  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport }[r.name] || viewCalendar;
   const u = activeUser();
-  const bar = r.name === 'users' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
+  const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
   app.innerHTML = bar + view(r.id);
 }
 function rerender() { const y = scrollY; render(); scrollTo(0, y); }
@@ -900,6 +900,9 @@ function viewExercises() {
     <a class="card list-item" href="#/analysis" style="display:flex;align-items:center;gap:10px">
       <span style="font-size:1.4rem">🔬</span><span class="spacer"><b>Análisis</b>
       <div class="muted small">Factores y rendimiento · índice de estrés semanal · intensidad relativa</div></span><span>›</span></a>
+    <a class="card list-item" href="#/report" style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:1.4rem">📄</span><span class="spacer"><b>Informe de evolución (PDF)</b>
+      <div class="muted small">1, 3, 6 o 12 meses · evolución por ejercicio, carga, reparto y bienestar</div></span><span>›</span></a>
     <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">
     <div style="height:12px"></div>`;
   const items = db.exercises.filter((e) => norm(e.name).includes(q))
@@ -972,13 +975,13 @@ function viewExercise(id) {
   return html;
 }
 
-function chart(pts) {
+function chart(pts, label = 'Evolución') {
   const W = 320, H = 150, P = 28;
   const vs = pts.map((p) => p.v), min = Math.min(...vs), max = Math.max(...vs), span = max - min || 1;
   const x = (i) => P + (i * (W - P - 8)) / (pts.length - 1);
   const y = (v) => H - P + 8 - ((v - min) / span) * (H - P - 8);
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución del 1RM estimado">
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">
     <line class="ax" x1="${P}" y1="${H - P + 8}" x2="${W}" y2="${H - P + 8}"/>
     <text x="2" y="${y(max) + 4}">${Math.round(max)}</text><text x="2" y="${y(min) + 4}">${Math.round(min)}</text>
     <text x="${P}" y="${H - 4}">${pts[0].d.slice(5)}</text><text x="${W - 34}" y="${H - 4}">${pts[pts.length - 1].d.slice(5)}</text>
@@ -1031,6 +1034,187 @@ function viewSettings() {
       <input type="file" id="import-file" accept="application/json,.json" class="hidden">
     </div>
     <p class="muted small">${db.sessions.length} sesiones guardadas.</p>`;
+}
+
+/* ---------- Informe de evolución (imprimible / PDF) ---------- */
+const PERIODS = { 1: '1 mes', 3: '3 meses', 6: '6 meses', 12: '1 año' };
+const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function periodRange(months) {
+  const end = todayISO();
+  const s = new Date(end + 'T12:00'); s.setMonth(s.getMonth() - months); s.setDate(s.getDate() + 1);
+  const pe = new Date(s); pe.setDate(pe.getDate() - 1);
+  const ps = new Date(s); ps.setMonth(ps.getMonth() - months);
+  return { start: isoOf(s), end, prevStart: isoOf(ps), prevEnd: isoOf(pe) };
+}
+const inRange = (sess, a, b) => sess.date >= a && sess.date <= b;
+const fmtLong = (iso) => new Date(iso + 'T12:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function periodStats(a, b) {
+  const list = db.sessions.filter((s) => inRange(s, a, b)).sort((x, y) => sortKey(x).localeCompare(sortKey(y)));
+  const out = { sessions: list, n: list.length, sets: 0, volume: 0, si: 0, durations: [], srpe: [], prs: 0, setsCat: {}, pcts: [], bw: [], sleep: [], readiness: [], stress: [], factors: {} };
+  for (const s of list) {
+    out.volume += sessionVolume(s);
+    out.si += sessionSI(s).total;
+    if (s.endedAt && s.startedAt && s.endedAt > s.startedAt) out.durations.push((s.endedAt - s.startedAt) / 60000);
+    if (s.srpe) out.srpe.push(s.srpe);
+    if (s.bodyweight) out.bw.push({ d: s.date, v: s.bodyweight });
+    for (const k of ['sleep', 'readiness', 'stress']) if (s[k] != null) out[k].push(s[k]);
+    for (const f of s.factors || []) out.factors[f] = (out.factors[f] || 0) + 1;
+    for (const e of s.exercises) {
+      const def = exById(e.exerciseId), cat = def?.cat || 'Otros';
+      const work = e.sets.filter(isWork);
+      out.sets += work.length;
+      out.setsCat[cat] = (out.setsCat[cat] || 0) + work.length;
+      if ((def?.mode || 'wr') === 'wr') for (const x of work) { const p = pct1rm(x); if (p) out.pcts.push(p); }
+      const best = entryStats(e).best;
+      const prevBest = maxOf(historyBefore(e.exerciseId, s).map((h) => entryStats(h.entry).best));
+      if (best && prevBest && best > prevBest) out.prs++;
+    }
+  }
+  return out;
+}
+
+// Evolución de un ejercicio: media de las 2 primeras sesiones frente a la media de las 2 últimas.
+function exerciseEvolution(exId, a, b) {
+  const def = exById(exId);
+  const m = METRIC[def?.mode] || METRIC.wr;
+  const hist = historyFor(exId).filter((h) => inRange(h.sess, a, b)).reverse();
+  const pts = hist.map((h) => ({ d: h.sess.date, v: entryStats(h.entry).best })).filter((p) => p.v);
+  const k = Math.min(2, Math.floor(pts.length / 2));
+  const startV = k ? mean(pts.slice(0, k).map((p) => p.v)) : null;
+  const endV = k ? mean(pts.slice(-k).map((p) => p.v)) : null;
+  const vol = hist.reduce((acc, h) => acc + entryStats(h.entry).vol, 0);
+  const pcts = def?.mode === 'wr' ? hist.flatMap((h) => h.entry.sets.filter(isWork).map(pct1rm)).filter(Boolean) : [];
+  const topW = maxOf(hist.map((h) => entryStats(h.entry).topW));
+  const best = maxOf(pts.map((p) => p.v));
+  return { def, m, hist, pts, startV, endV, change: startV && endV ? (endV / startV - 1) * 100 : null, vol, pcts, topW, best };
+}
+
+function reportExercises(a, b) {
+  const counts = {};
+  for (const s of db.sessions) if (inRange(s, a, b)) for (const e of s.exercises) if (e.sets.some(isWork)) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
+  return Object.entries(counts).sort((x, y) => y[1] - x[1]).map(([id, n]) => ({ id, n, def: exById(id) })).filter((x) => x.def);
+}
+
+function viewReport() {
+  const months = ui.rPeriod || 3;
+  const { start, end, prevStart, prevEnd } = periodRange(months);
+  const avail = reportExercises(start, end);
+  if (!ui.rSel || ui.rSelPeriod !== months) { ui.rSel = new Set(avail.slice(0, 6).map((x) => x.id)); ui.rSelPeriod = months; }
+  const u = activeUser();
+  const cur = periodStats(start, end), prev = periodStats(prevStart, prevEnd);
+  const weeks = Math.max(1, (Date.parse(end) - Date.parse(start)) / (7 * 864e5));
+
+  // Controles (no se imprimen)
+  let html = `<div class="no-print">
+    <div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a></div>
+    <h1>Informe de evolución</h1>
+    <label>Periodo</label>
+    <div class="seg">${Object.entries(PERIODS).map(([k, v]) => `<button class="${+k === months ? 'on' : ''}" data-action="r-period" data-m="${k}">${v}</button>`).join('')}</div>
+    <label>Ejercicios incluidos (${ui.rSel.size})</label>
+    <div class="chips" style="margin-bottom:12px">${avail.length ? avail.map((x) => `<button class="chip ${ui.rSel.has(x.id) ? 'on' : ''}" data-action="r-ex" data-id="${x.id}">${esc(x.def.name)} <small>${x.n}</small></button>`).join('') : '<span class="muted small">No hay ejercicios registrados en este periodo.</span>'}</div>
+    <label>Comentarios del entrenador (aparecen en el informe)</label>
+    <textarea data-report-note placeholder="Valoración del periodo, objetivos para el siguiente bloque…">${esc(db.reportNote || '')}</textarea>
+    <button class="primary block" style="margin:12px 0" data-action="r-print" ${cur.n ? '' : 'disabled'}>📄 Generar PDF</button>
+    <div class="muted small" style="margin-bottom:16px">Se abre el diálogo de impresión: elige «Guardar como PDF». En iPhone: Compartir → Imprimir → amplía la vista previa con dos dedos → Compartir.</div>
+  </div>`;
+
+  if (!cur.n) return html + `<div class="empty">No hay sesiones entre el ${fmtLong(start)} y el ${fmtLong(end)}.</div>`;
+
+  const avgDur = mean(cur.durations), avgSrpe = mean(cur.srpe);
+  const bwFirst = cur.bw[0], bwLast = cur.bw[cur.bw.length - 1];
+  html += `<article class="report">
+    <header class="r-head">
+      <div class="row">${avatar(u, 48)}<div class="spacer"><div class="r-kicker">Informe de evolución · ${PERIODS[months]}</div>
+        <h1 style="margin:2px 0">${esc(u.name)}</h1>
+        ${u.goal ? `<div class="muted">🎯 ${esc(u.goal)}</div>` : ''}</div></div>
+      <div class="muted small" style="margin-top:8px">Del ${fmtLong(start)} al ${fmtLong(end)} · generado el ${fmtLong(todayISO())}</div>
+    </header>
+
+    <section class="rsec"><h2>Resumen del periodo</h2>
+      <div class="kpis">
+        ${kpi(cur.n, 'sesiones', prev.n)}
+        ${kpi(fmt(cur.n / weeks, 1), 'sesiones / semana')}
+        ${kpi(cur.sets, 'series efectivas', prev.sets)}
+        ${kpi(fmt(cur.volume / 1000, 1) + ' t', 'volumen', null, cur.volume, prev.volume)}
+        ${cur.si ? kpi(fmt(cur.si, 0), 'índice de estrés', null, cur.si, prev.si) : ''}
+        ${kpi(cur.prs, 'récords estimados')}
+        ${avgDur ? kpi(Math.round(avgDur) + ' min', 'duración media') : ''}
+        ${avgSrpe ? kpi(fmt(avgSrpe, 1), 'RPE medio de sesión') : ''}
+        ${cur.pcts.length ? kpi(fmt(mean(cur.pcts), 0) + '%', '%1RM medio') : ''}
+        ${bwFirst && bwLast && cur.bw.length >= 2 ? kpi(`${fmt(bwLast.v, 1)} kg`, `peso (${bwLast.v - bwFirst.v >= 0 ? '+' : ''}${fmt(bwLast.v - bwFirst.v, 1)} kg)`) : ''}
+      </div>
+      ${prev.n ? `<div class="muted small">Las flechas comparan con el periodo anterior de igual duración (${fmtLong(prevStart)} – ${fmtLong(prevEnd)}).</div>` : ''}
+    </section>`;
+
+  // Ejercicios
+  const sel = avail.filter((x) => ui.rSel.has(x.id));
+  if (sel.length) {
+    const evo = sel.map((x) => exerciseEvolution(x.id, start, end));
+    html += `<section class="rsec"><h2>Evolución por ejercicio</h2>
+      <table class="gt rtable"><tr><th>Ejercicio</th><th>Inicio</th><th>Final</th><th>Cambio</th><th>Mejor</th><th>Ses.</th></tr>
+      ${evo.map((e) => `<tr><td>${esc(e.def.name)}</td><td>${e.startV ? fmtM(e.startV, e.m) : '–'}</td><td>${e.endV ? fmtM(e.endV, e.m) : '–'}</td>
+        <td class="${e.change > 0.5 ? 'up' : e.change < -0.5 ? 'down' : ''}"><b>${e.change == null ? '–' : `${e.change > 0 ? '+' : ''}${fmt(e.change, 1)}%`}</b></td>
+        <td>${e.best ? fmtM(e.best, e.m) : '–'}</td><td>${e.hist.length}</td></tr>`).join('')}
+      </table>
+      <div class="muted small" style="margin-top:6px">Inicio y final = media de las 2 primeras y de las 2 últimas sesiones del periodo (1RM estimado en ejercicios con peso), para que un día suelto bueno o malo no distorsione la evolución. Con menos de 2 sesiones no se calcula.</div>
+      <div class="r-grid">
+      ${evo.map((e) => `<div class="rcard"><div class="row"><b class="spacer">${esc(e.def.name)}</b>
+          ${e.change != null ? `<span class="delta ${e.change > 0.5 ? 'up' : e.change < -0.5 ? 'down' : ''}">${e.change > 0 ? '▲' : e.change < 0 ? '▼' : ''}${fmt(Math.abs(e.change), 1)}%</span>` : ''}</div>
+        <div class="muted small">${e.m.label} por sesión</div>
+        ${e.pts.length >= 2 ? chart(e.pts, `${e.m.label} de ${e.def.name}`) : '<div class="muted small" style="padding:20px 0">Solo una sesión con datos.</div>'}
+        <div class="mini">${e.topW ? `<span>Peso máx. <b>${fmt(e.topW)} kg</b></span>` : ''}<span>Volumen <b>${fmtM(e.vol, e.m, e.m.volUnit)}</b></span>${e.pcts.length ? `<span>%1RM medio <b>${fmt(mean(e.pcts), 0)}%</b></span>` : ''}</div>
+      </div>`).join('')}
+      </div></section>`;
+  }
+
+  // Carga semanal
+  // Solo semanas completas dentro del periodo: la primera (empezada a mitad) y la actual (en curso) distorsionarían la gráfica.
+  const wks = [];
+  for (let w = weekStart(start); w <= end; ) {
+    const d = new Date(w + 'T12:00'); d.setDate(d.getDate() + 6); const sunday = isoOf(d);
+    if (w >= start && sunday <= end && sunday < todayISO()) wks.push(w);
+    d.setDate(d.getDate() + 1); w = isoOf(d);
+  }
+  const wData = Object.fromEntries(wks.map((w) => [w, { vol: 0, si: 0, n: 0 }]));
+  for (const s of cur.sessions) { const w = wData[weekStart(s.date)]; if (w) { w.vol += sessionVolume(s); w.si += sessionSI(s).total; w.n++; } }
+  const volPts = wks.map((w) => ({ d: w, v: Math.round(wData[w].vol) }));
+  const siPts = wks.map((w) => ({ d: w, v: Math.round(wData[w].si * 10) / 10 }));
+  if (wks.length >= 2) {
+    html += `<section class="rsec"><h2>Carga semanal</h2><div class="muted small">Semanas completas (de lunes a domingo) dentro del periodo.</div><div class="r-grid">
+      <div class="rcard"><b>Volumen (kg) por semana</b>${chart(volPts, 'Volumen semanal')}</div>
+      ${cur.si ? `<div class="rcard"><b>Índice de estrés por semana</b>${chart(siPts, 'Índice de estrés semanal')}</div>` : ''}
+      </div></section>`;
+  }
+
+  // Reparto e intensidad
+  const catItems = Object.entries(cur.setsCat).filter(([, v]) => v).sort((x, y) => y[1] - x[1]).map(([label, v]) => ({ label, v }));
+  html += `<section class="rsec"><h2>Reparto del entrenamiento</h2><div class="r-grid">
+    <div class="rcard"><b>Series efectivas por grupo</b>${bars(catItems, '')}</div>
+    ${cur.pcts.length ? `<div class="rcard"><b>Series por zona de intensidad (%1RM)</b>${bars(ZONES.map(([label, t]) => ({ label, v: cur.pcts.filter(t).length })), '')}</div>` : ''}
+  </div></section>`;
+
+  // Bienestar
+  const wb = [['Sueño medio', cur.sleep, ' h'], ['Energía media (1-5)', cur.readiness, ''], ['Estrés medio (1-5)', cur.stress, '']].filter(([, v]) => v.length);
+  const topF = Object.entries(cur.factors).sort((x, y) => y[1] - x[1]).slice(0, 5);
+  if (wb.length || cur.bw.length >= 2 || topF.length) {
+    html += `<section class="rsec"><h2>Bienestar y composición</h2><div class="r-grid">
+      ${wb.length || topF.length ? `<div class="rcard"><div class="kpis">${wb.map(([l, v, u2]) => kpi(fmt(mean(v), 1) + u2, `${l} (n=${v.length})`)).join('')}</div>
+        ${topF.length ? `<div class="muted small" style="margin-top:6px">Factores más marcados: ${topF.map(([f, n]) => `${esc(f)} (${n})`).join(', ')}</div>` : ''}</div>` : ''}
+      ${cur.bw.length >= 2 ? `<div class="rcard"><b>Peso corporal (kg)</b>${chart(cur.bw, 'Peso corporal')}</div>` : ''}
+    </div></section>`;
+  }
+
+  if (db.reportNote && db.reportNote.trim()) html += `<section class="rsec"><h2>Comentarios del entrenador</h2><div class="rcard r-note">${esc(db.reportNote).replace(/\n/g, '<br>')}</div></section>`;
+
+  html += `<footer class="r-foot muted small">1RM estimado e intensidad relativa calculados con la tabla RTS a partir de repeticiones y RIR/RPE; son estimaciones que dependen de que el esfuerzo se registre con honestidad.
+    Índice de estrés: multiarticular 1,4 − 0,2·RIR, monoarticular 1,3 − 0,2·RIR. Generado con Diario de entrenamiento.</footer>
+  </article>`;
+  return html;
+}
+function kpi(value, label, prevN = null, curV = null, prevV = null) {
+  const d = prevN != null ? delta(+value, prevN) : curV != null && prevV ? delta(curV, prevV) : '';
+  return `<div class="kpi"><b>${value}</b> ${d}<span>${label}</span></div>`;
 }
 
 /* ---------- Usuarios ---------- */
@@ -1245,6 +1429,18 @@ const actions = {
     ui.preOpen[s.id] = true; save(); rerender();
   },
   'go-users': () => { location.hash = '#/users'; },
+  'r-period': (el) => { ui.rPeriod = +el.dataset.m; rerender(); },
+  'r-ex': (el) => { ui.rSel.has(el.dataset.id) ? ui.rSel.delete(el.dataset.id) : ui.rSel.add(el.dataset.id); rerender(); },
+  'r-print': () => {
+    save(true);
+    rerender(); // incluye los comentarios recién escritos
+    const prevTitle = document.title;
+    // El título del documento es el nombre sugerido del PDF.
+    document.title = `Informe ${activeUser().name} ${PERIODS[ui.rPeriod || 3]} ${todayISO()}`;
+    const restore = () => { document.title = prevTitle; window.removeEventListener('afterprint', restore); };
+    window.addEventListener('afterprint', restore);
+    setTimeout(() => { window.print(); setTimeout(restore, 1000); }, 50);
+  },
   'user-switch': (el) => switchUser(el.dataset.id),
   'user-form': (el) => {
     const u = el.dataset.id ? profiles.users.find((x) => x.id === el.dataset.id) : null;
@@ -1394,6 +1590,7 @@ document.addEventListener('input', (e) => {
   }
   if (t.dataset.setting) { db.settings[t.dataset.setting] = num(t.value) ?? 0; save(); return; }
   if (t.dataset.settingStr) { db.settings[t.dataset.settingStr] = t.value; save(); return; }
+  if (t.dataset.reportNote != null) { db.reportNote = t.value; save(); return; }
   const s = currentSession(); if (!s) return;
   if (t.dataset.s) {
     const k = t.dataset.s;
