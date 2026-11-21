@@ -3,6 +3,7 @@
 PWA (app web instalable) para registrar sesiones de musculación y fitness desde el móvil. Sin dependencias ni compilación; funciona sin conexión.
 
 ## Funciones
+- **Usuarios** (perfiles locales, pensados para entrenadores): cada usuario tiene sus propias sesiones, catálogo, material y ajustes. La pantalla de usuarios permite crear, editar, cambiar y borrar (confirmando con el nombre), y el usuario activo está siempre visible arriba. Se puede exportar e importar la copia de todos los usuarios en un solo archivo. Los datos de versiones anteriores se migran al usuario «Yo».
 - **Calendario** como pantalla de inicio: puntos en los días con sesión, crear sesión en el día seleccionado (hoy por defecto) y **buscador** (ejercicio, notas, material, sensaciones; sin importar tildes).
 - **Antes de empezar** (opcional): peso corporal, sueño, energía, estrés, factores rápidos (dormí mal, estrés, molestias, cafeína…), sensaciones y observaciones.
 - **Datos en el registro de series**: 1RM/volumen de hoy frente a la vez anterior, récord previo y gráfica desplegable (📈).
@@ -31,7 +32,7 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
 Sírvelo por HTTPS (p. ej. GitHub Pages: Settings → Pages → rama y carpeta raíz) y en el móvil usa «Añadir a pantalla de inicio».
 En local: `python3 -m http.server` y abre http://localhost:8000.
 
-Los datos se guardan solo en el navegador del dispositivo: **exporta copias de seguridad con regularidad**.
+Los datos se guardan solo en el navegador del dispositivo: **exporta copias de seguridad con regularidad** (Ajustes → Exportar todos los usuarios). No hay sincronización entre dispositivos: el usuario no puede apuntar desde su propio móvil.
 
 ## Base científica
 - Zourdos et al. (2016): escala RPE basada en repeticiones en reserva (RPE ≈ 10 − RIR).

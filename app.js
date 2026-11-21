@@ -48,17 +48,58 @@ function seed() {
     settings: { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets' },
   };
 }
-function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.sessions) return d; } catch (e) { /* datos corruptos */ }
-  return seed();
+/* ---------- Usuarios (perfiles locales) ----------
+ * Cada usuario tiene sus propios datos (sesiones, catálogo, material, ajustes) en su clave de localStorage.
+ * El índice de perfiles guarda la lista y el usuario activo. Al primer arranque se migran los datos antiguos.
+ */
+const PKEY = 'diario-entreno.perfiles';
+const dataKey = (id) => `diario-entreno.u.${id}`;
+function loadProfiles() {
+  try { const p = JSON.parse(localStorage.getItem(PKEY)); if (p && p.users && p.users.length) return p; } catch (e) { /* índice corrupto */ }
+  const id = uid();
+  const p = { active: id, users: [{ id, name: 'Yo', goal: '', notes: '', createdAt: Date.now() }] };
+  try {
+    const legacy = localStorage.getItem(KEY); // datos de versiones sin usuarios
+    if (legacy) localStorage.setItem(dataKey(id), legacy);
+    localStorage.setItem(PKEY, JSON.stringify(p));
+  } catch (e) { /* almacenamiento no disponible */ }
+  return p;
 }
+let profiles = loadProfiles();
+const saveProfiles = () => { try { localStorage.setItem(PKEY, JSON.stringify(profiles)); } catch (e) { alert('No se pudo guardar: ' + e.message); } };
+const activeUser = () => profiles.users.find((u) => u.id === profiles.active) || profiles.users[0];
+function readUserData(id) {
+  try { const d = JSON.parse(localStorage.getItem(dataKey(id))); if (d && d.sessions) return d; } catch (e) { /* datos corruptos */ }
+  return null;
+}
+const initials = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+function userColor(id) {
+  let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h} 55% 45%)`;
+}
+const avatar = (u, size = 36) => `<span class="avatar" style="background:${userColor(u.id)};width:${size}px;height:${size}px;font-size:${Math.round(size * 0.4)}px">${esc(initials(u.name))}</span>`;
+
+function normalize(d) {
+  d.settings = { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets', ...d.settings };
+  return d;
+}
+const load = () => normalize(readUserData(profiles.active) || seed());
 let db = load();
-db.settings = { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets', ...db.settings };
 let saveTimer;
 function save(now = false) {
   clearTimeout(saveTimer);
-  const write = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { alert('No se pudo guardar: ' + e.message); } };
+  const id = profiles.active, data = db; // fija el destino: un cambio de usuario no puede desviar la escritura
+  const write = () => { try { localStorage.setItem(dataKey(id), JSON.stringify(data)); } catch (e) { alert('No se pudo guardar: ' + e.message); } };
   if (now) write(); else saveTimer = setTimeout(write, 250);
+}
+function switchUser(id) {
+  if (!profiles.users.some((u) => u.id === id)) return;
+  save(true);
+  profiles.active = id; saveProfiles();
+  db = load();
+  stopTimer();
+  Object.assign(ui, { openEquip: new Set(), openChart: new Set(), preOpen: {}, filterEq: 'all', search: '', csearch: '', day: todayISO(), month: todayISO().slice(0, 7) });
+  if (location.hash === '#/') render(); else location.hash = '#/';
 }
 window.addEventListener('pagehide', () => save(true));
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(true); });
@@ -121,10 +162,12 @@ function route() {
 function render() {
   const r = route();
   document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active',
-    a.dataset.tab === (r.name === 'session' ? 'sessions' : ['exercise', 'analysis'].includes(r.name) ? 'exercises' : r.name)));
+    a.dataset.tab === (r.name === 'session' ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis'].includes(r.name) ? 'exercises' : r.name)));
   const app = $('#app');
-  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings }[r.name] || viewCalendar;
-  app.innerHTML = view(r.id);
+  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers }[r.name] || viewCalendar;
+  const u = activeUser();
+  const bar = r.name === 'users' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
+  app.innerHTML = bar + view(r.id);
 }
 function rerender() { const y = scrollY; render(); scrollTo(0, y); }
 window.addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
@@ -613,7 +656,7 @@ function viewCalendar() {
       <div class="row">
         <button class="icon ghost" data-action="month" data-d="-1" aria-label="Mes anterior">‹</button>
         <div class="spacer" style="text-align:center"><b>${monthName}</b>
-          <div class="muted small">${monthCount} sesion${monthCount === 1 ? '' : 'es'}</div></div>
+          <div class="muted small">${monthCount} ${monthCount === 1 ? 'sesión' : 'sesiones'}</div></div>
         <button class="icon ghost" data-action="month" data-d="1" aria-label="Mes siguiente">›</button>
       </div>
       <div class="cal">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => `<span class="dow">${d}</span>`).join('')}${cells}</div>
@@ -970,18 +1013,50 @@ function viewSettings() {
     </div>
     <h2>Ejercicios</h2>
     <div class="card"><button class="block" data-action="manage-exercises">Gestionar catálogo (${db.exercises.length})</button></div>
+    <h2>Usuarios</h2>
+    <a class="card list-item" href="#/users" style="display:flex;align-items:center;gap:10px">${avatar(activeUser(), 40)}
+      <span class="spacer"><b>${esc(activeUser().name)}</b><div class="muted small">${profiles.users.length} usuario${profiles.users.length === 1 ? '' : 's'} en este dispositivo · crear o cambiar</div></span><span>›</span></a>
     <h2>Copia de seguridad</h2>
     <div class="card">
       <div class="muted small" style="margin-bottom:8px">Los datos viven solo en este dispositivo. Exporta con frecuencia: si borras los datos del navegador (o iOS los purga), se pierden.</div>
+      <button class="primary block" data-action="export-all" style="margin-bottom:8px">⬇ Exportar todos los usuarios</button>
+      <div class="muted small" style="margin-bottom:6px">Solo ${esc(activeUser().name)}:</div>
       <div class="grid2">
         <button data-action="export-json">⬇ Exportar JSON</button>
         <button data-action="import-json">⬆ Importar JSON</button>
         <button data-action="export-csv">⬇ Exportar CSV</button>
-        <button class="danger" data-action="wipe">Borrar todo</button>
+        <button class="danger" data-action="wipe">Borrar sus datos</button>
       </div>
+      <div class="muted small" style="margin-top:6px">«Importar JSON» acepta una copia de un usuario (sustituye al activo) o una copia de todos (sustituye a todos).</div>
       <input type="file" id="import-file" accept="application/json,.json" class="hidden">
     </div>
     <p class="muted small">${db.sessions.length} sesiones guardadas.</p>`;
+}
+
+/* ---------- Usuarios ---------- */
+function viewUsers() {
+  const list = [...profiles.users].sort((a, b) => (b.id === profiles.active) - (a.id === profiles.active) || a.name.localeCompare(b.name));
+  let html = `<div class="row"><h1 class="spacer">Usuarios</h1><button class="primary" data-action="user-form">＋ Nuevo</button></div>
+    <div class="card muted small">Cada usuario tiene sus propias sesiones, ejercicios, material y ajustes. Los perfiles se guardan <b>solo en este dispositivo</b>:
+      exporta la copia de todos con regularidad en Ajustes.</div>`;
+  for (const u of list) {
+    const d = u.id === profiles.active ? db : readUserData(u.id);
+    const sess = d ? d.sessions : [];
+    const last = sess.reduce((m, x) => x.date > m ? x.date : m, '');
+    const active = u.id === profiles.active;
+    html += `<div class="card ${active ? 'active-user' : ''}">
+      <div class="row">${avatar(u, 44)}
+        <div class="spacer"><b>${esc(u.name)}</b> ${active ? '<span class="tag on">Activo</span>' : ''}
+          ${u.goal ? `<div class="muted small">🎯 ${esc(u.goal)}</div>` : ''}
+          <div class="muted small">${sess.length} ${sess.length === 1 ? 'sesión' : 'sesiones'}${last ? ` · última: ${fmtDate(last)}` : ''}</div></div>
+        <button class="icon ghost" data-action="user-form" data-id="${u.id}" aria-label="Editar ${esc(u.name)}">✎</button>
+        ${profiles.users.length > 1 ? `<button class="icon ghost danger" data-action="user-delete" data-id="${u.id}" aria-label="Borrar ${esc(u.name)}">🗑</button>` : ''}
+      </div>
+      ${u.notes ? `<div class="muted small" style="margin-top:6px">📝 ${esc(u.notes)}</div>` : ''}
+      ${active ? '' : `<button class="block" style="margin-top:10px" data-action="user-switch" data-id="${u.id}">Cambiar a ${esc(u.name)}</button>`}
+    </div>`;
+  }
+  return html;
 }
 
 /* ---------- Modal ---------- */
@@ -1064,6 +1139,7 @@ function newSession(fromId, date = ui.day || todayISO()) {
   db.sessions.push(s); save(true);
   location.hash = `#/session/${s.id}`;
 }
+const fileSafe = (t) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'usuario';
 function download(name, text, type) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type }));
@@ -1168,6 +1244,62 @@ const actions = {
     s.factors = s.factors.includes(f) ? s.factors.filter((x) => x !== f) : [...s.factors, f];
     ui.preOpen[s.id] = true; save(); rerender();
   },
+  'go-users': () => { location.hash = '#/users'; },
+  'user-switch': (el) => switchUser(el.dataset.id),
+  'user-form': (el) => {
+    const u = el.dataset.id ? profiles.users.find((x) => x.id === el.dataset.id) : null;
+    openModal(`<div class="row"><h3 class="spacer">${u ? 'Editar' : 'Nuevo'} usuario</h3><button class="ghost" data-action="close-modal" aria-label="Cerrar">✕</button></div>
+      <div style="display:grid;gap:10px;margin-top:10px">
+        <div><label>Nombre</label><input id="uf-name" value="${esc(u?.name)}" placeholder="p. ej. Laura G." autocomplete="off"></div>
+        <div><label>Objetivo (opcional)</label><input id="uf-goal" value="${esc(u?.goal)}" placeholder="p. ej. Competir en -63 kg, hipertrofia, recuperar rodilla…"></div>
+        <div><label>Notas (opcional)</label><textarea id="uf-notes" placeholder="Lesiones, disponibilidad, material del que dispone…">${esc(u?.notes)}</textarea></div>
+        ${u ? '' : `<label class="row" style="color:var(--text);font-size:.9rem;gap:8px"><input type="checkbox" id="uf-copy" checked style="width:auto;min-height:0">
+          Copiar catálogo de ejercicios, material y ajustes de ${esc(activeUser().name)}</label>`}
+        <button class="primary" data-action="user-save" data-id="${u?.id || ''}">${u ? 'Guardar' : 'Crear y cambiar a este usuario'}</button>
+      </div>`);
+    setTimeout(() => $('#uf-name')?.focus(), 50);
+  },
+  'user-save': (el) => {
+    const name = $('#uf-name').value.trim();
+    if (!name) return alert('Pon un nombre.');
+    if (profiles.users.some((x) => norm(x.name) === norm(name) && x.id !== el.dataset.id)) return alert('Ya hay un usuario con ese nombre.');
+    const fields = { name, goal: $('#uf-goal').value.trim(), notes: $('#uf-notes').value.trim() };
+    if (el.dataset.id) {
+      Object.assign(profiles.users.find((x) => x.id === el.dataset.id), fields);
+      saveProfiles(); closeModal(); rerender(); return;
+    }
+    const id = uid();
+    const fresh = seed();
+    if ($('#uf-copy')?.checked) {
+      fresh.exercises = JSON.parse(JSON.stringify(db.exercises));
+      fresh.equipment = JSON.parse(JSON.stringify(db.equipment));
+      fresh.settings = { ...db.settings };
+    }
+    try { localStorage.setItem(dataKey(id), JSON.stringify(fresh)); } catch (e) { return alert('No se pudo crear: ' + e.message); }
+    profiles.users.push({ id, ...fields, createdAt: Date.now() });
+    saveProfiles(); closeModal(); switchUser(id);
+  },
+  'user-delete': (el) => {
+    const u = profiles.users.find((x) => x.id === el.dataset.id);
+    if (!u || profiles.users.length < 2) return;
+    const n = (u.id === profiles.active ? db : readUserData(u.id))?.sessions.length || 0;
+    const typed = prompt(`Se borrarán ${u.name} y sus ${n} sesiones de este dispositivo. No se puede deshacer.\n\nEscribe el nombre para confirmar:`);
+    if (typed == null || norm(typed.trim()) !== norm(u.name)) { if (typed != null) alert('El nombre no coincide. No se ha borrado nada.'); return; }
+    const wasActive = u.id === profiles.active;
+    if (wasActive) clearTimeout(saveTimer);
+    profiles.users = profiles.users.filter((x) => x.id !== u.id);
+    try { localStorage.removeItem(dataKey(u.id)); } catch (e) { /* nada */ }
+    if (wasActive) {
+      profiles.active = profiles.users[0].id; saveProfiles();
+      db = load(); stopTimer(); location.hash = '#/users'; rerender();
+    } else { saveProfiles(); rerender(); }
+  },
+  'export-all': () => {
+    save(true);
+    const data = {};
+    for (const u of profiles.users) data[u.id] = u.id === profiles.active ? db : readUserData(u.id);
+    download(`diario-entreno-todos-${todayISO()}.json`, JSON.stringify({ type: 'diario-entreno-todos', version: 1, exportedAt: new Date().toISOString(), profiles, data }, null, 2), 'application/json');
+  },
   'cycle-system': () => {
     const s = currentSession(); const order = Object.keys(SYSTEMS);
     s.system = order[(order.indexOf(systemOf(s)) + 1) % order.length]; save(); rerender();
@@ -1235,11 +1367,11 @@ const actions = {
   },
   'rename-exercise': (el) => actions['exercise-form'](el),
   'del-exercise': (el) => { db.exercises = db.exercises.filter((e) => e.id !== el.dataset.id); save(); actions['manage-exercises'](); },
-  'export-json': () => download(`diario-entreno-${todayISO()}.json`, JSON.stringify(db, null, 2), 'application/json'),
-  'export-csv': () => download(`diario-entreno-${todayISO()}.csv`, '﻿' + toCSV(), 'text/csv'),
+  'export-json': () => download(`diario-entreno-${fileSafe(activeUser().name)}-${todayISO()}.json`, JSON.stringify(db, null, 2), 'application/json'),
+  'export-csv': () => download(`diario-entreno-${fileSafe(activeUser().name)}-${todayISO()}.csv`, '﻿' + toCSV(), 'text/csv'),
   'import-json': () => $('#import-file').click(),
   'wipe': () => {
-    if (!confirm('¿Borrar TODOS los datos? Exporta antes una copia.')) return;
+    if (!confirm(`¿Borrar TODOS los datos de ${activeUser().name}? Exporta antes una copia.`)) return;
     if (!confirm('Seguro. Esto no se puede deshacer.')) return;
     db = seed(); save(true); rerender();
   },
@@ -1290,9 +1422,20 @@ document.addEventListener('change', (e) => {
   if (t.id === 'import-file' && t.files[0]) {
     t.files[0].text().then((txt) => {
       const d = JSON.parse(txt);
+      if (d.type === 'diario-entreno-todos') {
+        if (!d.profiles?.users?.length || !d.data) throw new Error('Copia de usuarios incompleta');
+        const names = d.profiles.users.map((u) => u.name).join(', ');
+        if (!confirm(`Restaurar ${d.profiles.users.length} usuarios (${names})?\nReemplaza TODOS los usuarios y datos de este dispositivo.`)) return;
+        clearTimeout(saveTimer);
+        for (const u of profiles.users) localStorage.removeItem(dataKey(u.id));
+        for (const u of d.profiles.users) if (d.data[u.id]) localStorage.setItem(dataKey(u.id), JSON.stringify(d.data[u.id]));
+        profiles = { active: d.profiles.users.some((u) => u.id === d.profiles.active) ? d.profiles.active : d.profiles.users[0].id, users: d.profiles.users };
+        saveProfiles(); db = load(); location.hash = '#/users'; rerender();
+        return;
+      }
       if (!d.sessions || !d.exercises || !d.equipment) throw new Error('Formato no reconocido');
-      if (!confirm(`Importar ${d.sessions.length} sesiones? Reemplaza los datos actuales.`)) return;
-      db = d; db.settings = db.settings || { rest: 120 }; save(true); rerender();
+      if (!confirm(`Importar ${d.sessions.length} sesiones en ${activeUser().name}? Reemplaza sus datos actuales.`)) return;
+      db = normalize(d); save(true); rerender();
     }).catch((err) => alert('No se pudo importar: ' + err.message));
     return;
   }

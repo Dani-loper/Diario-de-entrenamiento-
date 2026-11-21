@@ -215,3 +215,11 @@ button.info::after { content: ''; position: absolute; inset: -12px; }
 .gt.rts th small { font-weight: 400; color: var(--muted); }
 .wtable td, .wtable th { text-align: center; }
 .wtable td:first-child, .wtable th:first-child { text-align: left; }
+
+/* Usuarios */
+.userbar { display: flex; justify-content: flex-end; margin: -4px 0 -6px; }
+.userchip { min-height: 36px; padding: 4px 10px 4px 4px; border-radius: 999px; gap: 8px; font-size: .88rem; max-width: 70%; }
+.userchip span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; color: #fff; font-weight: 700; letter-spacing: .02em; }
+.card.active-user { border-color: var(--accent); }
+.tag.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
