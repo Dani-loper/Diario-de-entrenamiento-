@@ -168,6 +168,7 @@ function render() {
   const u = activeUser();
   const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
   app.innerHTML = bar + view(r.id);
+  if (r.name === 'settings' && window.fillVideoStats) fillVideoStats();
 }
 function rerender() { const y = scrollY; render(); scrollTo(0, y); }
 window.addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
@@ -834,11 +835,11 @@ function exerciseCard(s, ex, i) {
     const est = isWork(set) ? m.best([set]) : null;
     const isPR = est && prevBest && est > prevBest;
     rows += `<tr class="${set.done ? 'done' : ''}">
-      <td><button class="settype ${set.type}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
+      <td><button class="settype ${set.type}${set.videoId ? ' has-video' : ''}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
       ${fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>` : f === 'rir' ? `<td>${rirSelect(set.rir, i, j)}</td>`
         : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
-      <td><button class="icon ghost" data-action="del-set" data-i="${i}" data-j="${j}" aria-label="Borrar serie">✕</button></td>
+      <td><button class="icon ghost" data-action="set-menu" data-i="${i}" data-j="${j}" aria-label="Opciones de la serie ${j + 1}: vídeo, compartir, borrar">⋯</button></td>
     </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
     const drop = setDrop(ex.sets, j);
     if (drop != null && drop >= db.settings.dropWarn) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="fatigue">⚠ Rendimiento −${fmt(drop, 0)}% frente a tu mejor serie de hoy: posible fatiga acumulada ${info('drop')}</td></tr>`;
@@ -879,6 +880,7 @@ function exerciseCard(s, ex, i) {
     <div class="chips" style="margin-top:8px">
       ${(open ? db.equipment : eqSel).map((e) => `<button class="chip ${ex.equipment.includes(e.id) ? 'on' : ''}" data-action="toggle-eq" data-i="${i}" data-eq="${e.id}">${esc(e.name)}</button>`).join('')}
       <button class="chip" data-action="open-eq" data-i="${i}">${open ? 'Listo' : '＋ Material'}</button>
+      ${open ? '' : `<button class="chip" data-action="yt" data-id="${def.id}">▶ Técnica${def.refUrl ? ' ★' : ''}</button>`}
     </div>
     <div class="row" style="margin-top:8px"><button class="chip" data-action="cycle-intensity" data-i="${i}">Intensidad: <b>${INTENSITY[intensityOf(def)]}</b> ⇄</button>${info('intensity')}</div>
     <table class="sets">
@@ -935,6 +937,7 @@ function viewExercise(id) {
   }
 
   let html = `<div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a><span class="spacer"></span>
+      <button class="ghost" data-action="yt" data-id="${def.id}">▶ Técnica</button>
       <button class="ghost" data-action="exercise-form" data-id="${def.id}">✎ Editar</button></div>
     <h1>${esc(def.name)}</h1>
     <div class="muted small">${esc(def.cat)} · ${esc(MODES[def.mode]?.label)}</div>`;
@@ -1019,6 +1022,12 @@ function viewSettings() {
     <h2>Usuarios</h2>
     <a class="card list-item" href="#/users" style="display:flex;align-items:center;gap:10px">${avatar(activeUser(), 40)}
       <span class="spacer"><b>${esc(activeUser().name)}</b><div class="muted small">${profiles.users.length} usuario${profiles.users.length === 1 ? '' : 's'} en este dispositivo · crear o cambiar</div></span><span>›</span></a>
+    <h2>Vídeos</h2>
+    <div class="card">
+      <div id="video-stats" class="small">Calculando…</div>
+      <div class="muted small" style="margin:8px 0">Los vídeos se guardan dentro de la app y <b>no</b> se incluyen en la copia de seguridad. Para conservarlos, ábrelos desde la serie (⋯) y usa «Guardar en el móvil».</div>
+      <button class="danger block" data-action="delete-videos">Borrar todos los vídeos de ${esc(activeUser().name)}</button>
+    </div>
     <h2>Copia de seguridad</h2>
     <div class="card">
       <div class="muted small" style="margin-bottom:8px">Los datos viven solo en este dispositivo. Exporta con frecuencia: si borras los datos del navegador (o iOS los purga), se pierden.</div>
@@ -1090,6 +1099,17 @@ function exerciseEvolution(exId, a, b) {
   return { def, m, hist, pts, startV, endV, change: startV && endV ? (endV / startV - 1) * 100 : null, vol, pcts, topW, best };
 }
 
+// Semanas completas (lunes-domingo) dentro de [start, end] y ya terminadas.
+function completeWeeks(start, end) {
+  const out = [];
+  for (let w = weekStart(start); w <= end; ) {
+    const d = new Date(w + 'T12:00'); d.setDate(d.getDate() + 6); const sunday = isoOf(d);
+    if (w >= start && sunday <= end && sunday < todayISO()) out.push(w);
+    d.setDate(d.getDate() + 1); w = isoOf(d);
+  }
+  return out;
+}
+
 function reportExercises(a, b) {
   const counts = {};
   for (const s of db.sessions) if (inRange(s, a, b)) for (const e of s.exercises) if (e.sets.some(isWork)) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
@@ -1115,8 +1135,11 @@ function viewReport() {
     <div class="chips" style="margin-bottom:12px">${avail.length ? avail.map((x) => `<button class="chip ${ui.rSel.has(x.id) ? 'on' : ''}" data-action="r-ex" data-id="${x.id}">${esc(x.def.name)} <small>${x.n}</small></button>`).join('') : '<span class="muted small">No hay ejercicios registrados en este periodo.</span>'}</div>
     <label>Comentarios del entrenador (aparecen en el informe)</label>
     <textarea data-report-note placeholder="Valoración del periodo, objetivos para el siguiente bloque…">${esc(db.reportNote || '')}</textarea>
-    <button class="primary block" style="margin:12px 0" data-action="r-print" ${cur.n ? '' : 'disabled'}>📄 Generar PDF</button>
-    <div class="muted small" style="margin-bottom:16px">Se abre el diálogo de impresión: elige «Guardar como PDF». En iPhone: Compartir → Imprimir → amplía la vista previa con dos dedos → Compartir.</div>
+    <div class="grid2" style="margin:12px 0">
+      <button class="primary" data-action="r-pdf" ${cur.n ? '' : 'disabled'}>📄 Generar PDF</button>
+      <button data-action="r-print" ${cur.n ? '' : 'disabled'}>🖨 Imprimir</button>
+    </div>
+    <div class="muted small" style="margin-bottom:16px">«Generar PDF» crea el archivo en el propio móvil (también en iPhone) y te deja compartirlo o guardarlo. «Imprimir» usa el diálogo del sistema.</div>
   </div>`;
 
   if (!cur.n) return html + `<div class="empty">No hay sesiones entre el ${fmtLong(start)} y el ${fmtLong(end)}.</div>`;
@@ -1170,12 +1193,7 @@ function viewReport() {
 
   // Carga semanal
   // Solo semanas completas dentro del periodo: la primera (empezada a mitad) y la actual (en curso) distorsionarían la gráfica.
-  const wks = [];
-  for (let w = weekStart(start); w <= end; ) {
-    const d = new Date(w + 'T12:00'); d.setDate(d.getDate() + 6); const sunday = isoOf(d);
-    if (w >= start && sunday <= end && sunday < todayISO()) wks.push(w);
-    d.setDate(d.getDate() + 1); w = isoOf(d);
-  }
+  const wks = completeWeeks(start, end);
   const wData = Object.fromEntries(wks.map((w) => [w, { vol: 0, si: 0, n: 0 }]));
   for (const s of cur.sessions) { const w = wData[weekStart(s.date)]; if (w) { w.vol += sessionVolume(s); w.si += sessionSI(s).total; w.n++; } }
   const volPts = wks.map((w) => ({ d: w, v: Math.round(wData[w].vol) }));
@@ -1317,7 +1335,7 @@ function newSession(fromId, date = ui.day || todayISO()) {
     exercises: src ? src.exercises.map((e) => ({
       id: uid(), exerciseId: e.exerciseId, notes: '', equipment: [...e.equipment],
       // Copia la estructura y cargas de la sesión anterior como punto de partida, sin marcar como hechas.
-      sets: e.sets.map((x) => ({ ...x, done: false })),
+      sets: e.sets.map((x) => ({ ...x, done: false, videoId: undefined })),
     })) : [],
   };
   db.sessions.push(s); save(true);
@@ -1356,7 +1374,9 @@ const actions = {
   'duplicate-session': () => { const s = currentSession(); closeModal(); newSession(s.id, todayISO()); },
   'delete-session': () => {
     const s = currentSession();
-    if (!confirm('¿Borrar esta sesión? No se puede deshacer.')) return;
+    const nv = setsWithVideo(s).length;
+    if (!confirm(`¿Borrar esta sesión${nv ? ` y sus ${nv} vídeos` : ''}? No se puede deshacer.`)) return;
+    deleteVideos(setsWithVideo(s));
     db.sessions = db.sessions.filter((x) => x.id !== s.id); save(true); closeModal(); location.hash = '#/';
   },
   'finish-session': () => { const s = currentSession(); s.endedAt = Date.now(); save(true); stopTimer(); rerender(); },
@@ -1368,7 +1388,7 @@ const actions = {
     s.exercises.push({
       id: uid(), exerciseId: el.dataset.id, notes: '',
       equipment: prev ? [...prev.entry.equipment] : [],
-      sets: prev ? prev.entry.sets.map((x) => ({ ...x, done: false })) : [{ type: 'E', w: null, reps: null, rpe: null, rir: null, done: false }],
+      sets: prev ? prev.entry.sets.map((x) => ({ ...x, done: false, videoId: undefined })) : [{ type: 'E', w: null, reps: null, rpe: null, rir: null, done: false }],
     });
     save(); rerender();
     setTimeout(() => document.querySelector(`[data-ex="${s.exercises.length - 1}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
@@ -1387,16 +1407,23 @@ const actions = {
   },
   'del-ex': (el) => {
     const s = currentSession();
-    if (!confirm('¿Quitar este ejercicio de la sesión?')) return;
+    const ex = s.exercises[+el.dataset.i], vids = ex.sets.filter((x) => x.videoId).map((x) => x.videoId);
+    if (!confirm(`¿Quitar este ejercicio de la sesión${vids.length ? ` (y sus ${vids.length} vídeos)` : ''}?`)) return;
+    deleteVideos(vids);
     s.exercises.splice(+el.dataset.i, 1); save(); rerender();
   },
   'add-set': (el) => {
     const ex = currentSession().exercises[+el.dataset.i];
     const last = ex.sets[ex.sets.length - 1];
-    ex.sets.push(last ? { ...last, done: false, type: last.type === 'C' ? 'E' : last.type } : { type: 'E', w: null, reps: null, rpe: null, rir: null, done: false });
+    ex.sets.push(last ? { ...last, done: false, videoId: undefined, type: last.type === 'C' ? 'E' : last.type } : { type: 'E', w: null, reps: null, rpe: null, rir: null, done: false });
     save(); rerender();
   },
-  'del-set': (el) => { currentSession().exercises[+el.dataset.i].sets.splice(+el.dataset.j, 1); save(); rerender(); },
+  'del-set': (el) => {
+    const sets = currentSession().exercises[+el.dataset.i].sets, set = sets[+el.dataset.j];
+    if (set.videoId && !confirm('Esta serie tiene un vídeo. ¿Borrar la serie y su vídeo?')) return;
+    videoDelete(set.videoId);
+    sets.splice(+el.dataset.j, 1); save(); closeModal(); rerender();
+  },
   'cycle-type': (el) => {
     const set = currentSession().exercises[+el.dataset.i].sets[+el.dataset.j];
     const order = Object.keys(SET_TYPES); set.type = order[(order.indexOf(set.type) + 1) % order.length];
@@ -1485,6 +1512,7 @@ const actions = {
     if (wasActive) clearTimeout(saveTimer);
     profiles.users = profiles.users.filter((x) => x.id !== u.id);
     try { localStorage.removeItem(dataKey(u.id)); } catch (e) { /* nada */ }
+    videoDeleteByUser(u.id);
     if (wasActive) {
       profiles.active = profiles.users[0].id; saveProfiles();
       db = load(); stopTimer(); location.hash = '#/users'; rerender();
@@ -1569,7 +1597,107 @@ const actions = {
   'wipe': () => {
     if (!confirm(`¿Borrar TODOS los datos de ${activeUser().name}? Exporta antes una copia.`)) return;
     if (!confirm('Seguro. Esto no se puede deshacer.')) return;
-    db = seed(); save(true); rerender();
+    db = seed(); save(true); videoDeleteByUser(profiles.active); rerender();
+  },
+  'delete-videos': async () => {
+    if (!confirm(`¿Borrar todos los vídeos de ${activeUser().name} de este dispositivo? Las series se conservan.`)) return;
+    await videoDeleteByUser(profiles.active);
+    for (const s of db.sessions) for (const e of s.exercises) for (const x of e.sets) delete x.videoId;
+    save(true); rerender();
+  },
+  // Vídeo de una serie
+  'set-menu': (el) => openSetMenu(+el.dataset.i, +el.dataset.j),
+  'video-pick': (el) => {
+    ui.videoTarget = { sid: currentSession().id, i: +el.dataset.i, j: +el.dataset.j };
+    const inp = $('#video-file'); inp.value = ''; inp.click();
+  },
+  'video-save': async (el) => {
+    const set = currentSession().exercises[+el.dataset.i].sets[+el.dataset.j];
+    const rec = await videoGet(set.videoId);
+    if (!rec) return alert('El vídeo ya no está en este dispositivo.');
+    const inf = setInfo(currentSession(), +el.dataset.i, +el.dataset.j);
+    const ext = (rec.type.split('/')[1] || 'mp4').split(';')[0].replace('quicktime', 'mov');
+    showShareResult(rec.blob, `${fileSafe(inf.title)}-${currentSession().date}-serie${+el.dataset.j + 1}.${ext}`, 'Guardar vídeo en el móvil',
+      '<div class="muted small">En iPhone: «Compartir o guardar» → «Guardar vídeo» lo lleva a Fotos.</div>');
+  },
+  'video-del': (el) => {
+    const set = currentSession().exercises[+el.dataset.i].sets[+el.dataset.j];
+    if (!confirm('¿Borrar el vídeo de esta serie?')) return;
+    videoDelete(set.videoId); delete set.videoId; save(true); rerender(); openSetMenu(+el.dataset.i, +el.dataset.j);
+  },
+  // Compartir una serie
+  'share-set': (el) => {
+    const i = +el.dataset.i, j = +el.dataset.j, sess = currentSession(), set = sess.exercises[i].sets[j];
+    const canVideo = !!(set.videoId && pickRecorderMime() && HTMLCanvasElement.prototype.captureStream);
+    // Precarga: al pulsar «Vídeo» la reproducción debe empezar sin esperas para que iOS permita el audio.
+    ui.prefetched = null;
+    if (set.videoId) videoGet(set.videoId).then((r) => { ui.prefetched = r; }).catch(() => {});
+    openModal(`<div class="row"><h3 class="spacer">Compartir serie</h3><button class="ghost" data-action="close-modal" aria-label="Cerrar">✕</button></div>
+      <pre class="share-preview">${esc(setText(setInfo(sess, i, j)))}</pre>
+      <div style="display:grid;gap:8px">
+        ${set.videoId ? `<button class="primary" data-action="share-video" data-i="${i}" data-j="${j}" ${canVideo ? '' : 'disabled'}>🎬 Vídeo con los datos encima</button>
+          ${canVideo ? '<div class="muted small">Se re-codifica en el móvil: tarda lo mismo que dura el vídeo.</div>' : '<div class="muted small">Este navegador no puede generar vídeo; usa la imagen.</div>'}` : ''}
+        <button class="${set.videoId ? '' : 'primary'}" data-action="share-image" data-i="${i}" data-j="${j}">🖼 Imagen con los datos${set.videoId ? ' (fotograma del vídeo)' : ''}</button>
+        <button data-action="share-text" data-i="${i}" data-j="${j}">📝 Solo texto</button>
+      </div>
+      <div class="muted small" style="margin-top:10px">No se incluye el nombre del atleta. Si compartes vídeos de otra persona, hazlo con su permiso.</div>`);
+  },
+  'share-text': async (el) => {
+    const t = setText(setInfo(currentSession(), +el.dataset.i, +el.dataset.j));
+    if (navigator.share) { try { await navigator.share({ text: t }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(t); alert('Texto copiado al portapapeles.'); } catch (e) { prompt('Copia el texto:', t); }
+  },
+  'share-image': async (el) => {
+    const i = +el.dataset.i, j = +el.dataset.j, sess = currentSession(), set = sess.exercises[i].sets[j];
+    const inf = setInfo(sess, i, j);
+    openModal('<div class="gen"><div class="spinner"></div>Generando imagen…</div>');
+    try {
+      const rec = set.videoId ? await videoGet(set.videoId) : null;
+      const blob = await makeSetImage(inf, rec?.blob);
+      const url = URL.createObjectURL(blob); ui.modalUrls = [...(ui.modalUrls || []), url];
+      showShareResult(blob, `${fileSafe(inf.title)}-${sess.date}-serie${j + 1}.jpg`, 'Imagen lista', `<img class="share-img" src="${url}" alt="Imagen de la serie">`);
+    } catch (e) { closeModal(); alert('No se pudo generar la imagen: ' + e.message); }
+  },
+  'share-video': async (el) => {
+    const i = +el.dataset.i, j = +el.dataset.j, sess = currentSession(), set = sess.exercises[i].sets[j];
+    const inf = setInfo(sess, i, j);
+    const cancel = { cancelled: false };
+    ui.genCancel = cancel;
+    try {
+      const rec = ui.prefetched?.id === set.videoId ? ui.prefetched : await videoGet(set.videoId);
+      if (!rec) throw new Error('El vídeo ya no está en este dispositivo.');
+      openModal(`<div class="gen"><div>Generando vídeo con los datos…</div><div class="progress"><i id="gen-bar"></i></div><div id="gen-pct" class="muted small">0%</div>
+        <button data-action="cancel-gen">Cancelar</button></div>`);
+      const out = await makeOverlayVideo(rec.blob, inf, (f) => { const b = $('#gen-bar'), t = $('#gen-pct'); if (b) b.style.width = `${Math.round(f * 100)}%`; if (t) t.textContent = `${Math.round(f * 100)}%`; }, cancel);
+      const ext = out.type.includes('mp4') ? 'mp4' : 'webm';
+      const url = URL.createObjectURL(out); ui.modalUrls = [...(ui.modalUrls || []), url];
+      showShareResult(out, `${fileSafe(inf.title)}-${sess.date}-serie${j + 1}.${ext}`, 'Vídeo listo',
+        `<video class="share-img" src="${url}" controls playsinline></video>${ext === 'webm' ? '<div class="mismatch">Formato WebM: algunas apps (p. ej. WhatsApp) pueden no aceptarlo. Si falla, comparte la imagen.</div>' : ''}`);
+    } catch (e) { if (e.name !== 'AbortError') { closeModal(); alert('No se pudo generar el vídeo: ' + e.message); } else closeModal(); }
+  },
+  'cancel-gen': () => { if (ui.genCancel) ui.genCancel.cancelled = true; },
+  'share-file': () => shareFile(),
+  // Tutoriales
+  'yt': (el) => openModal(youtubeHTML(exById(el.dataset.id))),
+  'yt-save': (el) => {
+    const def = exById(el.dataset.id), v = $('#yt-url').value.trim();
+    if (!v) return;
+    const u = safeUrl(v);
+    if (!u) return alert('El enlace debe empezar por https://');
+    def.refUrl = u; save(true); rerender(); openModal(youtubeHTML(def));
+  },
+  'yt-clear': (el) => { const def = exById(el.dataset.id); delete def.refUrl; save(true); rerender(); openModal(youtubeHTML(def)); },
+  // Informe en PDF con jsPDF
+  'r-pdf': async () => {
+    save(true);
+    const months = ui.rPeriod || 3;
+    openModal('<div class="gen"><div class="spinner"></div>Generando PDF…</div>');
+    try {
+      const doc = await buildReportPDF(months);
+      const blob = doc.output('blob');
+      showShareResult(blob, `Informe-${fileSafe(activeUser().name)}-${PERIODS[months].replace(' ', '')}-${todayISO()}.pdf`, 'Informe listo',
+        '<div class="muted small">En iPhone: «Compartir o guardar» → «Guardar en Archivos», o envíalo directamente.</div>');
+    } catch (e) { closeModal(); alert('No se pudo generar el PDF: ' + e.message); }
   },
 };
 
@@ -1616,6 +1744,11 @@ document.addEventListener('input', (e) => {
 // Al cambiar cosas que afectan a cálculos visibles (récords, volumen), refresca al salir del campo.
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.id === 'video-file' && t.files[0] && ui.videoTarget) {
+    const { sid, i, j } = ui.videoTarget; ui.videoTarget = null;
+    storeSetVideo(sid, i, j, t.files[0]);
+    return;
+  }
   if (t.id === 'import-file' && t.files[0]) {
     t.files[0].text().then((txt) => {
       const d = JSON.parse(txt);
@@ -1627,12 +1760,12 @@ document.addEventListener('change', (e) => {
         for (const u of profiles.users) localStorage.removeItem(dataKey(u.id));
         for (const u of d.profiles.users) if (d.data[u.id]) localStorage.setItem(dataKey(u.id), JSON.stringify(d.data[u.id]));
         profiles = { active: d.profiles.users.some((u) => u.id === d.profiles.active) ? d.profiles.active : d.profiles.users[0].id, users: d.profiles.users };
-        saveProfiles(); db = load(); location.hash = '#/users'; rerender();
+        saveProfiles(); db = load(); videoGc(); location.hash = '#/users'; rerender();
         return;
       }
       if (!d.sessions || !d.exercises || !d.equipment) throw new Error('Formato no reconocido');
       if (!confirm(`Importar ${d.sessions.length} sesiones en ${activeUser().name}? Reemplaza sus datos actuales.`)) return;
-      db = normalize(d); save(true); rerender();
+      db = normalize(d); save(true); videoGc(); rerender();
     }).catch((err) => alert('No se pudo importar: ' + err.message));
     return;
   }

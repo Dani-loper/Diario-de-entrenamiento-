@@ -260,3 +260,16 @@ button.info::after { content: ''; position: absolute; inset: -12px; }
   .r-grid { grid-template-columns: 1fr 1fr; }
   .chart { max-height: 55mm; }
 }
+
+/* Vídeo y compartir */
+.settype.has-video { position: relative; }
+.settype.has-video::after { content: ''; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+.vid-slot { margin-bottom: 10px; }
+.vid-slot video, .share-img { display: block; width: 100%; max-height: 50vh; border-radius: 10px; background: #000; object-fit: contain; }
+.share-preview { white-space: pre-wrap; font: inherit; font-size: .9rem; background: var(--card2); padding: 10px; border-radius: 10px; margin: 8px 0 12px; }
+.gen { display: grid; gap: 12px; justify-items: center; text-align: center; padding: 16px 0; }
+.gen button { min-width: 140px; }
+.progress { width: 100%; height: 10px; border-radius: 5px; background: var(--card2); overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.spinner { width: 32px; height: 32px; border-radius: 50%; border: 3px solid var(--card2); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
