@@ -32,7 +32,7 @@ function reportDataFor(months) {
     months, start, end, prevStart, prevEnd, cur, prev, weeks, evo, wks,
     volPts: wks.map((w) => ({ d: w, v: Math.round(wData[w].vol) })),
     siPts: wks.map((w) => ({ d: w, v: Math.round(wData[w].si * 10) / 10 })),
-    catItems: Object.entries(cur.setsCat).filter(([, v]) => v).sort((x, y) => y[1] - x[1]).map(([label, v]) => ({ label, v })),
+    catItems: muscleItems(cur.setsCat),
     zoneItems: cur.pcts.length ? ZONES.map(([label, t]) => ({ label, v: cur.pcts.filter(t).length })) : [],
     wb: [['Sueño medio', cur.sleep, ' h'], ['Energía media (1-5)', cur.readiness, ''], ['Estrés medio (1-5)', cur.stress, '']].filter(([, v]) => v.length),
     topF: Object.entries(cur.factors).sort((x, y) => y[1] - x[1]).slice(0, 5),
@@ -196,7 +196,7 @@ async function buildReportPDF(months) {
     const h = 14 + Math.max(D.catItems.length, D.zoneItems.length) * 6;
     section('Reparto del entrenamiento', h + 4);
     ensure(h + 4);
-    card(M, y, cw, h); txt('Series efectivas por grupo', M + 4, y + 7, { size: 9.5, bold: true }); barsPDF(M + 4, y + 10, cw - 8, D.catItems);
+    card(M, y, cw, h); txt('Series por músculo (principal 1, secundario 0,5)', M + 4, y + 7, { size: 9.5, bold: true }); barsPDF(M + 4, y + 10, cw - 8, D.catItems);
     if (D.zoneItems.length) { const x = M + cw + 6; card(x, y, cw, h); txt('Series por zona de %1RM', x + 4, y + 7, { size: 9.5, bold: true }); barsPDF(x + 4, y + 10, cw - 8, D.zoneItems); }
     y += h + 4;
   }

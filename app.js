@@ -24,25 +24,144 @@ const FIELD = {
   dist: { h: 'Metros', step: '1' }, rpe: { h: 'RPE' }, rir: { h: 'RIR' },
 };
 const SET_TYPES = { E: 'Efectiva', C: 'Calentamiento', D: 'Drop set', F: 'Al fallo' };
-const CATEGORIES = ['Pierna', 'Empuje', 'Tirón', 'Halterofilia', 'Core', 'Brazos', 'Cardio', 'Otros'];
-
-const DEFAULT_EXERCISES = [
-  ['Sentadilla trasera', 'Pierna'], ['Sentadilla frontal', 'Pierna'], ['Peso muerto', 'Pierna'], ['Peso muerto rumano', 'Pierna'],
-  ['Prensa', 'Pierna'], ['Zancadas', 'Pierna'], ['Hip thrust', 'Pierna'], ['Curl femoral', 'Pierna'], ['Extensión de cuádriceps', 'Pierna'],
-  ['Press banca', 'Empuje'], ['Press inclinado', 'Empuje'], ['Press militar', 'Empuje'], ['Fondos', 'Empuje', 'bw'], ['Aperturas', 'Empuje'],
-  ['Dominadas', 'Tirón', 'bw'], ['Remo con barra', 'Tirón'], ['Remo con mancuerna', 'Tirón'], ['Jalón al pecho', 'Tirón'], ['Face pull', 'Tirón'],
-  ['Arrancada', 'Halterofilia'], ['Dos tiempos', 'Halterofilia'], ['Cargada de potencia', 'Halterofilia'], ['Arrancada de potencia', 'Halterofilia'], ['Jerk', 'Halterofilia'], ['Tirón de arrancada', 'Halterofilia'],
-  ['Plancha', 'Core', 'time'], ['Rueda abdominal', 'Core', 'bw'], ['Elevación de piernas', 'Core', 'bw'],
-  ['Curl de bíceps', 'Brazos'], ['Extensión de tríceps', 'Brazos'],
-  ['Carrera', 'Cardio', 'dist'], ['Remo ergómetro', 'Cardio', 'dist'], ['Bicicleta', 'Cardio', 'dist'], ['Comba', 'Cardio', 'time'],
+const DEFAULT_EXERCISES = [ // [nombre, modo]; músculos en DEFAULT_MUSCLES
+  ['Sentadilla trasera'], ['Sentadilla frontal'], ['Peso muerto'], ['Peso muerto rumano'], ['Prensa'], ['Zancadas'], ['Hip thrust'],
+  ['Curl femoral'], ['Extensión de cuádriceps'], ['Elevación de gemelos'], ['Press banca'], ['Press inclinado'], ['Press militar'], ['Fondos', 'bw'], ['Aperturas'],
+  ['Dominadas', 'bw'], ['Remo con barra'], ['Remo con mancuerna'], ['Jalón al pecho'], ['Face pull'],
+  ['Arrancada'], ['Dos tiempos'], ['Cargada de potencia'], ['Arrancada de potencia'], ['Jerk'], ['Tirón de arrancada'],
+  ['Plancha', 'time'], ['Rueda abdominal', 'bw'], ['Elevación de piernas', 'bw'], ['Curl de bíceps'], ['Extensión de tríceps'],
+  ['Carrera', 'dist'], ['Remo ergómetro', 'dist'], ['Bicicleta', 'dist'], ['Comba', 'time'],
 ];
 const DEFAULT_EQUIPMENT = ['Straps', 'Zapatillas de halterofilia', 'Cinturón', 'Rodilleras', 'Muñequeras', 'Coderas', 'Magnesio', 'Calleras', 'Cinturón de lastre', 'Bandas elásticas'];
+
+/* ---------- Músculos ----------
+ * Cada ejercicio tiene un músculo principal (o ninguno, p. ej. cardio) y 0 o más secundarios.
+ * Volumen por músculo con conteo fraccionado: cada serie efectiva cuenta 1 para el principal y 0,5 para
+ * cada secundario (Pelland et al., 2024: el método que mejor predijo la hipertrofia). */
+const MUSCLES = {
+  pectoral: 'Pectoral', espalda: 'Espalda', hombros: 'Hombros', biceps: 'Bíceps', triceps: 'Tríceps',
+  abdomen: 'Abdomen', gluteos: 'Glúteos', cuadriceps: 'Cuádriceps', femoral: 'Femoral', gemelos: 'Gemelos',
+};
+const MUSCLE_KEYS = Object.keys(MUSCLES);
+const SECONDARY_WEIGHT = 0.5;
+const muscleLabel = (def) => def?.primary ? MUSCLES[def.primary] : 'Sin músculo';
+const muscleDesc = (def) => def?.primary
+  ? `${MUSCLES[def.primary]}${def.secondary?.length ? ` · sec.: ${def.secondary.map((m) => MUSCLES[m]).join(', ')}` : ''}`
+  : 'Sin músculo asignado';
+// [[músculo, peso], …]: principal 1, cada secundario 0,5.
+const muscleShares = (def) => def?.primary ? [[def.primary, 1], ...(def.secondary || []).filter((m) => m !== def.primary).map((m) => [m, SECONDARY_WEIGHT])] : [];
+function addShares(acc, def, v) { if (v) for (const [m, w] of muscleShares(def)) acc[m] = (acc[m] || 0) + v * w; }
+// Series efectivas (fraccionadas) o índice de estrés por músculo en una sesión.
+function sessionMuscles(s, mode = systemOf(s)) {
+  const acc = {};
+  for (const e of s.exercises) {
+    const def = exById(e.exerciseId);
+    for (const x of e.sets.filter(isWork)) {
+      if (!x.reps && !x.w && !x.time && !x.dist) continue;
+      addShares(acc, def, mode === 'si' ? stressIndex(x, def) || 0 : 1);
+    }
+  }
+  return acc;
+}
+const muscleItems = (acc) => MUSCLE_KEYS.filter((m) => acc[m]).map((m) => ({ label: MUSCLES[m], v: Math.round(acc[m] * 10) / 10 })).sort((a, b) => b.v - a.v);
+
+// Ejercicios por defecto: [nombre, principal, secundarios, modo]
+const DEFAULT_MUSCLES = {
+  'Sentadilla trasera': ['cuadriceps', ['gluteos', 'espalda']], 'Sentadilla frontal': ['cuadriceps', ['gluteos', 'abdomen']],
+  'Peso muerto': ['gluteos', ['femoral', 'espalda', 'cuadriceps']], 'Peso muerto rumano': ['femoral', ['gluteos', 'espalda']],
+  'Prensa': ['cuadriceps', ['gluteos']], 'Zancadas': ['cuadriceps', ['gluteos', 'femoral']], 'Hip thrust': ['gluteos', ['femoral']],
+  'Curl femoral': ['femoral', ['gemelos']], 'Extensión de cuádriceps': ['cuadriceps', []], 'Elevación de gemelos': ['gemelos', []],
+  'Press banca': ['pectoral', ['triceps', 'hombros']], 'Press inclinado': ['pectoral', ['hombros', 'triceps']], 'Press militar': ['hombros', ['triceps']],
+  'Fondos': ['pectoral', ['triceps', 'hombros']], 'Aperturas': ['pectoral', ['hombros']],
+  'Dominadas': ['espalda', ['biceps']], 'Remo con barra': ['espalda', ['biceps', 'hombros']], 'Remo con mancuerna': ['espalda', ['biceps', 'hombros']],
+  'Jalón al pecho': ['espalda', ['biceps']], 'Face pull': ['hombros', ['espalda']],
+  'Arrancada': ['cuadriceps', ['gluteos', 'espalda', 'hombros', 'femoral']], 'Dos tiempos': ['cuadriceps', ['gluteos', 'espalda', 'hombros', 'triceps']],
+  'Cargada de potencia': ['cuadriceps', ['gluteos', 'espalda', 'femoral']], 'Arrancada de potencia': ['cuadriceps', ['gluteos', 'espalda', 'hombros']],
+  'Jerk': ['hombros', ['triceps', 'cuadriceps']], 'Tirón de arrancada': ['espalda', ['gluteos', 'femoral', 'cuadriceps']],
+  'Plancha': ['abdomen', []], 'Rueda abdominal': ['abdomen', ['espalda']], 'Elevación de piernas': ['abdomen', []],
+  'Curl de bíceps': ['biceps', []], 'Extensión de tríceps': ['triceps', []],
+  'Carrera': [null, []], 'Remo ergómetro': [null, []], 'Bicicleta': [null, []], 'Comba': [null, []],
+};
+// Migración desde las categorías antiguas (Pierna, Empuje…). Los ejercicios propios quedan marcados para revisar.
+const OLD_CAT_MUSCLE = { 'Pierna': 'cuadriceps', 'Empuje': 'pectoral', 'Tirón': 'espalda', 'Brazos': 'biceps', 'Core': 'abdomen', 'Halterofilia': 'cuadriceps' };
+function migrateMuscles(d) {
+  let migrated = false;
+  for (const e of d.exercises || []) {
+    if ('primary' in e) continue;
+    migrated = true;
+    const def = DEFAULT_MUSCLES[e.name];
+    if (def) { e.primary = def[0]; e.secondary = [...def[1]]; }
+    else { e.primary = OLD_CAT_MUSCLE[e.cat] || null; e.secondary = []; e.reviewMuscles = true; }
+    delete e.cat;
+  }
+  // Catálogos anteriores no tenían ningún ejercicio de gemelos.
+  // (Se ejecuta durante la carga: no usar funciones definidas más abajo, como norm().)
+  if (migrated && !d.exercises.some((e) => e.name.trim().toLowerCase() === 'elevación de gemelos')) {
+    d.exercises.push({ id: uid(), name: 'Elevación de gemelos', mode: 'wr', primary: 'gemelos', secondary: [] });
+  }
+  return d;
+}
+
+/* ---------- Figura del cuerpo (croquis frontal y posterior) ----------
+ * Cada zona se colorea según el volumen del músculo. Las formas del lado izquierdo se dibujan una vez
+ * y se reflejan para el lado derecho. */
+const BODY_BASE = [ // silueta neutra (no son grupos musculares)
+  '<ellipse cx="100" cy="28" rx="15" ry="19"/>', '<path d="M92 44h16v14H92z"/>',
+  '<path d="M68 64Q100 54 132 64L138 104Q133 150 129 182H71Q67 150 62 104Z"/>', // tronco
+  '<path d="M71 178H129L133 200Q100 210 67 200Z"/>', // cadera
+];
+const LIMB_BASE = [ // lado izquierdo; se refleja
+  '<path d="M48 80Q58 74 68 82L66 134H50Z"/>', // brazo
+  '<path d="M50 132H66L60 192H46Z"/>', '<ellipse cx="52" cy="202" rx="7" ry="9"/>', // antebrazo y mano
+  '<path d="M70 192H99L97 276H76Z"/>', '<path d="M76 276H96L93 352H80Z"/>', '<ellipse cx="86" cy="360" rx="10" ry="6"/>', // muslo, pierna, pie
+];
+const FRONT = { // [músculo, forma del lado izquierdo, ¿reflejar?]
+  shapes: [
+    ['hombros', '<ellipse cx="62" cy="78" rx="12" ry="11"/>', true],
+    ['pectoral', '<path d="M99 70L76 72Q67 84 71 100Q85 108 99 103Z"/>', true],
+    ['biceps', '<ellipse cx="57" cy="108" rx="7.5" ry="18"/>', true],
+    ['abdomen', '<path d="M86 108H114L116 168Q100 180 84 168Z"/>', false],
+    ['abdomen', '<path d="M73 108H83L82 164L75 158Q72 130 73 108Z"/>', true],
+    ['cuadriceps', '<path d="M74 198Q71 236 77 268Q87 276 96 268Q99 232 97 200Z"/>', true],
+  ],
+};
+const BACK = {
+  shapes: [
+    ['espalda', '<path d="M100 50L82 66L100 112L118 66Z"/>', false], // trapecio
+    ['espalda', '<path d="M75 82Q67 112 80 150L98 140V108L84 80Z"/>', true], // dorsal
+    ['espalda', '<path d="M93 114H107V170H93Z"/>', false], // lumbares
+    ['hombros', '<ellipse cx="62" cy="78" rx="12" ry="11"/>', true],
+    ['triceps', '<ellipse cx="57" cy="108" rx="7.5" ry="18"/>', true],
+    ['gluteos', '<ellipse cx="86" cy="196" rx="15" ry="14"/>', true],
+    ['femoral', '<path d="M75 214Q72 244 78 268Q87 274 95 268Q98 242 97 216Z"/>', true],
+    ['gemelos', '<ellipse cx="86" cy="302" rx="8.5" ry="21"/>', true],
+  ],
+};
+const MIRROR = 'transform="translate(200 0) scale(-1 1)"';
+function bodyLevel(v, steps) { if (!v) return 0; let l = 1; for (const t of steps) if (v >= t) l++; return Math.min(5, l); }
+function bodyFigure(view, vals, steps, title) {
+  const base = [...BODY_BASE, ...LIMB_BASE, ...LIMB_BASE.map((s) => s.replace(/^<(\w+)/, `<$1 ${MIRROR}`))].join('');
+  const shape = ([m, s, mirror]) => {
+    const lvl = bodyLevel(vals[m] || 0, steps);
+    const tip = `<title>${MUSCLES[m]}: ${fmt(vals[m] || 0, 1)}</title>`;
+    const g = (extra) => `<g class="mz m${lvl}" data-m="${m}" ${extra}>${tip}${s}</g>`;
+    return g('') + (mirror ? g(MIRROR) : '');
+  };
+  return `<figure class="body-fig"><svg viewBox="0 0 200 372" role="img" aria-label="${esc(title)}">
+    <g class="body-base">${base}</g>${view.shapes.map(shape).join('')}</svg><figcaption>${title}</figcaption></figure>`;
+}
+// steps: umbrales a partir de los cuales sube el nivel de color (5 niveles).
+function bodyMapHTML(vals, { steps = [2, 4, 6, 8], unit = 'series' } = {}) {
+  const legend = [`<${steps[0]}`, ...steps.slice(0, -1).map((t, i) => `${t}–${steps[i + 1]}`), `${steps[steps.length - 1]}+`];
+  return `<div class="body-map">${bodyFigure(FRONT, vals, steps, 'Frontal')}${bodyFigure(BACK, vals, steps, 'Posterior')}</div>
+    <div class="body-legend"><span><i class="m0"></i>0</span>${legend.map((l, k) => `<span><i class="m${k + 1}"></i>${l}</span>`).join('')}<span class="muted">${unit}</span></div>`;
+}
 
 /* ---------- Persistencia ---------- */
 function seed() {
   return {
     version: 1,
-    exercises: DEFAULT_EXERCISES.map(([name, cat, mode]) => ({ id: uid(), name, cat, mode: mode || 'wr' })),
+    exercises: DEFAULT_EXERCISES.map(([name, mode]) => ({ id: uid(), name, mode: mode || 'wr', primary: DEFAULT_MUSCLES[name][0], secondary: [...DEFAULT_MUSCLES[name][1]] })),
     equipment: DEFAULT_EQUIPMENT.map((name) => ({ id: uid(), name })),
     sessions: [],
     settings: { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets' },
@@ -81,7 +200,7 @@ const avatar = (u, size = 36) => `<span class="avatar" style="background:${userC
 
 function normalize(d) {
   d.settings = { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets', ...d.settings };
-  return d;
+  return migrateMuscles(d);
 }
 const load = () => normalize(readUserData(profiles.active) || seed());
 let db = load();
@@ -386,7 +505,7 @@ function rtsTableHTML() {
 const SYSTEMS = { sets: 'Series y volumen', si: 'Índice de estrés' };
 const JOINT = { multi: 'Multiarticular', mono: 'Monoarticular' };
 const MONO_DEFAULT = ['Curl femoral', 'Extensión de cuádriceps', 'Aperturas', 'Face pull', 'Curl de bíceps', 'Extensión de tríceps', 'Elevación de piernas'];
-const jointOf = (def) => def?.joint || (def?.cat === 'Brazos' || MONO_DEFAULT.includes(def?.name) ? 'mono' : 'multi');
+const jointOf = (def) => def?.joint || (['biceps', 'triceps'].includes(def?.primary) || MONO_DEFAULT.includes(def?.name) ? 'mono' : 'multi');
 const systemOf = (s) => s.system || db.settings.system || 'sets';
 function stressIndex(set, def) {
   if (!isWork(set) || !['wr', 'bw'].includes(def?.mode || 'wr')) return null;
@@ -407,15 +526,9 @@ function entrySI(entry) {
   return { si, counted, missing };
 }
 function sessionSI(s) {
-  const byCat = {};
   let total = 0, missing = 0;
-  for (const e of s.exercises) {
-    const r = entrySI(e);
-    const cat = exById(e.exerciseId)?.cat || 'Otros';
-    if (r.counted) byCat[cat] = (byCat[cat] || 0) + r.si;
-    total += r.si; missing += r.missing;
-  }
-  return { total, byCat, missing };
+  for (const e of s.exercises) { const r = entrySI(e); total += r.si; missing += r.missing; }
+  return { total, byCat: sessionMuscles(s, 'si'), missing }; // byCat: IE por músculo (principal 1, secundario 0,5)
 }
 const pctTxt = (set) => { const p = pct1rm(set); return p ? `${Math.round(p)}%` : set.reps > 12 ? '>12 rep' : (rirOf(set) ?? 0) > 3.5 ? 'RIR>3,5' : ''; };
 const siTxt = (set, def) => { const v = stressIndex(set, def); return v == null ? (isWork(set) && (set.reps || set.w) ? 'sin RIR' : '') : `IE ${fmt(v, 1)}`; };
@@ -441,9 +554,9 @@ function weeklyData(n = 12) {
     w.si += r.total; w.missing += r.missing;
     for (const [c, v] of Object.entries(r.byCat)) w.byCat[c] = (w.byCat[c] || 0) + v;
     for (const e of s.exercises) {
-      const def = exById(e.exerciseId), cat = def?.cat || 'Otros';
+      const def = exById(e.exerciseId);
       for (const x of e.sets.filter(isWork)) {
-        w.sets++; w.setsCat[cat] = (w.setsCat[cat] || 0) + 1;
+        w.sets++; addShares(w.setsCat, def, 1);
         if ((def?.mode || 'wr') === 'wr') { const p = pct1rm(x); if (p) w.pcts.push(p); }
       }
     }
@@ -469,12 +582,18 @@ function viewLoad() {
   else html += `<div class="empty">Registra RPE o RIR durante al menos 2 semanas para ver la evolución.</div>`;
 
   const last4 = weeks.slice(-4);
-  const cats = CATEGORIES.filter((c) => last4.some((w) => data[w].byCat[c] || data[w].setsCat[c]));
+  const done = weeks[weeks.length - 2]; // última semana completa
+  if (Object.keys(data[done].setsCat).length) {
+    html += `<h2>Músculos · semana del ${wkLabel(done)} ${info('muscle_volume')}</h2><div class="card">
+      ${bodyMapHTML(data[done].setsCat, { steps: [5, 10, 15, 20], unit: 'series / semana' })}
+      <div class="muted small" style="margin-top:6px">Series efectivas de la última semana completa (principal 1, secundario 0,5).</div></div>`;
+  }
+  const cats = MUSCLE_KEYS.filter((c) => last4.some((w) => data[w].byCat[c] || data[w].setsCat[c]));
   if (cats.length) {
-    html += `<h2>Por grupo (últimas 4 semanas)</h2><div class="card gt-wrap"><table class="gt wtable">
-      <tr><th>Grupo</th>${last4.map((w) => `<th>${wkLabel(w)}</th>`).join('')}</tr>
-      ${cats.map((c) => `<tr><td>${c}</td>${last4.map((w) => `<td><b>${data[w].byCat[c] ? fmt(data[w].byCat[c], 1) : '–'}</b><br><small class="muted">${data[w].setsCat[c] || 0} series</small></td>`).join('')}</tr>`).join('')}
-    </table><div class="muted small" style="margin-top:6px">Arriba, índice de estrés; abajo, series efectivas.</div></div>`;
+    html += `<h2>Por músculo (últimas 4 semanas)</h2><div class="card gt-wrap"><table class="gt wtable">
+      <tr><th>Músculo</th>${last4.map((w) => `<th>${wkLabel(w)}</th>`).join('')}</tr>
+      ${cats.map((c) => `<tr><td>${MUSCLES[c]}</td>${last4.map((w) => `<td><b>${data[w].byCat[c] ? fmt(data[w].byCat[c], 1) : '–'}</b><br><small class="muted">${fmt(data[w].setsCat[c] || 0, 1)} series</small></td>`).join('')}</tr>`).join('')}
+    </table><div class="muted small" style="margin-top:6px">Arriba, índice de estrés; abajo, series efectivas. Principal 1, secundario 0,5.</div></div>`;
   }
   return html;
 }
@@ -554,6 +673,13 @@ const GLOSSARY = {
     <p>Multiplicado por la duración da la <b>carga interna</b> en unidades arbitrarias (UA): 60 min × sRPE 7 = 420 UA. Sirve para comparar sesiones de tipos distintos y vigilar cambios bruscos de carga semana a semana.</p>`],
   load: ['Carga interna (UA)', `<p><b>sRPE × minutos</b> de sesión, en unidades arbitrarias (UA). Combina cuánto duró y lo dura que fue. Su valor absoluto importa poco: es útil para comparar entre sesiones y semanas tuyas.</p>`],
   readiness: ['Energía al empezar (readiness)', `<p>Cómo de preparado te sientes antes de entrenar, de 1 (muy bajo) a 5 (muy alto). Es subjetivo, pero en el análisis de factores se cruza con tu rendimiento real para ver si te sirve como predictor.</p>`],
+  muscle_volume: ['Volumen por músculo', `
+    <p>Cada ejercicio tiene un <b>músculo principal</b> y, opcionalmente, <b>secundarios</b>. Cada serie efectiva cuenta <b>1</b> para el principal y <b>0,5</b> para cada secundario (conteo fraccionado).</p>
+    <p class="formula">4 series de press banca → pectoral 4 · tríceps 2 · hombros 2</p>
+    <p>En el metaanálisis de Pelland et al. (2024), este conteo fue el que mejor predijo la hipertrofia, frente a contar solo el principal o contar los secundarios como series completas.</p>
+    <p>En sesiones con índice de estrés, se reparte el IE de cada serie con los mismos pesos.</p>
+    <p><b>No se usan kilos</b>: 200 kg en prensa y 20 kg en curl no son comparables entre músculos.</p>
+    <p>La figura colorea cada músculo según ese volumen. La asignación de músculos es una simplificación: ajústala en cada ejercicio si tu técnica o variante cambia el reparto.</p>`],
   rel_perf: ['Rendimiento relativo', `
     <p>Para cada ejercicio con peso, compara el <b>1RM estimado del día</b> con la <b>mediana</b> de ese ejercicio en las 6 semanas de alrededor (sin contar ese día):</p>
     <p class="formula">rendimiento = 1RM est. del día / mediana de su entorno − 1</p>
@@ -599,7 +725,7 @@ const historyBefore = (exerciseId, s) => historyFor(exerciseId).filter((h) => h.
 const norm = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 function sessionText(s) {
   return norm([s.title, s.notes, s.preNotes, s.preObs, ...(s.factors || []),
-    ...s.exercises.flatMap((e) => [exById(e.exerciseId)?.name, e.notes, ...e.equipment.map((q) => eqById(q)?.name)])].join(' '));
+    ...s.exercises.flatMap((e) => { const d = exById(e.exerciseId); return [d?.name, d?.primary && MUSCLES[d.primary], ...(d?.secondary || []).map((m) => MUSCLES[m]), e.notes, ...e.equipment.map((q) => eqById(q)?.name)]; })].join(' '));
 }
 const FACTORS = ['Dormí mal', 'Estrés', 'Molestias / dolor', 'Agujetas', 'Sin comer', 'Cafeína / pre-entreno', 'Resfriado', 'Calor', 'Con prisa', 'Muy motivado'];
 
@@ -736,15 +862,13 @@ function sessionSummary(s) {
   const rirs = all.map((x) => x.rir).filter((x) => x != null);
   const mins = Math.round(((s.endedAt || Date.now()) - s.startedAt) / 60000);
   let records = 0;
-  const volEx = [], catSets = {};
+  const volEx = [];
   for (const e of s.exercises) {
     const st = entryStats(e);
     const prevBest = maxOf(historyBefore(e.exerciseId, s).map((h) => entryStats(h.entry).best));
     if (st.best && prevBest && st.best > prevBest) records++;
     const kg = e.sets.filter(isWork).reduce((a, x) => a + (x.w || 0) * (x.reps || 0), 0);
     if (kg) volEx.push({ label: exById(e.exerciseId)?.name || '?', v: kg });
-    const cat = exById(e.exerciseId)?.cat || 'Otros';
-    catSets[cat] = (catSets[cat] || 0) + st.sets;
   }
   // Comparación con sesiones anteriores del mismo nombre
   const same = s.title ? sortedSessions().filter((x) => norm(x.title) === norm(s.title) && sortKey(x) <= sortKey(s)) : [];
@@ -768,7 +892,8 @@ function sessionSummary(s) {
     ${prev ? `<div class="muted small" style="margin-top:8px">Variación de volumen frente a «${esc(prev.title)}» del ${fmtDate(prev.date)}, solo en los ejercicios comunes.</div>` : s.title ? '' : '<div class="muted small" style="margin-top:8px">Pon nombre a la sesión para compararla con las anteriores del mismo tipo.</div>'}
     ${fatigueBlock(s)}
     ${volEx.length ? `<h3 class="sub">Volumen por ejercicio (kg)</h3>${bars(volEx, '')}` : ''}
-    ${systemOf(s) === 'si' ? siSummary(s) : `<h3 class="sub">Series efectivas por grupo</h3>${bars(Object.entries(catSets).filter(([, v]) => v).map(([label, v]) => ({ label, v })), '')}`}
+    ${systemOf(s) === 'si' ? siSummary(s) : ''}
+    ${musclesBlock(s)}
     ${trend.length >= 2 ? `<h3 class="sub">Volumen en «${esc(s.title)}» (últimas ${trend.length})</h3>${chart(trend)}` : ''}
   </div>`;
 }
@@ -782,7 +907,14 @@ function siSummary(s) {
       ${pcts.length ? `<div class="stat"><b>${fmt(mean(pcts), 0)}%</b><span>%1RM medio ${info('pct1rm')}</span></div>` : ''}
     </div>
     ${r.missing ? `<div class="mismatch" style="margin:6px 0">${r.missing} series sin RPE ni RIR: no suman al índice.</div>` : ''}
-    ${Object.keys(r.byCat).length ? `<h3 class="sub">IE por grupo</h3>${bars(Object.entries(r.byCat).map(([label, v]) => ({ label, v: Math.round(v * 10) / 10 })), '')}` : ''}`;
+`;
+}
+function musclesBlock(s) {
+  const mode = systemOf(s), acc = sessionMuscles(s, mode);
+  if (!Object.keys(acc).length) return '';
+  return `<h3 class="sub">Músculos trabajados ${info('muscle_volume')}</h3>
+    ${bodyMapHTML(acc, { unit: mode === 'si' ? 'índice de estrés' : 'series' })}
+    ${bars(muscleItems(acc), '')}`;
 }
 function fatigueBlock(s) {
   const f = sessionFatigue(s);
@@ -909,6 +1041,9 @@ function viewExercises() {
     <a class="card list-item" href="#/report" style="display:flex;align-items:center;gap:10px">
       <span style="font-size:1.4rem">📄</span><span class="spacer"><b>Informe de evolución (PDF)</b>
       <div class="muted small">1, 3, 6 o 12 meses · evolución por ejercicio, carga, reparto y bienestar</div></span><span>›</span></a>
+    ${db.exercises.some((x) => x.reviewMuscles) ? `<div class="card reminder"><b>⚠ Revisa los músculos de ${db.exercises.filter((x) => x.reviewMuscles).length} ejercicio(s) propio(s)</b>
+      <div class="muted small" style="margin:4px 0 8px">Se les asignó un músculo principal a partir de la categoría antigua y no tienen secundarios.</div>
+      <button class="primary block" data-action="review-muscles">Revisar</button></div>` : ''}
     <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">
     <div style="height:12px"></div>`;
   const items = db.exercises.filter((e) => norm(e.name).includes(q))
@@ -918,7 +1053,7 @@ function viewExercises() {
     const best = maxOf(historyFor(e.id).map((x) => entryStats(x.entry).best));
     html += `<a class="card list-item" href="#/exercise/${e.id}" style="padding:12px 14px">
       <div class="row"><span class="title">${esc(e.name)}</span><span class="spacer"></span>
-      <span class="muted small">${counts[e.id] ? `${counts[e.id]} ses.${best ? ` · ${m.label} ${fmtM(best, m)}` : ''}` : esc(e.cat)}</span></div></a>`;
+      <span class="muted small">${counts[e.id] ? `${counts[e.id]} ses.${best ? ` · ${m.label} ${fmtM(best, m)}` : ''}` : esc(muscleLabel(e))}</span></div></a>`;
   }
   return html;
 }
@@ -944,7 +1079,7 @@ function viewExercise(id) {
       <button class="ghost" data-action="yt" data-id="${def.id}">▶ Técnica</button>
       <button class="ghost" data-action="exercise-form" data-id="${def.id}">✎ Editar</button></div>
     <h1>${esc(def.name)}</h1>
-    <div class="muted small">${esc(def.cat)} · ${esc(MODES[def.mode]?.label)}</div>`;
+    <div class="muted small">${esc(muscleDesc(def))} · ${esc(MODES[def.mode]?.label)}</div>`;
   if (usedEq.length) {
     html += `<h2>Filtrar por material</h2><div class="chips">
       <button class="chip ${f === 'all' ? 'on' : ''}" data-action="filter-eq" data-eq="all">Todo</button>
@@ -1082,10 +1217,10 @@ function periodStats(a, b) {
     for (const k of ['sleep', 'readiness', 'stress']) if (s[k] != null) out[k].push(s[k]);
     for (const f of s.factors || []) out.factors[f] = (out.factors[f] || 0) + 1;
     for (const e of s.exercises) {
-      const def = exById(e.exerciseId), cat = def?.cat || 'Otros';
+      const def = exById(e.exerciseId);
       const work = e.sets.filter(isWork);
       out.sets += work.length;
-      out.setsCat[cat] = (out.setsCat[cat] || 0) + work.length;
+      addShares(out.setsCat, def, work.length);
       if ((def?.mode || 'wr') === 'wr') for (const x of work) { const p = pct1rm(x); if (p) out.pcts.push(p); }
       const best = entryStats(e).best;
       const prevBest = maxOf(historyBefore(e.exerciseId, s).map((h) => entryStats(h.entry).best));
@@ -1218,9 +1353,9 @@ function viewReport() {
   }
 
   // Reparto e intensidad
-  const catItems = Object.entries(cur.setsCat).filter(([, v]) => v).sort((x, y) => y[1] - x[1]).map(([label, v]) => ({ label, v }));
+  const catItems = muscleItems(cur.setsCat);
   html += `<section class="rsec"><h2>Reparto del entrenamiento</h2><div class="r-grid">
-    <div class="rcard"><b>Series efectivas por grupo</b>${bars(catItems, '')}</div>
+    <div class="rcard"><b>Series por músculo</b><div class="muted small">Principal 1 · secundario 0,5</div>${bars(catItems, '')}</div>
     ${cur.pcts.length ? `<div class="rcard"><b>Series por zona de intensidad (%1RM)</b>${bars(ZONES.map(([label, t]) => ({ label, v: cur.pcts.filter(t).length })), '')}</div>` : ''}
   </div></section>`;
 
@@ -1283,16 +1418,16 @@ function pickerHTML(q = '') {
   const ql = q.trim().toLowerCase();
   const items = db.exercises.filter((e) => e.name.toLowerCase().includes(ql));
   let list = '';
-  for (const cat of CATEGORIES) {
-    const its = items.filter((e) => e.cat === cat).sort((a, b) => a.name.localeCompare(b.name));
+  for (const key of [...MUSCLE_KEYS, null]) {
+    const its = items.filter((e) => (e.primary || null) === key).sort((a, b) => a.name.localeCompare(b.name));
     if (!its.length) continue;
-    list += `<div class="picker-cat">${cat}</div>` + its.map((e) => `<button data-action="pick-exercise" data-id="${e.id}">${esc(e.name)}</button>`).join('');
+    list += `<div class="picker-cat">${key ? MUSCLES[key] : 'Sin músculo (cardio y otros)'}</div>` + its.map((e) => `<button data-action="pick-exercise" data-id="${e.id}">${esc(e.name)}</button>`).join('');
   }
   const exact = db.exercises.some((e) => e.name.toLowerCase() === ql);
   return `${list || '<div class="muted">Sin resultados.</div>'}
     ${ql && !exact ? `<div class="card" style="margin-top:10px"><b>Crear «${esc(q.trim())}»</b>
       <div class="grid2" style="margin-top:8px">
-        <select id="new-ex-cat">${CATEGORIES.map((c) => `<option>${c}</option>`).join('')}</select>
+        <select id="new-ex-cat" aria-label="Músculo principal">${muscleOptions(null)}</select>
         <select id="new-ex-mode">${Object.entries(MODES).map(([k, m]) => `<option value="${k}">${m.label}</option>`).join('')}</select>
       </div>
       <button class="primary block" style="margin-top:8px" data-action="create-exercise">Crear y añadir</button></div>` : ''}`;
@@ -1367,6 +1502,9 @@ function restoreAllData(d, origin) {
   saveProfiles(); db = load(); videoGc(); location.hash = '#/users'; rerender();
   return true;
 }
+function muscleOptions(sel) {
+  return `<option value="" ${!sel ? 'selected' : ''}>— Ninguno (cardio u otros) —</option>` + MUSCLE_KEYS.map((m) => `<option value="${m}" ${sel === m ? 'selected' : ''}>${MUSCLES[m]}</option>`).join('');
+}
 const fileSafe = (t) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'usuario';
 // Exportar: ofrece «Compartir o guardar» (en iPhone, Guardar en Archivos) y «Descargar».
 function download(name, text, type) {
@@ -1420,7 +1558,7 @@ const actions = {
   },
   'create-exercise': () => {
     const name = $('#picker-q').value.trim(); if (!name) return;
-    const e = { id: uid(), name, cat: $('#new-ex-cat').value, mode: $('#new-ex-mode').value };
+    const e = { id: uid(), name, primary: $('#new-ex-cat').value || null, secondary: [], mode: $('#new-ex-mode').value };
     db.exercises.push(e);
     actions['pick-exercise']({ dataset: { id: e.id } });
   },
@@ -1550,6 +1688,11 @@ const actions = {
     for (const u of profiles.users) data[u.id] = u.id === profiles.active ? db : readUserData(u.id);
     download(`diario-entreno-todos-${todayISO()}.json`, JSON.stringify({ type: 'diario-entreno-todos', version: 1, exportedAt: new Date().toISOString(), profiles, data }, null, 2), 'application/json');
   },
+  'ef-sec': (el) => el.classList.toggle('on'),
+  'review-muscles': () => {
+    const pending = db.exercises.filter((x) => x.reviewMuscles);
+    if (pending.length) actions['exercise-form']({ dataset: { id: pending[0].id } });
+  },
   'cycle-system': () => {
     const s = currentSession(); const order = Object.keys(SYSTEMS);
     s.system = order[(order.indexOf(systemOf(s)) + 1) % order.length]; save(); rerender();
@@ -1577,7 +1720,10 @@ const actions = {
     openModal(`<div class="row"><h3 class="spacer">${e ? 'Editar' : 'Nuevo'} ejercicio</h3><button class="ghost" data-action="close-modal">✕</button></div>
       <div style="display:grid;gap:10px;margin-top:10px">
         <div><label>Nombre</label><input id="ef-name" value="${esc(e?.name)}" placeholder="p. ej. Sentadilla búlgara"></div>
-        <div><label>Grupo</label><select id="ef-cat">${CATEGORIES.map((c) => `<option ${e?.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div><label>Músculo principal ${info('muscle_volume')}</label><select id="ef-cat" data-action-change="ef-primary">${muscleOptions(e?.primary ?? (e ? null : 'pectoral'))}</select></div>
+        <div><label>Músculos secundarios (opcional, varios)</label>
+          <div class="chips" id="ef-sec">${MUSCLE_KEYS.map((m) => `<button class="chip ${e?.secondary?.includes(m) ? 'on' : ''} ${(e ? e.primary : 'pectoral') === m ? 'hidden' : ''}" data-action="ef-sec" data-m="${m}">${MUSCLES[m]}</button>`).join('')}</div>
+          <div class="muted small" style="margin-top:4px">Sin ninguno marcado = sin músculo secundario.</div></div>
         <div><label>Tipo ${info('joint')}</label><select id="ef-joint">${Object.entries(JOINT).map(([k, v]) => `<option value="${k}" ${jointOf(e || {}) === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
         <div><label>Cómo se registra</label><select id="ef-mode" ${used ? 'disabled' : ''}>${Object.entries(MODES).map(([k, m]) => `<option value="${k}" ${e?.mode === k ? 'selected' : ''}>${m.label}</option>`).join('')}</select>
           ${used ? '<div class="muted small">No se puede cambiar: ya tiene series registradas.</div>' : ''}</div>
@@ -1590,7 +1736,7 @@ const actions = {
     if (dup) return alert('Ya existe un ejercicio con ese nombre.');
     let e = el.dataset.id && exById(el.dataset.id);
     if (!e) { e = { id: uid() }; db.exercises.push(e); }
-    e.name = name; e.cat = $('#ef-cat').value; e.joint = $('#ef-joint').value; if (!$('#ef-mode').disabled) e.mode = $('#ef-mode').value;
+    e.name = name; e.primary = $('#ef-cat').value || null; e.secondary = [...document.querySelectorAll('#ef-sec .chip.on:not(.hidden)')].map((x) => x.dataset.m); delete e.reviewMuscles; e.joint = $('#ef-joint').value; if (!$('#ef-mode').disabled) e.mode = $('#ef-mode').value;
     save(); closeModal(); location.hash = `#/exercise/${e.id}`; rerender();
   },
   'filter-eq': (el) => { ui.filterEq = el.dataset.eq; rerender(); },
@@ -1609,7 +1755,7 @@ const actions = {
     const used = new Set(db.sessions.flatMap((s) => s.exercises.map((e) => e.exerciseId)));
     openModal(`<div class="row"><h3 class="spacer">Catálogo de ejercicios</h3><button class="ghost" data-action="close-modal">✕</button></div>
       <div class="picker-list">${[...db.exercises].sort((a, b) => a.name.localeCompare(b.name)).map((e) => `
-        <div class="row" style="margin-bottom:6px"><span class="spacer">${esc(e.name)} <span class="muted small">· ${esc(e.cat)}</span></span>
+        <div class="row" style="margin-bottom:6px"><span class="spacer">${esc(e.name)} <span class="muted small">· ${esc(muscleLabel(e))}${e.reviewMuscles ? ' ⚠' : ''}</span></span>
           <button class="icon ghost" data-action="rename-exercise" data-id="${e.id}" aria-label="Renombrar">✎</button>
           ${used.has(e.id) ? '' : `<button class="icon ghost danger" data-action="del-exercise" data-id="${e.id}" aria-label="Borrar">✕</button>`}
         </div>`).join('')}</div>
@@ -1742,6 +1888,10 @@ document.addEventListener('input', (e) => {
   if (t.dataset.actionInput) {
     const k = t.dataset.actionInput; ui[k] = t.value; const pos = t.selectionStart; render();
     const n = $(`[data-action-input="${k}"]`); n.focus(); n.setSelectionRange(pos, pos); return;
+  }
+  if (t.dataset.actionChange === 'ef-primary') {
+    document.querySelectorAll('#ef-sec .chip').forEach((c) => c.classList.toggle('hidden', c.dataset.m === t.value));
+    return;
   }
   if (t.dataset.setting) { db.settings[t.dataset.setting] = num(t.value) ?? 0; save(); return; }
   if (t.dataset.settingStr) { db.settings[t.dataset.settingStr] = t.value; save(); return; }

@@ -287,3 +287,25 @@ code { font-size: .85em; background: var(--card2); padding: 1px 5px; border-radi
 .snap { display: flex; align-items: center; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .snap:last-child { border-bottom: 0; }
 .small-btn { min-height: 36px; padding: 6px 10px; font-size: .85rem; }
+
+/* Figura de músculos */
+:root { --m0: #2a313b; --m1: #1f5c4b; --m2: #23805f; --m3: #2fa774; --m4: #4fd1a5; --m5: #b6f5dc; --body: #20262e; --body-line: #3a4350; }
+@media (prefers-color-scheme: light) {
+  :root { --m0: #e3e7ec; --m1: #c6eddd; --m2: #8fdcbd; --m3: #45bf8f; --m4: #15936a; --m5: #0b5e44; --body: #f4f6f8; --body-line: #b9c1cb; }
+}
+.body-map { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 360px; margin: 6px auto 0; }
+.body-fig { margin: 0; text-align: center; }
+.body-fig svg { width: 100%; height: auto; display: block; }
+.body-fig figcaption { font-size: .72rem; color: var(--muted); }
+.body-base > * { fill: var(--body); stroke: var(--body-line); stroke-width: 1.2; }
+.mz > :not(title) { stroke: var(--body-line); stroke-width: 1; }
+.mz.m0 > :not(title) { fill: var(--m0); } .mz.m1 > :not(title) { fill: var(--m1); } .mz.m2 > :not(title) { fill: var(--m2); }
+.mz.m3 > :not(title) { fill: var(--m3); } .mz.m4 > :not(title) { fill: var(--m4); } .mz.m5 > :not(title) { fill: var(--m5); }
+.body-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; font-size: .72rem; margin: 8px 0; }
+.body-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.body-legend i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--body-line); display: inline-block; }
+.body-legend i.m0 { background: var(--m0); } .body-legend i.m1 { background: var(--m1); } .body-legend i.m2 { background: var(--m2); }
+.body-legend i.m3 { background: var(--m3); } .body-legend i.m4 { background: var(--m4); } .body-legend i.m5 { background: var(--m5); }
+@media print {
+  :root, :root[data-theme] { --m0: #e3e7ec; --m1: #c6eddd; --m2: #8fdcbd; --m3: #45bf8f; --m4: #15936a; --m5: #0b5e44; --body: #f4f6f8; --body-line: #b9c1cb; }
+}
