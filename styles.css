@@ -122,3 +122,37 @@ dialog::backdrop { background: rgba(0,0,0,.55); }
 .chart text { fill: var(--muted); font-size: 10px; }
 
 .empty { text-align: center; padding: 40px 10px; color: var(--muted); }
+
+/* Calendario */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
+.cal .dow { text-align: center; font-size: .72rem; color: var(--muted); padding: 4px 0; }
+.day { position: relative; min-height: 42px; padding: 0; border-color: transparent; background: transparent; font-variant-numeric: tabular-nums; }
+.day.today { border-color: var(--accent); }
+.day.sel { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.day i { position: absolute; bottom: 5px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--accent); }
+.day.sel i { background: var(--accent-ink); }
+.pill { min-height: 44px; display: flex; align-items: center; gap: 4px; padding: 0 10px; border-radius: 10px; background: var(--card2); border: 1px solid var(--line); font-size: .9rem; }
+
+/* Antes de empezar */
+details.pre summary { cursor: pointer; list-style: none; min-height: 28px; display: flex; align-items: center; gap: 8px; }
+details.pre summary::-webkit-details-marker { display: none; }
+details.pre summary::before { content: '▸'; color: var(--muted); }
+details.pre[open] summary::before { content: '▾'; }
+
+/* Datos en la tarjeta de ejercicio */
+.exstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+.exstats > div { background: var(--card2); border-radius: 10px; padding: 6px 8px; font-size: .95rem; }
+.exstats span { display: block; font-size: .7rem; color: var(--muted); }
+.delta { font-size: .72rem; font-weight: 700; }
+.delta.up { color: var(--accent); }
+.delta.down { color: var(--danger); }
+.insight { margin-top: 10px; padding: 10px; border-radius: 10px; background: var(--card2); }
+button.active { color: var(--accent); }
+
+/* Barras del resumen */
+h3.sub { font-size: .85rem; color: var(--muted); font-weight: 600; margin: 14px 0 6px; }
+.bar { display: grid; grid-template-columns: minmax(0, 1.2fr) 2fr auto; gap: 8px; align-items: center; font-size: .82rem; margin-bottom: 6px; }
+.bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar div { background: var(--card2); border-radius: 6px; height: 12px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+.bar b { font-variant-numeric: tabular-nums; }

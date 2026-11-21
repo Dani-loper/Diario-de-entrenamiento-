@@ -111,18 +111,8 @@ function historyFor(exerciseId) {
   for (const s of sortedSessions()) for (const e of s.exercises) if (e.exerciseId === exerciseId) out.push({ sess: s, entry: e });
   return out;
 }
-function bestOf(entry) {
-  let best = null, maxW = null;
-  for (const s of entry.sets) {
-    if (!isWork(s)) continue;
-    const v = e1rm(s); if (v && (!best || v > best)) best = v;
-    if (s.w && (!maxW || s.w > maxW)) maxW = s.w;
-  }
-  return { e1rm: best, maxW };
-}
-
 /* ---------- Router ---------- */
-const ui = { openEquip: new Set(), filterEq: 'all', search: '' };
+const ui = { openEquip: new Set(), openChart: new Set(), preOpen: {}, filterEq: 'all', search: '', csearch: '', day: todayISO(), month: todayISO().slice(0, 7) };
 function route() {
   const h = location.hash.replace(/^#\/?/, '').split('/');
   return { name: h[0] || 'sessions', id: h[1] };
@@ -132,64 +122,161 @@ function render() {
   document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active',
     a.dataset.tab === (r.name === 'session' ? 'sessions' : r.name === 'exercise' ? 'exercises' : r.name)));
   const app = $('#app');
-  const view = { sessions: viewSessions, session: viewSession, exercises: viewExercises, exercise: viewExercise, settings: viewSettings }[r.name] || viewSessions;
+  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, settings: viewSettings }[r.name] || viewCalendar;
   app.innerHTML = view(r.id);
 }
 function rerender() { const y = scrollY; render(); scrollTo(0, y); }
 window.addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
 
 /* ---------- Vistas ---------- */
-function viewSessions() {
-  const list = sortedSessions();
-  const last = list[0];
-  let html = `<h1>Sesiones</h1>
+/* ---------- Métricas por tipo de ejercicio ---------- */
+const maxOf = (arr) => { const v = arr.filter((x) => x != null && x > 0); return v.length ? Math.max(...v) : null; };
+const METRIC = {
+  wr: { label: '1RM est.', unit: 'kg', best: (sets) => maxOf(sets.map(e1rm)), vol: (s) => (s.w || 0) * (s.reps || 0), volUnit: 'kg' },
+  bw: { label: 'Máx. reps', unit: 'reps', best: (sets) => maxOf(sets.map((s) => s.reps)), vol: (s) => s.reps || 0, volUnit: 'reps' },
+  time: { label: 'Mejor tiempo', unit: 's', best: (sets) => maxOf(sets.map((s) => s.time)), vol: (s) => s.time || 0, volUnit: 's' },
+  dist: { label: 'Mejor distancia', unit: 'm', best: (sets) => maxOf(sets.map((s) => s.dist)), vol: (s) => s.dist || 0, volUnit: 'm' },
+};
+function entryStats(entry) {
+  const mode = exById(entry.exerciseId)?.mode || 'wr';
+  const m = METRIC[mode] || METRIC.wr;
+  const work = entry.sets.filter(isWork);
+  return {
+    mode, m, best: m.best(work), vol: work.reduce((a, s) => a + m.vol(s), 0), sets: work.length,
+    topW: maxOf(work.map((s) => s.w)), reps: work.reduce((a, s) => a + (s.reps || 0), 0),
+  };
+}
+const fmtM = (v, m, unit = m.unit) => v == null ? '–' : unit === 's' ? fmtSec(v) : `${fmt(v)} ${unit}`;
+function delta(now, before) {
+  if (!now || !before) return '';
+  const p = (now / before - 1) * 100;
+  if (Math.abs(p) < 0.5) return '<small class="delta">=</small>';
+  return `<small class="delta ${p > 0 ? 'up' : 'down'}">${p > 0 ? '▲' : '▼'}${fmt(Math.abs(p), 0)}%</small>`;
+}
+const sortKey = (s) => s.date + s.createdAt;
+const historyBefore = (exerciseId, s) => historyFor(exerciseId).filter((h) => h.sess.id !== s.id && sortKey(h.sess) < sortKey(s));
+const norm = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function sessionText(s) {
+  return norm([s.title, s.notes, s.preNotes, s.preObs, ...(s.factors || []),
+    ...s.exercises.flatMap((e) => [exById(e.exerciseId)?.name, e.notes, ...e.equipment.map((q) => eqById(q)?.name)])].join(' '));
+}
+const FACTORS = ['Dormí mal', 'Estrés', 'Molestias / dolor', 'Agujetas', 'Sin comer', 'Cafeína / pre-entreno', 'Resfriado', 'Calor', 'Con prisa', 'Muy motivado'];
+
+/* ---------- Calendario (pantalla de inicio) ---------- */
+function sessionCard(s) {
+  const sets = s.exercises.reduce((n, e) => n + e.sets.filter(isWork).length, 0);
+  const tags = [...(s.factors || []), ...new Set(s.exercises.flatMap((e) => e.equipment).map((q) => eqById(q)?.name).filter(Boolean))];
+  return `<a class="card list-item" href="#/session/${s.id}">
+    <div class="row"><span class="title">${esc(s.title || 'Sesión')}</span><span class="spacer"></span>
+      <span class="muted small">${fmtDate(s.date)}</span></div>
+    <div class="muted small">${esc(s.exercises.map((e) => exById(e.exerciseId)?.name).filter(Boolean).join(' · ') || 'Sin ejercicios')}</div>
+    <div class="stats">
+      <div class="stat"><b>${sets}</b><span>series</span></div>
+      <div class="stat"><b>${fmt(sessionVolume(s) / 1000, 2)} t</b><span>volumen</span></div>
+      ${s.endedAt ? `<div class="stat"><b>${fmtDur(s.endedAt - s.startedAt)}</b><span>duración</span></div>` : '<div class="stat"><b>⏳</b><span>en curso</span></div>'}
+      ${s.srpe ? `<div class="stat"><b>${s.srpe}</b><span>RPE sesión</span></div>` : ''}
+      ${s.bodyweight ? `<div class="stat"><b>${fmt(s.bodyweight)} kg</b><span>peso</span></div>` : ''}
+    </div>
+    ${tags.length ? `<div>${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+  </a>`;
+}
+
+function viewCalendar() {
+  const today = todayISO();
+  const sel = ui.day || today;
+  const [y, m] = (ui.month || sel.slice(0, 7)).split('-').map(Number);
+  const byDay = {};
+  for (const s of db.sessions) (byDay[s.date] = byDay[s.date] || []).push(s);
+  const first = new Date(y, m - 1, 1);
+  const offset = (first.getDay() + 6) % 7; // semana empieza en lunes
+  const nDays = new Date(y, m, 0).getDate();
+  const pad = (n) => String(n).padStart(2, '0');
+  let cells = '';
+  for (let i = 0; i < offset; i++) cells += '<span></span>';
+  let monthCount = 0;
+  for (let d = 1; d <= nDays; d++) {
+    const iso = `${y}-${pad(m)}-${pad(d)}`;
+    const n = byDay[iso]?.length || 0;
+    monthCount += n;
+    cells += `<button class="day ${iso === sel ? 'sel' : ''} ${iso === today ? 'today' : ''}" data-action="pick-day" data-day="${iso}" aria-label="${iso}${n ? `, ${n} sesiones` : ''}">${d}${n ? '<i></i>' : ''}</button>`;
+  }
+  const monthName = first.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).replace(/^./, (c) => c.toUpperCase());
+  const q = norm(ui.csearch).trim();
+
+  let html = `<h1>Calendario</h1>
+    <input type="search" data-action-input="csearch" placeholder="Buscar: ejercicio, nota, material, sensación…" value="${esc(ui.csearch)}">
+    <div style="height:12px"></div>`;
+
+  if (q) {
+    const words = q.split(/\s+/);
+    const res = sortedSessions().filter((s) => { const t = sessionText(s); return words.every((w) => t.includes(w)); });
+    html += `<div class="muted small" style="margin-bottom:8px">${res.length} resultado${res.length === 1 ? '' : 's'}</div>`;
+    html += res.map(sessionCard).join('') || '<div class="empty">Ninguna sesión coincide.</div>';
+    return html;
+  }
+
+  html += `<div class="card">
+      <div class="row">
+        <button class="icon ghost" data-action="month" data-d="-1" aria-label="Mes anterior">‹</button>
+        <div class="spacer" style="text-align:center"><b>${monthName}</b>
+          <div class="muted small">${monthCount} sesion${monthCount === 1 ? '' : 'es'}</div></div>
+        <button class="icon ghost" data-action="month" data-d="1" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="cal">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => `<span class="dow">${d}</span>`).join('')}${cells}</div>
+      ${sel !== today || ui.month !== today.slice(0, 7) ? '<button class="block ghost" data-action="go-today" style="margin-top:4px">Ir a hoy</button>' : ''}
+    </div>
+    <h2>${sel === today ? 'Hoy · ' : ''}${fmtDate(sel)}</h2>
     <div class="grid2">
       <button class="primary" data-action="new-session">＋ Nueva sesión</button>
-      <button data-action="repeat-session" ${last ? '' : 'disabled'}>↻ Repetir…</button>
+      <button data-action="repeat-session" ${db.sessions.length ? '' : 'disabled'}>↻ Repetir…</button>
     </div><div style="height:12px"></div>`;
-  if (!list.length) return html + `<div class="empty">Aún no hay sesiones.<br>Crea la primera y empieza a registrar.</div>`;
-  for (const s of list) {
-    const sets = s.exercises.reduce((n, e) => n + e.sets.filter(isWork).length, 0);
-    const eqs = [...new Set(s.exercises.flatMap((e) => e.equipment))].map(eqById).filter(Boolean);
-    html += `<a class="card list-item" href="#/session/${s.id}">
-      <div class="row"><span class="title">${esc(s.title || 'Sesión')}</span><span class="spacer"></span>
-        <span class="muted">${fmtDate(s.date)}</span></div>
-      <div class="muted small">${esc(s.exercises.map((e) => exById(e.exerciseId)?.name).filter(Boolean).join(' · ') || 'Sin ejercicios')}</div>
-      <div class="stats">
-        <div class="stat"><b>${sets}</b><span>series</span></div>
-        <div class="stat"><b>${fmt(sessionVolume(s) / 1000, 2)} t</b><span>volumen</span></div>
-        ${s.endedAt ? `<div class="stat"><b>${fmtDur(s.endedAt - s.startedAt)}</b><span>duración</span></div>` : '<div class="stat"><b>⏳</b><span>en curso</span></div>'}
-        ${s.srpe ? `<div class="stat"><b>${s.srpe}</b><span>RPE sesión</span></div>` : ''}
-      </div>
-      ${eqs.length ? `<div>${eqs.map((e) => `<span class="tag">${esc(e.name)}</span>`).join('')}</div>` : ''}
-    </a>`;
-  }
+  const daySessions = (byDay[sel] || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  html += daySessions.map(sessionCard).join('') || '<div class="muted" style="padding:8px 0 16px">Sin sesiones este día.</div>';
+  const recent = sortedSessions().filter((s) => s.date !== sel).slice(0, 3);
+  if (recent.length) html += `<h2>Últimas sesiones</h2>${recent.map(sessionCard).join('')}`;
   return html;
 }
 
+/* ---------- Sesión ---------- */
 function viewSession(id) {
   const s = sessionById(id);
   if (!s) return `<div class="empty">Sesión no encontrada. <a href="#/">Volver</a></div>`;
+  s.factors = s.factors || [];
   const dur = (s.endedAt || Date.now()) - s.startedAt;
-  let html = `<div class="row"><a class="btn ghost" href="#/">‹ Sesiones</a><span class="spacer"></span>
+  const preFilled = s.bodyweight != null || s.readiness || s.sleep != null || s.stress || s.factors.length || s.preNotes || s.preObs;
+  const preOpen = ui.preOpen[s.id] ?? (!s.exercises.length || false);
+  let html = `<div class="row"><a class="btn ghost" href="#/">‹ Calendario</a><span class="spacer"></span>
       <button class="ghost" data-action="session-menu" data-id="${s.id}">⋯</button></div>
-    <input class="title-input" data-s="title" value="${esc(s.title)}" placeholder="Nombre de la sesión (p. ej. Pierna A)" style="font-size:1.2rem;font-weight:700;margin:6px 0 10px">
-    <div class="card">
-      <div class="grid2">
-        <div><label>Fecha</label><input type="date" data-s="date" value="${esc(s.date)}"></div>
+    <input data-s="title" value="${esc(s.title)}" placeholder="Nombre de la sesión (p. ej. Pierna A)" style="font-size:1.2rem;font-weight:700;margin:6px 0 10px">
+    <div class="grid2">
+      <div><label>Fecha</label><input type="date" data-s="date" value="${esc(s.date)}"></div>
+      <div><label>${s.endedAt ? 'Duración' : 'En curso'}</label><div class="pill">${fmtDur(dur)} · <b id="vol">${fmt(sessionVolume(s), 0)} kg</b></div></div>
+    </div>
+    <details class="card pre" id="pre" ${preOpen ? 'open' : ''} style="margin-top:12px">
+      <summary><b>Antes de empezar</b> <span class="muted small">opcional${preFilled && !preOpen ? ' · ✓ registrado' : ''}</span></summary>
+      <div class="grid2" style="margin-top:10px">
         <div><label>Peso corporal (kg)</label><input type="number" inputmode="decimal" step="0.1" data-s="bodyweight" value="${s.bodyweight ?? ''}"></div>
-        <div><label>Energía / readiness (1-5)</label>${scaleSelect('readiness', s.readiness, 1, 5)}</div>
         <div><label>Horas de sueño</label><input type="number" inputmode="decimal" step="0.5" data-s="sleep" value="${s.sleep ?? ''}"></div>
+        <div><label>Energía (1 baja – 5 alta)</label>${scaleSelect('readiness', s.readiness, 1, 5)}</div>
+        <div><label>Estrés (1 bajo – 5 alto)</label>${scaleSelect('stress', s.stress, 1, 5)}</div>
       </div>
-      <div class="muted small" style="margin-top:8px">${s.endedAt ? 'Duración' : 'En curso'}: ${fmtDur(dur)} · Volumen efectivo: <b id="vol">${fmt(sessionVolume(s), 0)} kg</b></div>
-    </div>`;
+      <label style="margin-top:10px">Factores que pueden influir</label>
+      <div class="chips">${FACTORS.map((f) => `<button class="chip ${s.factors.includes(f) ? 'on' : ''}" data-action="toggle-factor" data-f="${esc(f)}">${esc(f)}</button>`).join('')}</div>
+      <div style="height:10px"></div>
+      <label>Sensaciones al empezar</label>
+      <textarea data-s="preNotes" placeholder="Cómo te notas: pesado, fresco, rodilla cargada…">${esc(s.preNotes)}</textarea>
+      <div style="height:8px"></div>
+      <label>Observaciones importantes</label>
+      <textarea data-s="preObs" placeholder="Viaje, gimnasio distinto, competición cerca, medicación…">${esc(s.preObs)}</textarea>
+    </details>`;
 
   s.exercises.forEach((ex, i) => { html += exerciseCard(s, ex, i); });
 
   html += `<button class="block" data-action="add-exercise">＋ Añadir ejercicio</button>
+    ${s.exercises.length ? sessionSummary(s) : ''}
     <div class="card" style="margin-top:12px">
-      <label>Notas de la sesión</label>
-      <textarea data-s="notes" placeholder="Sensaciones, molestias, contexto…">${esc(s.notes)}</textarea>
+      <label>Notas finales de la sesión</label>
+      <textarea data-s="notes" placeholder="Cómo fue, qué cambiar la próxima vez…">${esc(s.notes)}</textarea>
       <div style="height:8px"></div>
       <label>RPE de la sesión (esfuerzo global 1-10)</label>${scaleSelect('srpe', s.srpe, 1, 10)}
     </div>
@@ -198,6 +285,48 @@ function viewSession(id) {
       : `<button class="primary block" data-action="finish-session">✓ Finalizar sesión</button>`}`;
   return html;
 }
+
+function sessionSummary(s) {
+  const all = s.exercises.flatMap((e) => e.sets.filter(isWork));
+  const reps = all.reduce((a, x) => a + (x.reps || 0), 0);
+  const rpes = all.map((x) => x.rpe).filter(Boolean);
+  let records = 0;
+  const volEx = [], catSets = {};
+  for (const e of s.exercises) {
+    const st = entryStats(e);
+    const prevBest = maxOf(historyBefore(e.exerciseId, s).map((h) => entryStats(h.entry).best));
+    if (st.best && prevBest && st.best > prevBest) records++;
+    const kg = e.sets.filter(isWork).reduce((a, x) => a + (x.w || 0) * (x.reps || 0), 0);
+    if (kg) volEx.push({ label: exById(e.exerciseId)?.name || '?', v: kg });
+    const cat = exById(e.exerciseId)?.cat || 'Otros';
+    catSets[cat] = (catSets[cat] || 0) + st.sets;
+  }
+  // Comparación con sesiones anteriores del mismo nombre
+  const same = s.title ? sortedSessions().filter((x) => norm(x.title) === norm(s.title) && sortKey(x) <= sortKey(s)) : [];
+  const prev = same.find((x) => x.id !== s.id);
+  const vol = sessionVolume(s);
+  const trend = same.slice(0, 10).reverse().map((x) => ({ d: x.date, v: sessionVolume(x) })).filter((p) => p.v);
+
+  return `<h2>Resumen de la sesión</h2><div class="card">
+    <div class="stats">
+      <div class="stat"><b>${fmt(vol, 0)} kg ${prev ? delta(vol, sessionVolume(prev)) : ''}</b><span>volumen</span></div>
+      <div class="stat"><b>${all.length}</b><span>series efectivas</span></div>
+      <div class="stat"><b>${reps}</b><span>reps</span></div>
+      <div class="stat"><b>${rpes.length ? fmt(rpes.reduce((a, b) => a + b, 0) / rpes.length) : '–'}</b><span>RPE medio</span></div>
+      <div class="stat"><b>${records ? '★ ' + records : '0'}</b><span>récords</span></div>
+    </div>
+    ${prev ? `<div class="muted small" style="margin-top:8px">Comparado con «${esc(prev.title)}» del ${fmtDate(prev.date)}.</div>` : s.title ? '' : '<div class="muted small" style="margin-top:8px">Pon nombre a la sesión para compararla con las anteriores del mismo tipo.</div>'}
+    ${volEx.length ? `<h3 class="sub">Volumen por ejercicio (kg)</h3>${bars(volEx, '')}` : ''}
+    <h3 class="sub">Series efectivas por grupo</h3>${bars(Object.entries(catSets).filter(([, v]) => v).map(([label, v]) => ({ label, v })), '')}
+    ${trend.length >= 2 ? `<h3 class="sub">Volumen en «${esc(s.title)}» (últimas ${trend.length})</h3>${chart(trend)}` : ''}
+  </div>`;
+}
+
+function bars(items, unit) {
+  const max = Math.max(1, ...items.map((i) => i.v));
+  return items.map((i) => `<div class="bar"><span>${esc(i.label)}</span><div><i style="width:${(i.v / max * 100).toFixed(1)}%"></i></div><b>${fmt(i.v, 0)}${unit}</b></div>`).join('');
+}
+
 function scaleSelect(key, val, a, b) {
   let o = `<option value="">–</option>`;
   for (let i = a; i <= b; i++) o += `<option ${val == i ? 'selected' : ''}>${i}</option>`;
@@ -209,36 +338,61 @@ function rpeSelect(val, i, j) {
   return `<select data-set="${i}:${j}:rpe" aria-label="RPE">${o}</select>`;
 }
 
+/* ---------- Tarjeta de ejercicio (registro de series) ---------- */
 function exerciseCard(s, ex, i) {
   const def = exById(ex.exerciseId) || { name: '(ejercicio borrado)', mode: 'wr' };
   const mode = MODES[def.mode] || MODES.wr;
-  const prev = previousEntry(ex.exerciseId, s);
-  const hist = historyFor(ex.exerciseId).filter((h) => h.sess.id !== s.id && h.sess.date <= s.date);
-  const prevBest = Math.max(0, ...hist.map((h) => bestOf(h.entry).e1rm || 0));
+  const before = historyBefore(ex.exerciseId, s);
+  const prev = before.find((h) => h.entry.sets.length);
+  const st = entryStats(ex);
+  const m = st.m;
+  const pst = prev ? entryStats(prev.entry) : null;
+  const prevBest = maxOf(before.map((h) => entryStats(h.entry).best));
   const open = ui.openEquip.has(ex.id);
+  const chartOpen = ui.openChart.has(ex.id);
 
   let rows = '';
   ex.sets.forEach((set, j) => {
-    const est = e1rm(set);
-    const isPR = isWork(set) && est && prevBest && est > prevBest;
+    const est = isWork(set) ? m.best([set]) : null;
+    const isPR = est && prevBest && est > prevBest;
     rows += `<tr class="${set.done ? 'done' : ''}">
       <td><button class="settype ${set.type}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
       ${mode.fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>`
         : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}"></td>`).join('')}
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
       <td><button class="icon ghost" data-action="del-set" data-i="${i}" data-j="${j}" aria-label="Borrar serie">✕</button></td>
-    </tr>${isPR ? `<tr><td></td><td colspan="${mode.fields.length}" class="pr" style="text-align:left">★ Récord estimado: ${fmt(est)} kg 1RM</td></tr>` : ''}`;
+    </tr>${isPR ? `<tr><td></td><td colspan="${mode.fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label})</td></tr>` : ''}`;
   });
+
+  const pts = [...before].reverse().map((h) => ({ d: h.sess.date, v: entryStats(h.entry).best })).filter((p) => p.v);
+  if (st.best) pts.push({ d: s.date, v: st.best });
+  const lastPts = pts.slice(-10);
 
   const eqSel = ex.equipment.map(eqById).filter(Boolean);
   return `<div class="card" data-ex="${i}">
     <div class="ex-head">
       <h3><a href="#/exercise/${ex.exerciseId}" style="color:inherit;text-decoration:none">${esc(def.name)}</a></h3>
+      <button class="icon ghost ${chartOpen ? 'active' : ''}" data-action="toggle-chart" data-i="${i}" aria-label="Gráfica y datos">📈</button>
       <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="-1" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>↑</button>
       <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="1" aria-label="Bajar" ${i === s.exercises.length - 1 ? 'disabled' : ''}>↓</button>
       <button class="icon ghost danger" data-action="del-ex" data-i="${i}" aria-label="Quitar ejercicio">🗑</button>
     </div>
-    ${prev ? `<div class="prev">Anterior (${fmtDate(prev.sess.date)}): ${esc(setsText(prev.entry, prev.entry.sets))}${prev.entry.equipment.length ? ' · ' + esc(prev.entry.equipment.map((x) => eqById(x)?.name).filter(Boolean).join(', ')) : ''}</div>` : '<div class="prev">Primera vez que registras este ejercicio.</div>'}
+    <div class="exstats">
+      <div><b>${fmtM(st.best, m)}</b> ${delta(st.best, pst?.best)}<span>${m.label} hoy</span></div>
+      <div><b>${fmtM(st.vol, m, m.volUnit)}</b> ${delta(st.vol, pst?.vol)}<span>volumen hoy</span></div>
+      <div><b>${fmtM(prevBest, m)}</b><span>récord previo</span></div>
+    </div>
+    ${prev ? `<div class="prev">Anterior (${fmtDate(prev.sess.date)}): ${esc(setsText(prev.entry, prev.entry.sets))}${prev.entry.equipment.length ? ' · ' + esc(prev.entry.equipment.map((x) => eqById(x)?.name).filter(Boolean).join(', ')) : ''}</div>
+      ${prev.entry.notes ? `<div class="prev">📝 ${esc(prev.entry.notes)}</div>` : ''}` : '<div class="prev">Primera vez que registras este ejercicio.</div>'}
+    ${chartOpen ? `<div class="insight">
+      ${lastPts.length >= 2 ? `<div class="muted small">${m.label} por sesión (últimas ${lastPts.length})</div>${chart(lastPts)}` : '<div class="muted small">La gráfica aparece a partir de 2 sesiones con datos.</div>'}
+      <div class="stats">
+        <div class="stat"><b>${before.length + 1}</b><span>sesiones</span></div>
+        <div class="stat"><b>${fmtM(maxOf([st.topW, ...before.map((h) => entryStats(h.entry).topW)]), m, 'kg')}</b><span>peso máx. histórico</span></div>
+        ${st.mode === 'wr' && maxOf([st.best, prevBest]) ? `<div class="stat"><b>${fmt(Math.round(maxOf([st.best, prevBest]) * 0.8 / 2.5) * 2.5)} kg</b><span>80% del 1RM</span></div>` : ''}
+        <div class="stat"><b>${before.length ? fmtDate(before[0].sess.date).replace(/ \d{4}$/, '') : '–'}</b><span>última vez</span></div>
+      </div>
+    </div>` : ''}
     <div class="chips" style="margin-top:8px">
       ${(open ? db.equipment : eqSel).map((e) => `<button class="chip ${ex.equipment.includes(e.id) ? 'on' : ''}" data-action="toggle-eq" data-i="${i}" data-eq="${e.id}">${esc(e.name)}</button>`).join('')}
       <button class="chip" data-action="open-eq" data-i="${i}">${open ? 'Listo' : '＋ Material'}</button>
@@ -247,28 +401,28 @@ function exerciseCard(s, ex, i) {
       <thead><tr><th>Serie</th>${mode.fields.map((f) => `<th>${f === 'w' && def.mode === 'bw' ? 'Lastre' : FIELD[f].h}</th>`).join('')}<th>✓</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div class="row" style="margin-top:8px">
-      <button class="spacer" data-action="add-set" data-i="${i}">＋ Serie</button>
-    </div>
+    <button class="block" style="margin-top:8px" data-action="add-set" data-i="${i}">＋ Serie</button>
     <div style="height:8px"></div>
     <textarea data-exnote="${i}" placeholder="Notas: técnica, tempo, molestias, agarre…" rows="2">${esc(ex.notes)}</textarea>
   </div>`;
 }
 
+/* ---------- Progreso ---------- */
 function viewExercises() {
-  const q = ui.search.toLowerCase();
+  const q = norm(ui.search);
   const counts = {};
   for (const s of db.sessions) for (const e of s.exercises) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
-  let html = `<h1>Progreso</h1><input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">`;
-  const items = db.exercises.filter((e) => e.name.toLowerCase().includes(q))
+  let html = `<div class="row"><h1 class="spacer">Progreso</h1><button data-action="exercise-form">＋ Nuevo ejercicio</button></div>
+    <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">
+    <div style="height:12px"></div>`;
+  const items = db.exercises.filter((e) => norm(e.name).includes(q))
     .sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0) || a.name.localeCompare(b.name));
-  html += '<div style="height:12px"></div>';
   for (const e of items) {
-    const h = historyFor(e.id);
-    const best = Math.max(0, ...h.map((x) => bestOf(x.entry).e1rm || 0));
+    const m = METRIC[e.mode] || METRIC.wr;
+    const best = maxOf(historyFor(e.id).map((x) => entryStats(x.entry).best));
     html += `<a class="card list-item" href="#/exercise/${e.id}" style="padding:12px 14px">
       <div class="row"><span class="title">${esc(e.name)}</span><span class="spacer"></span>
-      <span class="muted small">${counts[e.id] ? `${counts[e.id]} sesiones${best ? ` · 1RM est. ${fmt(best)} kg` : ''}` : esc(e.cat)}</span></div></a>`;
+      <span class="muted small">${counts[e.id] ? `${counts[e.id]} ses.${best ? ` · ${m.label} ${fmtM(best, m)}` : ''}` : esc(e.cat)}</span></div></a>`;
   }
   return html;
 }
@@ -276,20 +430,22 @@ function viewExercises() {
 function viewExercise(id) {
   const def = exById(id);
   if (!def) return `<div class="empty">Ejercicio no encontrado. <a href="#/exercises">Volver</a></div>`;
+  const m = METRIC[def.mode] || METRIC.wr;
   const all = historyFor(id);
   const usedEq = [...new Set(all.flatMap((h) => h.entry.equipment))].map(eqById).filter(Boolean);
   const f = ui.filterEq;
   const hist = all.filter((h) => f === 'all' ? true : f === 'none' ? h.entry.equipment.length === 0 : h.entry.equipment.includes(f));
 
-  let bestE = null, bestW = null, totalVol = 0;
+  let best = null, topW = null, totalVol = 0;
   for (const h of hist) {
-    const b = bestOf(h.entry);
-    if (b.e1rm && (!bestE || b.e1rm > bestE.v)) bestE = { v: b.e1rm, d: h.sess.date };
-    if (b.maxW && (!bestW || b.maxW > bestW.v)) bestW = { v: b.maxW, d: h.sess.date };
-    for (const s of h.entry.sets) if (isWork(s) && s.w && s.reps) totalVol += s.w * s.reps;
+    const st = entryStats(h.entry);
+    if (st.best && (!best || st.best > best.v)) best = { v: st.best, d: h.sess.date };
+    if (st.topW && (!topW || st.topW > topW.v)) topW = { v: st.topW, d: h.sess.date };
+    totalVol += st.vol;
   }
 
-  let html = `<div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a></div>
+  let html = `<div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a><span class="spacer"></span>
+      <button class="ghost" data-action="exercise-form" data-id="${def.id}">✎ Editar</button></div>
     <h1>${esc(def.name)}</h1>
     <div class="muted small">${esc(def.cat)} · ${esc(MODES[def.mode]?.label)}</div>`;
   if (usedEq.length) {
@@ -300,27 +456,27 @@ function viewExercise(id) {
     </div>`;
   }
   html += `<div class="card" style="margin-top:12px"><div class="stats">
-      <div class="stat"><b>${bestE ? fmt(bestE.v) + ' kg' : '–'}</b><span>mejor 1RM estimado</span></div>
-      <div class="stat"><b>${bestW ? fmt(bestW.v) + ' kg' : '–'}</b><span>peso máximo</span></div>
+      <div class="stat"><b>${best ? fmtM(best.v, m) : '–'}</b><span>mejor ${m.label}</span></div>
+      ${def.mode === 'wr' || def.mode === 'bw' ? `<div class="stat"><b>${topW ? fmt(topW.v) + ' kg' : '–'}</b><span>peso máximo</span></div>` : ''}
       <div class="stat"><b>${hist.length}</b><span>sesiones</span></div>
-      <div class="stat"><b>${fmt(totalVol / 1000, 2)} t</b><span>volumen total</span></div>
+      <div class="stat"><b>${fmtM(totalVol, m, m.volUnit)}</b><span>volumen total</span></div>
     </div></div>`;
 
-  const pts = hist.map((h) => ({ d: h.sess.date, v: bestOf(h.entry).e1rm })).filter((p) => p.v).reverse();
-  if (pts.length >= 2) html += `<h2>1RM estimado por sesión</h2><div class="card">${chart(pts)}</div>`;
+  const pts = hist.map((h) => ({ d: h.sess.date, v: entryStats(h.entry).best })).filter((p) => p.v).reverse();
+  if (pts.length >= 2) html += `<h2>${m.label} por sesión</h2><div class="card">${chart(pts)}</div>`;
 
-  if (bestE) {
-    html += `<h2>Tabla de cargas (desde 1RM est. ${fmt(bestE.v)} kg)</h2><div class="card"><div class="stats">
-      ${[1, 2, 3, 5, 8, 10].map((r) => `<div class="stat"><b>${fmt(Math.round(bestE.v / (1 + (r === 1 ? 0 : r / 30)) / 2.5) * 2.5)} kg</b><span>${r} rep @10</span></div>`).join('')}
+  if (best && def.mode === 'wr') {
+    html += `<h2>Tabla de cargas (1RM est. ${fmt(best.v)} kg)</h2><div class="card"><div class="stats">
+      ${[1, 2, 3, 5, 8, 10].map((r) => `<div class="stat"><b>${fmt(Math.round(best.v / (1 + (r === 1 ? 0 : r / 30)) / 2.5) * 2.5)} kg</b><span>${r} rep @10</span></div>`).join('')}
     </div></div>`;
   }
 
   html += `<h2>Historial</h2>`;
   if (!hist.length) html += `<div class="empty">Sin registros${f !== 'all' ? ' con este filtro' : ''}.</div>`;
   for (const h of hist) {
-    const b = bestOf(h.entry);
+    const st = entryStats(h.entry);
     html += `<a class="card list-item" href="#/session/${h.sess.id}">
-      <div class="row"><b>${fmtDate(h.sess.date)}</b><span class="spacer"></span>${b.e1rm ? `<span class="muted small">1RM est. ${fmt(b.e1rm)}</span>` : ''}</div>
+      <div class="row"><b>${fmtDate(h.sess.date)}</b><span class="spacer"></span>${st.best ? `<span class="muted small">${m.label} ${fmtM(st.best, m)}</span>` : ''}</div>
       <div>${esc(setsText(h.entry, h.entry.sets))}</div>
       ${h.entry.equipment.length ? `<div>${h.entry.equipment.map((x) => eqById(x)).filter(Boolean).map((e) => `<span class="tag">${esc(e.name)}</span>`).join('')}</div>` : ''}
       ${h.entry.notes ? `<div class="muted small" style="margin-top:4px">📝 ${esc(h.entry.notes)}</div>` : ''}
@@ -438,11 +594,12 @@ function beep() {
 
 /* ---------- Acciones ---------- */
 function currentSession() { const r = route(); return r.name === 'session' ? sessionById(r.id) : null; }
-function newSession(fromId) {
+function newSession(fromId, date = ui.day || todayISO()) {
   const src = fromId && sessionById(fromId);
   const s = {
-    id: uid(), createdAt: new Date().toISOString(), date: todayISO(), startedAt: Date.now(), endedAt: null,
-    title: src ? src.title : '', notes: '', bodyweight: null, readiness: null, sleep: null, srpe: null,
+    id: uid(), createdAt: new Date().toISOString(), date, startedAt: Date.now(), endedAt: null,
+    title: src ? src.title : '', notes: '', bodyweight: null, readiness: null, sleep: null, stress: null, srpe: null,
+    factors: [], preNotes: '', preObs: '',
     exercises: src ? src.exercises.map((e) => ({
       id: uid(), exerciseId: e.exerciseId, notes: '', equipment: [...e.equipment],
       // Copia la estructura y cargas de la sesión anterior como punto de partida, sin marcar como hechas.
@@ -459,9 +616,9 @@ function download(name, text, type) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 function toCSV() {
-  const rows = [['fecha', 'sesion', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'segundos', 'metros', 'hecha', 'e1rm', 'material', 'notas_ejercicio']];
+  const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'segundos', 'metros', 'hecha', 'e1rm', 'material', 'notas_ejercicio']];
   for (const s of sortedSessions().reverse()) for (const e of s.exercises) e.sets.forEach((x, j) => rows.push([
-    s.date, s.title, exById(e.exerciseId)?.name, j + 1, SET_TYPES[x.type], x.w, x.reps, x.rpe, x.time, x.dist, x.done ? 'si' : 'no',
+    s.date, s.title, s.bodyweight, s.readiness, s.sleep, s.stress, (s.factors || []).join(' | '), exById(e.exerciseId)?.name, j + 1, SET_TYPES[x.type], x.w, x.reps, x.rpe, x.time, x.dist, x.done ? 'si' : 'no',
     e1rm(x) ? fmt(e1rm(x)) : '', e.equipment.map((q) => eqById(q)?.name).join(' | '), j === 0 ? e.notes : '',
   ]));
   return rows.map((r) => r.map((c) => { const v = String(c ?? ''); return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }).join(';')).join('\n');
@@ -472,7 +629,7 @@ const actions = {
   'repeat-session': () => {
     const list = sortedSessions().slice(0, 30);
     openModal(`<div class="row"><h3 class="spacer">Repetir una sesión</h3><button class="ghost" data-action="close-modal">✕</button></div>
-      <p class="muted small">Se copian los ejercicios, el material y las cargas como punto de partida.</p>
+      <p class="muted small">Se crea una sesión el ${fmtDate(ui.day || todayISO())} copiando ejercicios, material y cargas como punto de partida.</p>
       <div class="picker-list">${list.map((s) => `<button data-action="repeat-from" data-id="${s.id}"><b>${esc(s.title || 'Sesión')}</b>&nbsp;<span class="muted">${fmtDate(s.date)}</span></button>`).join('')}</div>`);
   },
   'repeat-from': (el) => { closeModal(); newSession(el.dataset.id); },
@@ -481,7 +638,7 @@ const actions = {
         <button data-action="duplicate-session">Duplicar como nueva sesión de hoy</button>
         <button class="danger" data-action="delete-session">Borrar sesión</button>
       </div>`),
-  'duplicate-session': () => { const s = currentSession(); closeModal(); newSession(s.id); },
+  'duplicate-session': () => { const s = currentSession(); closeModal(); newSession(s.id, todayISO()); },
   'delete-session': () => {
     const s = currentSession();
     if (!confirm('¿Borrar esta sesión? No se puede deshacer.')) return;
@@ -544,6 +701,43 @@ const actions = {
     ex.equipment = ex.equipment.includes(q) ? ex.equipment.filter((x) => x !== q) : [...ex.equipment, q];
     save(); rerender();
   },
+  'pick-day': (el) => { ui.day = el.dataset.day; rerender(); },
+  'month': (el) => {
+    const [y, m] = ui.month.split('-').map(Number);
+    const d = new Date(y, m - 1 + +el.dataset.d, 1);
+    ui.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; rerender();
+  },
+  'go-today': () => { ui.day = todayISO(); ui.month = ui.day.slice(0, 7); rerender(); },
+  'toggle-factor': (el) => {
+    const s = currentSession(); const f = el.dataset.f;
+    s.factors = s.factors.includes(f) ? s.factors.filter((x) => x !== f) : [...s.factors, f];
+    ui.preOpen[s.id] = true; save(); rerender();
+  },
+  'toggle-chart': (el) => {
+    const id = currentSession().exercises[+el.dataset.i].id;
+    ui.openChart.has(id) ? ui.openChart.delete(id) : ui.openChart.add(id); rerender();
+  },
+  'exercise-form': (el) => {
+    const e = el.dataset.id ? exById(el.dataset.id) : null;
+    const used = e && db.sessions.some((s) => s.exercises.some((x) => x.exerciseId === e.id));
+    openModal(`<div class="row"><h3 class="spacer">${e ? 'Editar' : 'Nuevo'} ejercicio</h3><button class="ghost" data-action="close-modal">✕</button></div>
+      <div style="display:grid;gap:10px;margin-top:10px">
+        <div><label>Nombre</label><input id="ef-name" value="${esc(e?.name)}" placeholder="p. ej. Sentadilla búlgara"></div>
+        <div><label>Grupo</label><select id="ef-cat">${CATEGORIES.map((c) => `<option ${e?.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div><label>Cómo se registra</label><select id="ef-mode" ${used ? 'disabled' : ''}>${Object.entries(MODES).map(([k, m]) => `<option value="${k}" ${e?.mode === k ? 'selected' : ''}>${m.label}</option>`).join('')}</select>
+          ${used ? '<div class="muted small">No se puede cambiar: ya tiene series registradas.</div>' : ''}</div>
+        <button class="primary" data-action="save-exercise" data-id="${e?.id || ''}">Guardar</button>
+      </div>`);
+  },
+  'save-exercise': (el) => {
+    const name = $('#ef-name').value.trim(); if (!name) return alert('Pon un nombre.');
+    const dup = db.exercises.find((x) => norm(x.name) === norm(name) && x.id !== el.dataset.id);
+    if (dup) return alert('Ya existe un ejercicio con ese nombre.');
+    let e = el.dataset.id && exById(el.dataset.id);
+    if (!e) { e = { id: uid() }; db.exercises.push(e); }
+    e.name = name; e.cat = $('#ef-cat').value; if (!$('#ef-mode').disabled) e.mode = $('#ef-mode').value;
+    save(); closeModal(); location.hash = `#/exercise/${e.id}`; rerender();
+  },
   'filter-eq': (el) => { ui.filterEq = el.dataset.eq; rerender(); },
   'timer-add': (el) => { timer.end += +el.dataset.sec * 1000; $('#timer').classList.remove('over'); tickTimer(); },
   'timer-stop': () => stopTimer(),
@@ -564,12 +758,9 @@ const actions = {
           <button class="icon ghost" data-action="rename-exercise" data-id="${e.id}" aria-label="Renombrar">✎</button>
           ${used.has(e.id) ? '' : `<button class="icon ghost danger" data-action="del-exercise" data-id="${e.id}" aria-label="Borrar">✕</button>`}
         </div>`).join('')}</div>
-      <p class="muted small">Para crear uno nuevo, búscalo al añadir un ejercicio a una sesión.</p>`);
+      <button class="primary block" data-action="exercise-form">＋ Nuevo ejercicio</button>`);
   },
-  'rename-exercise': (el) => {
-    const e = exById(el.dataset.id); const n = prompt('Nuevo nombre', e.name);
-    if (n && n.trim()) { e.name = n.trim(); save(); actions['manage-exercises'](); }
-  },
+  'rename-exercise': (el) => actions['exercise-form'](el),
   'del-exercise': (el) => { db.exercises = db.exercises.filter((e) => e.id !== el.dataset.id); save(); actions['manage-exercises'](); },
   'export-json': () => download(`diario-entreno-${todayISO()}.json`, JSON.stringify(db, null, 2), 'application/json'),
   'export-csv': () => download(`diario-entreno-${todayISO()}.csv`, '﻿' + toCSV(), 'text/csv'),
@@ -592,15 +783,16 @@ document.addEventListener('click', (e) => {
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.id === 'picker-q') { $('#picker-list').innerHTML = pickerHTML(t.value); return; }
-  if (t.dataset.actionInput === 'search') {
-    ui.search = t.value; const pos = t.selectionStart; render();
-    const n = $('input[type=search]'); n.focus(); n.setSelectionRange(pos, pos); return;
+  if (t.dataset.actionInput) {
+    const k = t.dataset.actionInput; ui[k] = t.value; const pos = t.selectionStart; render();
+    const n = $(`[data-action-input="${k}"]`); n.focus(); n.setSelectionRange(pos, pos); return;
   }
   if (t.dataset.setting) { db.settings[t.dataset.setting] = num(t.value) ?? 0; save(); return; }
   const s = currentSession(); if (!s) return;
   if (t.dataset.s) {
     const k = t.dataset.s;
-    s[k] = ['bodyweight', 'readiness', 'sleep', 'srpe'].includes(k) ? num(t.value) : t.value;
+    s[k] = ['bodyweight', 'readiness', 'sleep', 'stress', 'srpe'].includes(k) ? num(t.value) : t.value;
+    if (k === 'date' && t.value) { ui.day = t.value; ui.month = t.value.slice(0, 7); }
     save(); return;
   }
   if (t.dataset.exnote != null) { s.exercises[+t.dataset.exnote].notes = t.value; save(); return; }
@@ -625,6 +817,10 @@ document.addEventListener('change', (e) => {
   if (t.dataset.s === 'date' || (t.dataset.set && t.tagName === 'SELECT')) rerender();
   else if (t.dataset.set) { const s = currentSession(); const v = $('#vol'); if (s && v) v.textContent = `${fmt(sessionVolume(s), 0)} kg`; }
 });
+
+document.addEventListener('toggle', (e) => {
+  if (e.target.id === 'pre') { const s = currentSession(); if (s) ui.preOpen[s.id] = e.target.open; }
+}, true);
 
 // Refresca la duración en curso cada minuto.
 setInterval(() => {
