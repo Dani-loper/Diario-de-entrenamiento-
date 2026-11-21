@@ -4,7 +4,7 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
 
 ## Funciones
 - **Modo de atleta** (Ajustes, por usuario): *Sencillo* (series, peso, repeticiones, RIR y descansos) o *Avanzado* (todo lo demás: RPE, material, sensaciones, índice de estrés, %1RM, fatiga, análisis). Cambiar de modo no borra nada.
-- **Descansos entre series**: exacto con «▶ Serie» en el temporizador; aproximado (≈, tiempo entre ✓) si no se pulsa; corrección manual en el menú ⋯ de la serie. Descanso objetivo por ejercicio (avanzado), descanso medio en el resumen y en el CSV.
+- **Descansos entre series**: campo «⏱ Descanso» editable bajo cada serie (m:ss o segundos). Al marcar ✓ arranca un cronómetro; «⏹ Parar» rellena el campo con el tiempo transcurrido y ✕ lo descarta. La app no calcula descansos por su cuenta. Descanso objetivo por ejercicio (avanzado), descanso medio en el resumen y en el CSV.
 - **Usuarios** (perfiles locales, pensados para entrenadores): cada usuario tiene sus propias sesiones, catálogo, material y ajustes. La pantalla de usuarios permite crear, editar, cambiar y borrar (confirmando con el nombre), y el usuario activo está siempre visible arriba. Se puede exportar e importar la copia de todos los usuarios en un solo archivo. Los datos de versiones anteriores se migran al usuario «Yo».
 - **Calendario** como pantalla de inicio: puntos en los días con sesión, crear sesión en el día seleccionado (hoy por defecto) y **buscador** (ejercicio, notas, material, sensaciones; sin importar tildes).
 - **Antes de empezar** (opcional): peso corporal, sueño, energía, estrés, factores rápidos (dormí mal, estrés, molestias, cafeína…), sensaciones y observaciones.

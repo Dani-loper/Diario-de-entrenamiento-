@@ -200,6 +200,12 @@ const avatar = (u, size = 36) => `<span class="avatar" style="background:${userC
 
 function normalize(d) {
   d.settings = { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets', ...d.settings };
+  // Descansos de la versión anterior (restSec = antes de la serie) -> rest = después de la serie anterior.
+  // Los aproximados (restSrc 'auto') los calculaba la app, no el usuario: se descartan.
+  for (const s of d.sessions || []) for (const e of s.exercises || []) e.sets.forEach((x, j) => {
+    if (x.restSec != null && x.restSrc !== 'auto' && j > 0 && e.sets[j - 1].rest == null) e.sets[j - 1].rest = x.restSec;
+    delete x.restSec; delete x.restSrc;
+  });
   // Datos anteriores al modo de atleta: quien ya registraba sesiones sigue en avanzado.
   if (!d.settings.level) d.settings.level = d.sessions?.length ? 'advanced' : 'simple';
   return migrateMuscles(d);
@@ -683,10 +689,10 @@ const GLOSSARY = {
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
     <p>Es un ajuste de cada usuario y <b>no borra datos</b>: al volver a avanzado reaparece todo lo registrado.</p>`],
   rest: ['Descanso entre series', `
-    <p>Tiempo entre el final de una serie y el inicio de la siguiente. Se guarda en la serie que viene después.</p>
-    <ul><li><b>Exacto:</b> al marcar ✓ arranca el temporizador; pulsa <b>«▶ Serie»</b> justo al empezar la siguiente.</li>
-    <li><b>Aproximado (≈):</b> si no pulsas «▶ Serie», se usa el tiempo entre las dos ✓, que <b>incluye la ejecución</b> de la serie (20-60 s de más).</li>
-    <li><b>Manual (✎):</b> desde el menú ⋯ de la serie.</li></ul>
+    <p>Tiempo entre el final de una serie y el inicio de la siguiente. Se guarda en el campo <b>«⏱ Descanso»</b> que hay debajo de cada serie, en <b>m:ss</b> (2:30) o en segundos (150).</p>
+    <ul><li><b>A mano:</b> escribe el valor en el campo.</li>
+    <li><b>Con el cronómetro:</b> al marcar la serie como hecha (✓) arranca; pulsa <b>«⏹ Parar»</b> al empezar la siguiente y el campo se rellena con el tiempo transcurrido. <b>✕</b> lo descarta sin escribir nada.</li></ul>
+    <p>En ambos casos puedes modificarlo cuando quieras. La app no calcula descansos por su cuenta.</p>
     <p>Orientativo: en fuerza con cargas altas suelen recomendarse 2-5 min; en hipertrofia, descansos de al menos 1,5-2 min tienden a dar mejores resultados que los muy cortos.</p>`],
   muscle_volume: ['Volumen por músculo', `
     <p>Cada ejercicio tiene un <b>músculo principal</b> y, opcionalmente, <b>secundarios</b>. Cada serie efectiva cuenta <b>1</b> para el principal y <b>0,5</b> para cada secundario (conteo fraccionado).</p>
@@ -993,7 +999,6 @@ function exerciseCard(s, ex, i) {
   ex.sets.forEach((set, j) => {
     const est = isWork(set) ? m.best([set]) : null;
     const isPR = est && prevBest && est > prevBest;
-    if (j > 0) rows += restRowHTML(set, fields.length + 3); // serie + campos + ✓ + ⋯
     rows += `<tr class="${set.done ? 'done' : ''}">
       <td><button class="settype ${set.type}${set.videoId ? ' has-video' : ''}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
       ${fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>` : f === 'rir' ? `<td>${rirSelect(set.rir, i, j)}</td>`
@@ -1001,11 +1006,13 @@ function exerciseCard(s, ex, i) {
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
       <td><button class="icon ghost" data-action="set-menu" data-i="${i}" data-j="${j}" aria-label="Opciones de la serie ${j + 1}: vídeo, compartir, borrar">⋯</button></td>
     </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
-    if (simple) return;
+    const restRow = restRowHTML(ex, i, j, fields.length + 3); // serie + campos + ✓ + ⋯
+    if (simple) { rows += restRow; return; }
     const drop = setDrop(ex.sets, j);
     if (drop != null && drop >= db.settings.dropWarn) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="fatigue">⚠ Rendimiento −${fmt(drop, 0)}% frente a tu mejor serie de hoy: posible fatiga acumulada ${info('drop')}</td></tr>`;
     const mis = rpeRirMismatch(set);
     if (mis != null) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="mismatch">RPE ${fmt(set.rpe)} y RIR ${fmt(set.rir)} no cuadran (RPE ${fmt(set.rpe)} ≈ RIR ${fmt(10 - set.rpe)}): ${mis > 0 ? 'más esfuerzo global que cercanía al fallo' : 'más cerca del fallo de lo que sentiste'} ${info('intensity')}</td></tr>`;
+    rows += restRow; // el descanso va después de los avisos de la serie
   });
 
   const pts = [...before].reverse().map((h) => ({ d: h.sess.date, v: entryStats(h.entry).best })).filter((p) => p.v);
@@ -1173,7 +1180,7 @@ function viewSettings() {
     <div class="card">
       <label>Descanso por defecto entre series (segundos)</label>
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
-      <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). Pulsa <b>«▶ Serie»</b> en el temporizador al empezar la siguiente serie para guardar el descanso exacto; si no, se guarda el tiempo entre las dos ✓ como aproximado (≈). ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (⏱ en la tarjeta del ejercicio).'}</div>
+      <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «⏱ Descanso» bajo cada serie, o pulsa <b>«⏹ Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (⏱ en la tarjeta del ejercicio).'}</div>
     </div>
     ${isSimple() ? '' : `<h2>Intensidad y fatiga</h2>
     <div class="card">
@@ -1484,9 +1491,11 @@ function openPicker() {
 
 /* ---------- Temporizador de descanso ---------- */
 let timer = { end: 0, int: null };
-function startTimer(sec) {
-  if (!sec) return;
-  timer.end = Date.now() + sec * 1000;
+// Con objetivo (sec > 0): cuenta atrás y avisa. Sin objetivo: solo cuenta el tiempo transcurrido.
+function startTimer(sec, stopwatch = false) {
+  if (!sec && !stopwatch) return;
+  timer.start = Date.now();
+  timer.end = sec ? timer.start + sec * 1000 : null;
   $('#timer').classList.remove('hidden', 'over');
   document.body.classList.add('timer-on');
   clearInterval(timer.int);
@@ -1494,6 +1503,9 @@ function startTimer(sec) {
   tickTimer();
 }
 function tickTimer() {
+  const live = $('#rest-live');
+  if (live && ui.rest) live.textContent = fmtSec((Date.now() - ui.rest.start) / 1000) + '…';
+  if (timer.end == null) { $('#timer-label').textContent = 'Descanso'; $('#timer-value').textContent = fmtSec((Date.now() - timer.start) / 1000); return; }
   const left = (timer.end - Date.now()) / 1000;
   const el = $('#timer');
   if (left <= 0 && !el.classList.contains('over')) {
@@ -1525,7 +1537,7 @@ function newSession(fromId, date = ui.day || todayISO()) {
     exercises: src ? src.exercises.map((e) => ({
       id: uid(), exerciseId: e.exerciseId, notes: '', equipment: [...e.equipment],
       // Copia la estructura y cargas de la sesión anterior como punto de partida, sin marcar como hechas.
-      sets: e.sets.map((x) => ({ ...x, done: false, videoId: undefined, doneAt: undefined, restSec: undefined, restSrc: undefined })),
+      sets: e.sets.map((x) => ({ ...x, done: false, videoId: undefined, doneAt: undefined, rest: undefined })),
     })) : [],
   };
   db.sessions.push(s); save(true);
@@ -1549,8 +1561,9 @@ function muscleOptions(sel) {
   return `<option value="" ${!sel ? 'selected' : ''}>— Ninguno (cardio u otros) —</option>` + MUSCLE_KEYS.map((m) => `<option value="${m}" ${sel === m ? 'selected' : ''}>${MUSCLES[m]}</option>`).join('');
 }
 /* ---------- Descansos ----------
- * restSec en una serie = descanso ANTES de esa serie. restSrc: 'timer' (exacto, «▶ Serie»),
- * 'auto' (tiempo entre dos ✓, incluye la ejecución: aproximado) o 'manual'. */
+ * set.rest = descanso DESPUÉS de esa serie, en segundos. Es un dato del usuario: lo escribe en el campo de
+ * la serie o lo rellena el cronómetro (arranca al marcar ✓; «⏹ Parar» escribe el tiempo transcurrido).
+ * Siempre se puede corregir después. */
 const restTarget = (def) => def?.rest ?? (+db.settings.rest || 0);
 function parseRest(v) {
   const t = String(v).trim().replace(',', '.');
@@ -1559,25 +1572,20 @@ function parseRest(v) {
   if (/^\d{1,4}$/.test(t)) return +t;
   return null;
 }
-// Asigna el descanso medido con «▶ Serie» a la serie siguiente (si existe y no tiene uno manual).
-function applyPendingRest(s, i) {
-  const p = ui.restPending;
-  if (!p || p.sid !== s.id || p.i !== i) return;
-  const next = s.exercises[i]?.sets[p.j + 1];
-  if (!next) return; // se aplicará al añadir la serie
-  if (next.restSrc !== 'manual') { next.restSec = p.sec; next.restSrc = 'timer'; }
-  ui.restPending = null;
-}
 function restAvg(sets) {
-  const r = sets.filter((x) => isWork(x) && x.restSec != null);
+  const r = sets.filter((x) => isWork(x) && x.rest != null);
   if (!r.length) return null;
-  const avg = mean(r.map((x) => x.restSec));
-  return { sec: avg, approx: r.some((x) => x.restSrc === 'auto'), txt: (r.some((x) => x.restSrc === 'auto') ? '≈' : '') + fmtSec(avg) };
+  const avg = mean(r.map((x) => x.rest));
+  return { sec: avg, txt: fmtSec(avg) };
 }
-function restRowHTML(set, colspan) {
-  if (set.restSec == null) return '';
-  const approx = set.restSrc === 'auto';
-  return `<tr class="rest-row"><td colspan="${colspan}"><span class="rest${approx ? ' approx' : ''}" title="${approx ? 'Aproximado: tiempo entre las dos ✓ (incluye la ejecución de la serie)' : set.restSrc === 'manual' ? 'Introducido a mano' : 'Medido con «▶ Serie»'}">⏱ ${approx ? '≈' : ''}${fmtSec(set.restSec)} de descanso${set.restSrc === 'manual' ? ' ✎' : ''}</span></td></tr>`;
+// Fila del descanso bajo la serie j: campo editable; se muestra entre series, o tras la última si tiene valor o el cronómetro corre.
+function restRowHTML(ex, i, j, colspan) {
+  const set = ex.sets[j], last = j === ex.sets.length - 1;
+  const running = ui.rest && ui.rest.sid === currentSession()?.id && ui.rest.i === i && ui.rest.j === j;
+  if (last && set.rest == null && !running) return '';
+  return `<tr class="rest-row"><td colspan="${colspan}"><label class="rest-field">⏱ Descanso
+      <input data-rest="${i}:${j}" inputmode="numeric" placeholder="m:ss" value="${set.rest != null ? fmtSec(set.rest) : ''}" aria-label="Descanso después de la serie ${j + 1} (m:ss)">
+      ${running ? '<span class="rest-live" id="rest-live">en marcha…</span>' : ''}</label></td></tr>`;
 }
 const fileSafe = (t) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'usuario';
 // Exportar: ofrece «Compartir o guardar» (en iPhone, Guardar en Archivos) y «Descargar».
@@ -1586,9 +1594,9 @@ function download(name, text, type) {
     '<div class="hint">📱 <b>iPhone:</b> «Compartir o guardar» → Guardar en Archivos. 🤖 <b>Android:</b> «Descargar» (carpeta Descargas).</div>');
 }
 function toCSV() {
-  const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'descanso_s', 'descanso_tipo', 'pct_1rm', 'e1rm', 'indice_estres', 'material', 'notas_ejercicio']];
+  const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'descanso_despues_s', 'pct_1rm', 'e1rm', 'indice_estres', 'material', 'notas_ejercicio']];
   for (const s of sortedSessions().reverse()) for (const e of s.exercises) e.sets.forEach((x, j) => rows.push([
-    s.date, s.title, s.bodyweight, s.readiness, s.sleep, s.stress, (s.factors || []).join(' | '), exById(e.exerciseId)?.name, j + 1, SET_TYPES[x.type], x.w, x.reps, x.rpe, x.rir, x.time, x.dist, x.done ? 'si' : 'no', x.restSec ?? '', x.restSrc || '',
+    s.date, s.title, s.bodyweight, s.readiness, s.sleep, s.stress, (s.factors || []).join(' | '), exById(e.exerciseId)?.name, j + 1, SET_TYPES[x.type], x.w, x.reps, x.rpe, x.rir, x.time, x.dist, x.done ? 'si' : 'no', x.rest ?? '',
     pct1rm(x) ? fmt(pct1rm(x)) : '', e1rm(x) ? fmt(e1rm(x)) : '', stressIndex(x, exById(e.exerciseId)) != null ? fmt(stressIndex(x, exById(e.exerciseId)), 1) : '', e.equipment.map((q) => eqById(q)?.name).join(' | '), j === 0 ? e.notes : '',
   ]));
   return rows.map((r) => r.map((c) => { const v = String(c ?? ''); return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }).join(';')).join('\n');
@@ -1625,7 +1633,7 @@ const actions = {
     s.exercises.push({
       id: uid(), exerciseId: el.dataset.id, notes: '',
       equipment: prev ? [...prev.entry.equipment] : [],
-      sets: prev ? prev.entry.sets.map((x) => ({ ...x, done: false, videoId: undefined, doneAt: undefined, restSec: undefined, restSrc: undefined })) : [{ type: 'E', w: null, reps: null, rpe: null, rir: null, done: false }],
+      sets: prev ? prev.entry.sets.map((x) => ({ ...x, done: false, videoId: undefined, doneAt: undefined, rest: undefined })) : [{ type: 'E', w: null, reps: null, rpe: null, rir: null, done: false }],
     });
     save(); rerender();
     setTimeout(() => document.querySelector(`[data-ex="${s.exercises.length - 1}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
@@ -1652,8 +1660,7 @@ const actions = {
   'add-set': (el) => {
     const ex = currentSession().exercises[+el.dataset.i];
     const last = ex.sets[ex.sets.length - 1];
-    ex.sets.push(last ? { ...last, done: false, videoId: undefined, doneAt: undefined, restSec: undefined, restSrc: undefined, type: last.type === 'C' ? 'E' : last.type } : { type: 'E', w: null, reps: null, rpe: null, rir: null, done: false });
-    applyPendingRest(currentSession(), +el.dataset.i);
+    ex.sets.push(last ? { ...last, done: false, videoId: undefined, doneAt: undefined, rest: undefined, type: last.type === 'C' ? 'E' : last.type } : { type: 'E', w: null, reps: null, rpe: null, rir: null, done: false });
     save(); rerender();
   },
   'del-set': (el) => {
@@ -1672,33 +1679,27 @@ const actions = {
     set.done = !set.done;
     if (set.done) {
       set.doneAt = Date.now();
-      applyPendingRest(s, i);
-      // Sin «▶ Serie»: tiempo entre esta ✓ y la anterior del mismo ejercicio (incluye la ejecución: aproximado).
-      if (j > 0 && set.restSec == null) {
-        const prevDone = ex.sets.slice(0, j).reverse().find((x) => x.doneAt);
-        const gap = prevDone ? set.doneAt - prevDone.doneAt : 0;
-        if (gap > 0 && gap < 30 * 60e3) { set.restSec = Math.round(gap / 1000); set.restSrc = 'auto'; }
-      }
+      // El cronómetro mide el descanso de ESTA serie. Si corría el de otra, se descarta sin rellenar nada
+      // (ese tiempo incluiría la ejecución de la serie).
       ui.rest = { sid: s.id, i, j, start: Date.now() };
     } else {
       delete set.doneAt;
-      if (set.restSrc === 'auto') { delete set.restSec; delete set.restSrc; }
+      if (ui.rest && ui.rest.sid === s.id && ui.rest.i === i && ui.rest.j === j) { ui.rest = null; stopTimer(); }
     }
     save(); rerender();
-    if (set.done) startTimer(restTarget(exById(ex.exerciseId)));
+    if (set.done) startTimer(restTarget(exById(ex.exerciseId)), true);
   },
-  // «▶ Serie» en el temporizador: el descanso exacto termina ahora y pertenece a la serie siguiente.
-  'timer-start-set': () => {
+  // «⏹ Parar»: escribe el tiempo transcurrido en el campo de descanso de la serie (editable después).
+  'timer-save-rest': () => {
     const r = ui.rest;
     stopTimer();
-    if (!r) return;
-    const s = sessionById(r.sid); if (!s) return;
-    const sec = Math.round((Date.now() - r.start) / 1000);
-    ui.restPending = { ...r, sec };
     ui.rest = null;
-    applyPendingRest(s, r.i);
-    save(); if (currentSession()?.id === s.id) rerender();
-    toast(`⏱ Descanso de ${fmtSec(sec)} guardado`);
+    if (!r) return;
+    const s = sessionById(r.sid), set = s?.exercises[r.i]?.sets[r.j];
+    if (!set) return;
+    set.rest = Math.round((Date.now() - r.start) / 1000);
+    save(true); if (currentSession()?.id === s.id) rerender();
+    toast(`⏱ Descanso ${fmtSec(set.rest)} guardado · puedes cambiarlo en la serie`);
   },
   'set-level': (el) => {
     db.settings.level = el.dataset.l;
@@ -1713,16 +1714,6 @@ const actions = {
     if (!v.trim()) delete def.rest;
     else { const sec = parseRest(v); if (sec == null) return alert('Formato no válido. Ejemplos: 2:30 o 150.'); def.rest = sec; }
     save(true); rerender();
-  },
-  'rest-save': (el) => {
-    const set = currentSession().exercises[+el.dataset.i].sets[+el.dataset.j];
-    const sec = parseRest($('#set-rest').value);
-    if (sec == null) return alert('Formato no válido. Ejemplos: 2:30 o 150.');
-    set.restSec = sec; set.restSrc = 'manual'; save(true); rerender(); openSetMenu(+el.dataset.i, +el.dataset.j);
-  },
-  'rest-clear': (el) => {
-    const set = currentSession().exercises[+el.dataset.i].sets[+el.dataset.j];
-    delete set.restSec; delete set.restSrc; save(true); rerender(); openSetMenu(+el.dataset.i, +el.dataset.j);
   },
   'open-eq': (el) => {
     const id = currentSession().exercises[+el.dataset.i].id;
@@ -1868,7 +1859,7 @@ const actions = {
   },
   'filter-eq': (el) => { ui.filterEq = el.dataset.eq; rerender(); },
   'timer-add': (el) => { timer.end += +el.dataset.sec * 1000; $('#timer').classList.remove('over'); tickTimer(); },
-  'timer-stop': () => stopTimer(),
+  'timer-stop': () => { ui.rest = null; stopTimer(); rerender(); },
   'add-equipment': () => {
     const v = $('#new-eq').value.trim(); if (!v) return;
     db.equipment.push({ id: uid(), name: v }); save(); rerender();
@@ -2065,6 +2056,17 @@ document.addEventListener('change', (e) => {
     return;
   }
   // No re-renderizar al salir de un campo numérico: destruiría el campo al que el usuario acaba de pasar.
+  if (t.dataset.rest) {
+    const [i, j] = t.dataset.rest.split(':').map(Number);
+    const s = currentSession(), set = s?.exercises[i]?.sets[j]; if (!set) return;
+    const v = t.value.trim();
+    if (!v) { delete set.rest; t.classList.remove('bad'); save(); return; }
+    const sec = parseRest(v);
+    if (sec == null) { t.classList.add('bad'); toast('Formato de descanso: 2:30 o 150 (segundos)'); return; }
+    set.rest = sec; t.value = fmtSec(sec); t.classList.remove('bad'); save();
+    if (ui.rest && ui.rest.sid === s.id && ui.rest.i === i && ui.rest.j === j) { ui.rest = null; stopTimer(); }
+    return;
+  }
   if (t.dataset.s === 'date' || (t.dataset.set && t.tagName === 'SELECT')) rerender();
   else if (t.dataset.set) { const s = currentSession(); const v = $('#vol'); if (s && v) v.textContent = `${fmt(sessionVolume(s), 0)} kg`; }
 });

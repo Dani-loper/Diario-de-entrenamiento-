@@ -318,8 +318,8 @@ code { font-size: .85em; background: var(--card2); padding: 1px 5px; border-radi
 .rest-edit input { min-height: 40px; }
 
 /* Temporizador con «▶ Serie»: cabe en móviles estrechos */
-.timer button[data-action=timer-start-set] { background: var(--accent-ink); color: var(--accent); font-weight: 700; padding: 6px 12px; white-space: nowrap; }
-.timer.over button[data-action=timer-start-set] { color: var(--warn); }
+.timer button[data-action=timer-save-rest] { background: var(--accent-ink); color: var(--accent); font-weight: 700; padding: 6px 12px; white-space: nowrap; }
+.timer.over button[data-action=timer-save-rest] { color: var(--warn); }
 @media (max-width: 480px) {
   #timer-label { display: none; }
   .timer { gap: 6px; padding: 8px; }
@@ -327,3 +327,9 @@ code { font-size: .85em; background: var(--card2); padding: 1px 5px; border-radi
 }
 /* El aviso flotante no tapa el temporizador */
 body.timer-on .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
+
+/* Campo de descanso bajo cada serie */
+.rest-field { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 4px 40px; font-size: .78rem; color: var(--muted); }
+.rest-field input { width: 76px; min-height: 34px; padding: 4px 8px; text-align: center; font-size: .9rem; }
+.rest-field input.bad { outline: 2px solid var(--danger); }
+.rest-live { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
