@@ -91,6 +91,7 @@ function save(now = false) {
   const id = profiles.active, data = db; // fija el destino: un cambio de usuario no puede desviar la escritura
   const write = () => { try { localStorage.setItem(dataKey(id), JSON.stringify(data)); } catch (e) { alert('No se pudo guardar: ' + e.message); } };
   if (now) write(); else saveTimer = setTimeout(write, 250);
+  if (window.cloudMarkDirty) cloudMarkDirty();
 }
 function switchUser(id) {
   if (!profiles.users.some((u) => u.id === id)) return;
@@ -1028,6 +1029,8 @@ function viewSettings() {
       <div class="muted small" style="margin:8px 0">Los vídeos se guardan dentro de la app y <b>no</b> se incluyen en la copia de seguridad. Para conservarlos, ábrelos desde la serie (⋯) y usa «Guardar en el móvil».</div>
       <button class="danger block" data-action="delete-videos">Borrar todos los vídeos de ${esc(activeUser().name)}</button>
     </div>
+    <h2>Copia en Google Drive</h2>
+    ${window.cloudSettingsHTML ? cloudSettingsHTML() : ''}
     <h2>Copia de seguridad</h2>
     <div class="card">
       <div class="muted small" style="margin-bottom:8px">Los datos viven solo en este dispositivo. Exporta con frecuencia: si borras los datos del navegador (o iOS los purga), se pierden.</div>
@@ -1341,6 +1344,19 @@ function newSession(fromId, date = ui.day || todayISO()) {
   db.sessions.push(s); save(true);
   location.hash = `#/session/${s.id}`;
 }
+// Restaura una copia con todos los usuarios (de un archivo o de Google Drive). Devuelve true si se restauró.
+function restoreAllData(d, origin) {
+  if (d?.type !== 'diario-entreno-todos' || !d.profiles?.users?.length || !d.data) throw new Error('Copia de usuarios incompleta o con otro formato');
+  const names = d.profiles.users.map((u) => u.name).join(', ');
+  const n = Object.values(d.data).reduce((a, x) => a + (x?.sessions?.length || 0), 0);
+  if (!confirm(`Restaurar la copia ${origin}: ${d.profiles.users.length} usuarios (${names}), ${n} sesiones.\nReemplaza TODOS los usuarios y datos de este dispositivo.`)) return false;
+  clearTimeout(saveTimer);
+  for (const u of profiles.users) localStorage.removeItem(dataKey(u.id));
+  for (const u of d.profiles.users) if (d.data[u.id]) localStorage.setItem(dataKey(u.id), JSON.stringify(d.data[u.id]));
+  profiles = { active: d.profiles.users.some((u) => u.id === d.profiles.active) ? d.profiles.active : d.profiles.users[0].id, users: d.profiles.users };
+  saveProfiles(); db = load(); videoGc(); location.hash = '#/users'; rerender();
+  return true;
+}
 const fileSafe = (t) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'usuario';
 function download(name, text, type) {
   const a = document.createElement('a');
@@ -1379,7 +1395,7 @@ const actions = {
     deleteVideos(setsWithVideo(s));
     db.sessions = db.sessions.filter((x) => x.id !== s.id); save(true); closeModal(); location.hash = '#/';
   },
-  'finish-session': () => { const s = currentSession(); s.endedAt = Date.now(); save(true); stopTimer(); rerender(); },
+  'finish-session': () => { const s = currentSession(); s.endedAt = Date.now(); save(true); stopTimer(); rerender(); if (window.cloudOnFinish) cloudOnFinish(); },
   'reopen-session': () => { const s = currentSession(); s.endedAt = null; save(true); rerender(); },
   'add-exercise': () => openPicker(),
   'pick-exercise': (el) => {
@@ -1752,17 +1768,7 @@ document.addEventListener('change', (e) => {
   if (t.id === 'import-file' && t.files[0]) {
     t.files[0].text().then((txt) => {
       const d = JSON.parse(txt);
-      if (d.type === 'diario-entreno-todos') {
-        if (!d.profiles?.users?.length || !d.data) throw new Error('Copia de usuarios incompleta');
-        const names = d.profiles.users.map((u) => u.name).join(', ');
-        if (!confirm(`Restaurar ${d.profiles.users.length} usuarios (${names})?\nReemplaza TODOS los usuarios y datos de este dispositivo.`)) return;
-        clearTimeout(saveTimer);
-        for (const u of profiles.users) localStorage.removeItem(dataKey(u.id));
-        for (const u of d.profiles.users) if (d.data[u.id]) localStorage.setItem(dataKey(u.id), JSON.stringify(d.data[u.id]));
-        profiles = { active: d.profiles.users.some((u) => u.id === d.profiles.active) ? d.profiles.active : d.profiles.users[0].id, users: d.profiles.users };
-        saveProfiles(); db = load(); videoGc(); location.hash = '#/users'; rerender();
-        return;
-      }
+      if (d.type === 'diario-entreno-todos') { restoreAllData(d, 'del archivo'); return; }
       if (!d.sessions || !d.exercises || !d.equipment) throw new Error('Formato no reconocido');
       if (!confirm(`Importar ${d.sessions.length} sesiones en ${activeUser().name}? Reemplaza sus datos actuales.`)) return;
       db = normalize(d); save(true); videoGc(); rerender();

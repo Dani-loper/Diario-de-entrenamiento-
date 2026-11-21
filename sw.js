@@ -1,6 +1,6 @@
 // Caché del "app shell" para que funcione sin conexión (el gimnasio suele tener mala cobertura).
-const CACHE = 'diario-v8';
-const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'pdf.js', 'media.js', 'vendor/jspdf.umd.min.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'diario-v9';
+const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'pdf.js', 'media.js', 'cloud.js', 'config.js', 'vendor/jspdf.umd.min.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -10,7 +10,9 @@ self.addEventListener('activate', (e) => {
 });
 // Red primero (para recibir actualizaciones), caché como respaldo.
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  // Solo archivos de la propia app. Las peticiones a Google (inicio de sesión, Drive) van directas a la red
+  // y nunca se guardan en caché: contienen datos personales.
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request).then((r) => {
       const copy = r.clone();

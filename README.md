@@ -16,6 +16,7 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
 - **Vídeo por serie** (menú ⋯ de la serie): grabar o elegir un vídeo, que se guarda en el almacenamiento interno de la app (IndexedDB) y se puede reproducir, cambiar, borrar o «Guardar en el móvil». Los vídeos no entran en la copia de seguridad JSON; Ajustes muestra el espacio usado.
 - **Compartir una serie**: vídeo con los datos superpuestos (re-codificado en el móvil; MP4 si el navegador lo permite), imagen 4:5 con los datos (con un fotograma del vídeo si lo hay) o texto. No incluye el nombre del atleta.
 - **Técnica en YouTube**: búsqueda del ejercicio en YouTube y un vídeo de referencia guardado para cada ejercicio (solo enlaces https).
+- **Copia en Google Drive** (Ajustes): copia de todos los usuarios en la carpeta «Diario de entrenamiento» del Drive del usuario, automática al finalizar cada sesión y tras los cambios mientras el acceso está vigente; restauración en otro dispositivo; detección de conflictos entre dispositivos. Permiso `drive.file`: la app solo ve sus propios archivos. Los vídeos no se suben.
 - **Fatiga**: aviso de caída de rendimiento entre series (1RM estimado ≥10% por debajo de la mejor serie del día) y recuento de series al fallo, con RIR 0 o RPE ≥ 9,5.
 - **Carga interna** de la sesión (sRPE × minutos, método de Foster).
 - **Ayuda ⓘ** junto a los términos técnicos (RPE, RIR, 1RM estimado, volumen, carga interna, error estándar, correlación…), que abre una explicación.
@@ -44,6 +45,17 @@ Los datos se guardan solo en el navegador del dispositivo: **exporta copias de s
 - Foster et al. (2001): sRPE × duración como carga interna.
 - Tabla RTS (M. Tuchscherer, Reactive Training Systems): %1RM según reps + RIR. Celdas contrastadas: 1@10=100, 1@9,5=97,8, 1@9=95,5, 2@10=95,5, 3@10=92,2, 5@10=86,3, 5@8=81,1.
 - Índice de estrés: concepto de M. Tuchscherer; valores difundidos por PowerExplosive y Vitónica. No está validado en literatura revisada por pares.
+
+## Configurar la copia en Google Drive
+La copia en Drive necesita un ID de cliente OAuth de Google (gratuito). No es secreto: identifica la app ante Google.
+
+1. En [Google Cloud Console](https://console.cloud.google.com/) crea un proyecto.
+2. **APIs y servicios → Biblioteca**: activa **Google Drive API**.
+3. **Google Auth Platform / Pantalla de consentimiento**: tipo **Externo**; nombre de la app, correo de asistencia y, en *Acceso a datos*, el permiso `.../auth/drive.file` (no sensible).
+4. **Clientes → Crear cliente → Aplicación web**. En *Orígenes de JavaScript autorizados* añade la URL donde está publicada la app (p. ej. `https://usuario.github.io`; sin ruta ni barra final) y `http://localhost:8000` si pruebas en local.
+5. Copia el ID (`….apps.googleusercontent.com`) en `config.js` → `googleClientId`, y publica.
+
+**Estado de publicación:** mientras la app esté en *Prueba*, solo pueden usarla los usuarios de prueba que añadas (máximo 100), Google les muestra un aviso y su autorización caduca a los 7 días. Para uso real, pásala a *En producción*; con solo `drive.file` (no sensible) no hace falta la verificación de permisos sensibles.
 
 ## Dependencias incluidas
 - [jsPDF](https://github.com/parallax/jsPDF) 4.2.1 (MIT), en `vendor/`, cargado solo al generar un PDF. Licencia en `vendor/jspdf.LICENSE`.
