@@ -98,7 +98,7 @@ function allData() {
   save(true);
   const data = {};
   for (const u of profiles.users) data[u.id] = u.id === profiles.active ? db : readUserData(u.id);
-  return { type: 'diario-entreno-todos', version: 1, exportedAt: new Date().toISOString(), device: deviceId(), profiles, data };
+  return { type: 'diario-entreno-todos', version: 1, exportedAt: new Date().toISOString(), device: deviceId(), profiles, data, templates: window.tplList ? tplList() : [] };
 }
 function deviceId() {
   if (!cloud.st.device) { cloud.st.device = uid(); cloudSave(); }

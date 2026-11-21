@@ -246,7 +246,8 @@ function e1rm(set) {
   const p = pct1rm(set);
   return p ? set.w / (p / 100) : null;
 }
-const isWork = (s) => s.type !== 'C';
+// Serie efectiva: no es calentamiento y, si viene de una tabla (tiene objetivo), ya está confirmada con ✓.
+const isWork = (s) => s.type !== 'C' && !(s.target && !s.done);
 function sessionVolume(sess) {
   let v = 0;
   for (const ex of sess.exercises) for (const s of ex.sets) if (isWork(s) && s.w && s.reps) v += s.w * s.reps;
@@ -290,9 +291,9 @@ function route() {
 function render() {
   const r = route();
   document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active',
-    a.dataset.tab === (r.name === 'session' ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis', 'report'].includes(r.name) ? 'exercises' : r.name)));
+    a.dataset.tab === (['session', 'templates', 'template'].includes(r.name) ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis', 'report'].includes(r.name) ? 'exercises' : r.name)));
   const app = $('#app');
-  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport }[r.name] || viewCalendar;
+  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
   const u = activeUser();
   const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
   app.innerHTML = bar + view(r.id);
@@ -684,6 +685,16 @@ const GLOSSARY = {
     <p>Multiplicado por la duración da la <b>carga interna</b> en unidades arbitrarias (UA): 60 min × sRPE 7 = 420 UA. Sirve para comparar sesiones de tipos distintos y vigilar cambios bruscos de carga semana a semana.</p>`],
   load: ['Carga interna (UA)', `<p><b>sRPE × minutos</b> de sesión, en unidades arbitrarias (UA). Combina cuánto duró y lo dura que fue. Su valor absoluto importa poco: es útil para comparar entre sesiones y semanas tuyas.</p>`],
   readiness: ['Energía al empezar (readiness)', `<p>Cómo de preparado te sientes antes de entrenar, de 1 (muy bajo) a 5 (muy alto). Es subjetivo, pero en el análisis de factores se cruza con tu rendimiento real para ver si te sirve como predictor.</p>`],
+  templates: ['Tablas de ejercicios', `
+    <p>Plantillas de sesión: ejercicios con sus series y lo que hay que hacer en cada una (repeticiones o rango, RIR y %1RM), más un descanso objetivo e indicaciones.</p>
+    <p>Al cargarlas en una sesión, <b>los campos se rellenan</b> con lo prescrito y el peso se calcula con el <b>1RM estimado del atleta</b> (redondeado a 2,5 kg). Cada ejercicio muestra su objetivo 🎯 para comparar.</p>
+    <p>Las series cargadas son <b>planificadas</b>: no cuentan en volumen, récords ni informes hasta que las marcas con ✓, para que lo planificado no se confunda con lo hecho. Corrige lo que cambie antes de marcarlas.</p>
+    <p>El descanso de la tabla es el objetivo del cronómetro; el campo de descanso lo rellenas tú.</p>
+    <p>Las tablas son <b>comunes a todos los usuarios</b> del dispositivo y entran en la copia de seguridad.</p>`],
+  tpl_pct: ['%1RM en una tabla', `
+    <p>Porcentaje del 1RM estimado del atleta con el que se calcula el peso. Usa el mejor 1RM estimado de los últimos 120 días (si no hay, el histórico).</p>
+    <p>Si lo dejas vacío, se deduce de las <b>repeticiones mínimas + RIR</b> con la tabla RTS (p. ej. 8 reps @ RIR 2 ≈ 74%), y se marca con *.</p>
+    <p>Sin historial del ejercicio no hay 1RM estimado: el peso queda vacío para que lo escribas.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -818,7 +829,9 @@ function viewCalendar() {
     <div class="grid2">
       <button class="primary" data-action="new-session">＋ Nueva sesión</button>
       <button data-action="repeat-session" ${db.sessions.length ? '' : 'disabled'}>↻ Repetir…</button>
-    </div><div style="height:12px"></div>`;
+    </div>
+    <button class="block" style="margin-top:8px" data-action="tpl-choose" data-mode="new">📋 Nueva sesión desde una tabla</button>
+    <div style="height:12px"></div>`;
   const daySessions = (byDay[sel] || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   html += daySessions.map(sessionCard).join('') || '<div class="muted" style="padding:8px 0 16px">Sin sesiones este día.</div>';
   const recent = sortedSessions().filter((s) => s.date !== sel).slice(0, 3);
@@ -862,7 +875,7 @@ function viewSession(id) {
 
   s.exercises.forEach((ex, i) => { html += exerciseCard(s, ex, i); });
 
-  html += `<button class="block" data-action="add-exercise">＋ Añadir ejercicio</button>
+  html += `<div class="grid2"><button data-action="add-exercise">＋ Añadir ejercicio</button><button data-action="tpl-choose" data-mode="add">📋 Desde tabla</button></div>
     ${s.exercises.length ? sessionSummary(s) : ''}
     <div class="card" style="margin-top:12px">
       <label>Notas finales de la sesión</label>
@@ -1002,7 +1015,7 @@ function exerciseCard(s, ex, i) {
     rows += `<tr class="${set.done ? 'done' : ''}">
       <td><button class="settype ${set.type}${set.videoId ? ' has-video' : ''}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
       ${fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>` : f === 'rir' ? `<td>${rirSelect(set.rir, i, j)}</td>`
-        : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${simple ? '' : f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
+        : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${simple ? '' : f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${set.type === 'C' ? '' : pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
       <td><button class="icon ghost" data-action="set-menu" data-i="${i}" data-j="${j}" aria-label="Opciones de la serie ${j + 1}: vídeo, compartir, borrar">⋯</button></td>
     </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
@@ -1036,6 +1049,7 @@ function exerciseCard(s, ex, i) {
     </div>`}
     ${prev ? `<div class="prev">Anterior (${fmtDate(prev.sess.date)}): ${esc(setsText(prev.entry, prev.entry.sets))}${prev.entry.equipment.length ? ' · ' + esc(prev.entry.equipment.map((x) => eqById(x)?.name).filter(Boolean).join(', ')) : ''}</div>
       ${prev.entry.notes ? `<div class="prev">📝 ${esc(prev.entry.notes)}</div>` : ''}` : '<div class="prev">Primera vez que registras este ejercicio.</div>'}
+    ${ex.tplName ? targetLineHTML(ex, def) : ''}
     ${chartOpen && !simple ? `<div class="insight">
       ${lastPts.length >= 2 ? `<div class="muted small">${m.label} por sesión (últimas ${lastPts.length})</div>${chart(lastPts)}` : '<div class="muted small">La gráfica aparece a partir de 2 sesiones con datos.</div>'}
       <div class="stats">
@@ -1049,7 +1063,7 @@ function exerciseCard(s, ex, i) {
     <div class="chips" style="margin-top:8px">
       ${simple ? '' : (open ? db.equipment : eqSel).map((e) => `<button class="chip ${ex.equipment.includes(e.id) ? 'on' : ''}" data-action="toggle-eq" data-i="${i}" data-eq="${e.id}">${esc(e.name)}</button>`).join('')}
       ${simple ? '' : `<button class="chip" data-action="open-eq" data-i="${i}">${open ? 'Listo' : '＋ Material'}</button>`}
-      ${simple || open ? '' : `<button class="chip" data-action="rest-target" data-id="${def.id}" title="Descanso objetivo de este ejercicio">⏱ ${fmtSec(restTarget(def))}${def.rest != null ? '' : ' (general)'}</button>`}
+      ${simple || open ? '' : `<button class="chip" data-action="rest-target" data-id="${def.id}" title="Descanso objetivo de este ejercicio">⏱ ${fmtSec(ex.restTarget ?? restTarget(def))}${ex.restTarget != null ? ' (tabla)' : def.rest != null ? '' : ' (general)'}</button>`}
       ${open ? '' : `<button class="chip" data-action="yt" data-id="${def.id}">▶ Técnica${def.refUrl ? ' ★' : ''}</button>`}
     </div>
     ${simple ? '' : `<div class="row" style="margin-top:8px"><button class="chip" data-action="cycle-intensity" data-i="${i}">Intensidad: <b>${INTENSITY[intensityOf(def)]}</b> ⇄</button>${info('intensity')}</div>`}
@@ -1465,15 +1479,16 @@ function closeModal() { if (modal.open) modal.close(); }
 modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
 function pickerHTML(q = '') {
-  const ql = q.trim().toLowerCase();
-  const items = db.exercises.filter((e) => e.name.toLowerCase().includes(ql));
+  // Sin distinguir tildes ni mayúsculas («biceps» encuentra «Bíceps»).
+  const ql = norm(q.trim());
+  const items = db.exercises.filter((e) => norm(e.name).includes(ql));
   let list = '';
   for (const key of [...MUSCLE_KEYS, null]) {
     const its = items.filter((e) => (e.primary || null) === key).sort((a, b) => a.name.localeCompare(b.name));
     if (!its.length) continue;
     list += `<div class="picker-cat">${key ? MUSCLES[key] : 'Sin músculo (cardio y otros)'}</div>` + its.map((e) => `<button data-action="pick-exercise" data-id="${e.id}">${esc(e.name)}</button>`).join('');
   }
-  const exact = db.exercises.some((e) => e.name.toLowerCase() === ql);
+  const exact = db.exercises.some((e) => norm(e.name) === ql);
   return `${list || '<div class="muted">Sin resultados.</div>'}
     ${ql && !exact ? `<div class="card" style="margin-top:10px"><b>Crear «${esc(q.trim())}»</b>
       <div class="grid2" style="margin-top:8px">
@@ -1554,6 +1569,7 @@ function restoreAllData(d, origin) {
   for (const u of profiles.users) localStorage.removeItem(dataKey(u.id));
   for (const u of d.profiles.users) if (d.data[u.id]) localStorage.setItem(dataKey(u.id), JSON.stringify(d.data[u.id]));
   profiles = { active: d.profiles.users.some((u) => u.id === d.profiles.active) ? d.profiles.active : d.profiles.users[0].id, users: d.profiles.users };
+  if (Array.isArray(d.templates) && window.tplSaveAll) tplSaveAll(d.templates);
   saveProfiles(); db = load(); videoGc(); location.hash = '#/users'; rerender();
   return true;
 }
@@ -1571,6 +1587,22 @@ function parseRest(v) {
   if ((m = /^(\d{1,3}):([0-5]?\d)$/.exec(t))) return +m[1] * 60 + +m[2];
   if (/^\d{1,4}$/.test(t)) return +t;
   return null;
+}
+// Objetivo de la tabla: agrupa series consecutivas con el mismo objetivo («3× 8-12 @ RIR 2 · 75%»).
+function targetLineHTML(ex, def) {
+  const simple = isSimple(), unit = def.mode === 'time' ? ' s' : def.mode === 'dist' ? ' m' : '';
+  const sig = (x) => x.target ? `${x.type === 'C' ? 'Calent. ' : ''}${x.target.reps || '–'}${unit}${x.target.rir != null ? ` @ RIR ${x.target.rir}` : ''}${x.target.pct && !simple ? ` · ${fmt(x.target.pct, 0)}%${x.target.auto ? '*' : ''}` : ''}` : null;
+  const parts = []; let prev = null, n = 0;
+  for (const x of ex.sets) { const s = sig(x); if (!s) continue; if (s === prev) n++; else { if (prev) parts.push(`${n}× ${prev}`); prev = s; n = 1; } }
+  if (prev) parts.push(`${n}× ${prev}`);
+  if (!parts.length) return '';
+  const noE1 = def.mode === 'wr' && ex.sets.some((x) => x.target?.pct && x.w == null);
+  const pending = ex.sets.filter((x) => x.target && !x.done).length;
+  return `<div class="target">🎯 <b>${esc(ex.tplName)}</b>: ${parts.map(esc).join(' · ')}${ex.restTarget != null ? ` · ⏱ ${fmtSec(ex.restTarget)}` : ''}
+    ${ex.tplNote ? `<br>📌 ${esc(ex.tplNote)}` : ''}
+    ${noE1 ? '<br><span class="mismatch">Sin 1RM estimado de este ejercicio: escribe el peso.</span>' : ''}
+    ${pending ? `<br><span class="muted">${pending} serie${pending === 1 ? '' : 's'} planificada${pending === 1 ? '' : 's'}: cuenta${pending === 1 ? '' : 'n'} al marcar ✓.</span>` : ''}
+    ${ex.sets.some((x) => x.target?.auto) && !simple ? `<br><span class="muted">* % deducido de reps + RIR ${info('tpl_pct')}</span>` : ''}</div>`;
 }
 function restAvg(sets) {
   const r = sets.filter((x) => isWork(x) && x.rest != null);
@@ -1614,6 +1646,7 @@ const actions = {
   'session-menu': () => openModal(`<div class="row"><h3 class="spacer">Sesión</h3><button class="ghost" data-action="close-modal">✕</button></div>
       <div style="display:grid;gap:8px;margin-top:10px">
         <button data-action="duplicate-session">Duplicar como nueva sesión de hoy</button>
+        <button data-action="tpl-from-session">📋 Guardar como tabla</button>
         <button class="danger" data-action="delete-session">Borrar sesión</button>
       </div>`),
   'duplicate-session': () => { const s = currentSession(); closeModal(); newSession(s.id, todayISO()); },
@@ -1687,7 +1720,7 @@ const actions = {
       if (ui.rest && ui.rest.sid === s.id && ui.rest.i === i && ui.rest.j === j) { ui.rest = null; stopTimer(); }
     }
     save(); rerender();
-    if (set.done) startTimer(restTarget(exById(ex.exerciseId)), true);
+    if (set.done) startTimer(ex.restTarget ?? restTarget(exById(ex.exerciseId)), true);
   },
   // «⏹ Parar»: escribe el tiempo transcurrido en el campo de descanso de la serie (editable después).
   'timer-save-rest': () => {
@@ -2032,7 +2065,7 @@ document.addEventListener('input', (e) => {
       if (f === 'rir' && set.rir != null && set.rpe == null && set.rir <= 4) set.rpe = 10 - set.rir;
     }
     save();
-    const cap = $(`#cap-${i}-${j}`); if (cap) cap.textContent = pctTxt(set);
+    const cap = $(`#cap-${i}-${j}`); if (cap) cap.textContent = set.type === 'C' ? '' : pctTxt(set);
     const sic = $(`#si-${i}-${j}`); if (sic) sic.textContent = siTxt(set, exById(s.exercises[+i].exerciseId));
   }
 });

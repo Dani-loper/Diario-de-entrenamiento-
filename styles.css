@@ -333,3 +333,9 @@ body.timer-on .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
 .rest-field input { width: 76px; min-height: 34px; padding: 4px 8px; text-align: center; font-size: .9rem; }
 .rest-field input.bad { outline: 2px solid var(--danger); }
 .rest-live { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Tablas */
+.target { margin-top: 6px; padding: 8px 10px; border-radius: 10px; font-size: .82rem; line-height: 1.5;
+  background: color-mix(in srgb, var(--accent) 10%, var(--card2)); border-left: 3px solid var(--accent); }
+.tpl-sets input, .tpl-sets select { min-height: 40px; }
+.tpl-sets input.bad, .tpl-sets select.bad, [data-tpl].bad { outline: 2px solid var(--danger); }
