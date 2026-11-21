@@ -3,10 +3,23 @@
 PWA (app web instalable) para registrar sesiones de musculación y fitness desde el móvil. Sin dependencias ni compilación; funciona sin conexión.
 
 ## Funciones
+- **Usuarios** (perfiles locales, pensados para entrenadores): cada usuario tiene sus propias sesiones, catálogo, material y ajustes. La pantalla de usuarios permite crear, editar, cambiar y borrar (confirmando con el nombre), y el usuario activo está siempre visible arriba. Se puede exportar e importar la copia de todos los usuarios en un solo archivo. Los datos de versiones anteriores se migran al usuario «Yo».
 - **Calendario** como pantalla de inicio: puntos en los días con sesión, crear sesión en el día seleccionado (hoy por defecto) y **buscador** (ejercicio, notas, material, sensaciones; sin importar tildes).
 - **Antes de empezar** (opcional): peso corporal, sueño, energía, estrés, factores rápidos (dormí mal, estrés, molestias, cafeína…), sensaciones y observaciones.
 - **Datos en el registro de series**: 1RM/volumen de hoy frente a la vez anterior, récord previo y gráfica desplegable (📈).
 - **Resumen de sesión**: volumen, series, reps, RPE medio, récords, barras por ejercicio y grupo, y tendencia frente a sesiones con el mismo nombre.
+- **Intensidad por ejercicio con RPE, RIR o ambos**: la app recuerda el modo de cada ejercicio. En modo combinado propone uno a partir del otro (RPE ≈ 10 − RIR) y avisa si no cuadran. El 1RM estimado usa el RIR con prioridad.
+- **Intensidad relativa (%1RM)** por serie con la tabla RTS de Tuchscherer (repeticiones + RIR). Solo de 1 a 12 repeticiones y RIR 0–3,5; fuera de ese rango no se calcula. El 1RM estimado sale de la misma tabla.
+- **Índice de estrés (Stress Index)** como sistema de cuantificación de cada sesión (o por defecto en Ajustes): multiarticular 1,4 − 0,2·RIR y monoarticular 1,3 − 0,2·RIR (RIR 0–5), con el índice por serie, ejercicio y grupo muscular.
+- **Análisis** con pestañas: factores y rendimiento; carga semanal (índice de estrés por semana y por grupo); intensidad (zonas de %1RM y %1RM medio semanal).
+- **Informe de evolución en PDF** (Progreso → Informe): periodo de 1, 3, 6 o 12 meses; resumen con comparación frente al periodo anterior; evolución por ejercicio (media de las 2 primeras frente a las 2 últimas sesiones, con gráfica); carga semanal (solo semanas completas); reparto por grupo y por zona de %1RM; bienestar, peso corporal y comentarios del entrenador. El PDF se genera en el propio móvil con jsPDF (también en iPhone) y se comparte o descarga; queda además la opción de imprimir.
+- **Vídeo por serie** (menú ⋯ de la serie): grabar o elegir un vídeo, que se guarda en el almacenamiento interno de la app (IndexedDB) y se puede reproducir, cambiar, borrar o «Guardar en el móvil». Los vídeos no entran en la copia de seguridad JSON; Ajustes muestra el espacio usado.
+- **Compartir una serie**: vídeo con los datos superpuestos (re-codificado en el móvil; MP4 si el navegador lo permite), imagen 4:5 con los datos (con un fotograma del vídeo si lo hay) o texto. No incluye el nombre del atleta.
+- **Técnica en YouTube**: búsqueda del ejercicio en YouTube y un vídeo de referencia guardado para cada ejercicio (solo enlaces https).
+- **Fatiga**: aviso de caída de rendimiento entre series (1RM estimado ≥10% por debajo de la mejor serie del día) y recuento de series al fallo, con RIR 0 o RPE ≥ 9,5.
+- **Carga interna** de la sesión (sRPE × minutos, método de Foster).
+- **Ayuda ⓘ** junto a los términos técnicos (RPE, RIR, 1RM estimado, volumen, carga interna, error estándar, correlación…), que abre una explicación.
+- **Factores y rendimiento** (Progreso → 🔬): rendimiento relativo de cada sesión frente a la mediana de ±6 semanas de cada ejercicio, comparado por factor marcado, sueño, energía y estrés, con un criterio de ±2 errores estándar.
 - **Ejercicios manuales**: crear/editar desde Progreso o Ajustes, además del catálogo por defecto.
 - **Sesiones**: fecha, nombre, peso corporal, energía (1-5), horas de sueño, notas, RPE de sesión y duración automática.
 - **Ejercicios** con catálogo editable (pierna, empuje, tirón, halterofilia, core, cardio…) y cuatro tipos de registro: peso×reps, peso corporal (+lastre), tiempo y distancia.
@@ -23,4 +36,14 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
 Sírvelo por HTTPS (p. ej. GitHub Pages: Settings → Pages → rama y carpeta raíz) y en el móvil usa «Añadir a pantalla de inicio».
 En local: `python3 -m http.server` y abre http://localhost:8000.
 
-Los datos se guardan solo en el navegador del dispositivo: **exporta copias de seguridad con regularidad**.
+Los datos se guardan solo en el navegador del dispositivo: **exporta copias de seguridad con regularidad** (Ajustes → Exportar todos los usuarios). No hay sincronización entre dispositivos: el usuario no puede apuntar desde su propio móvil.
+
+## Base científica
+- Zourdos et al. (2016): escala RPE basada en repeticiones en reserva (RPE ≈ 10 − RIR).
+- Precisión del RIR: mejor cerca del fallo y con pocas repeticiones; se suele infraestimar lejos del fallo (Helms, Zourdos y colaboradores).
+- Foster et al. (2001): sRPE × duración como carga interna.
+- Tabla RTS (M. Tuchscherer, Reactive Training Systems): %1RM según reps + RIR. Celdas contrastadas: 1@10=100, 1@9,5=97,8, 1@9=95,5, 2@10=95,5, 3@10=92,2, 5@10=86,3, 5@8=81,1.
+- Índice de estrés: concepto de M. Tuchscherer; valores difundidos por PowerExplosive y Vitónica. No está validado en literatura revisada por pares.
+
+## Dependencias incluidas
+- [jsPDF](https://github.com/parallax/jsPDF) 4.2.1 (MIT), en `vendor/`, cargado solo al generar un PDF. Licencia en `vendor/jspdf.LICENSE`.
