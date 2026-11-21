@@ -158,12 +158,6 @@ h3.sub { font-size: .85rem; color: var(--muted); font-weight: 600; margin: 14px 
 .bar b { font-variant-numeric: tabular-nums; }
 
 /* Fatiga */
-.vbt { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: center; }
-.vbt input { min-height: 36px !important; font-size: .85rem; }
-.vl { font-size: .72rem; font-weight: 700; padding: 4px 8px; border-radius: 999px; background: var(--card2); color: var(--muted); white-space: nowrap; }
-.vl.low { color: var(--accent); }
-.vl.mid { color: var(--warn); }
-.vl.high { color: #fff; background: var(--danger); }
 .fatigue { font-size: .75rem; color: var(--warn); text-align: left !important; font-weight: 600; }
 .fat { padding: 8px 10px; border-radius: 10px; font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
 .fat.low { background: color-mix(in srgb, var(--accent) 15%, transparent); }
@@ -181,3 +175,27 @@ h3.sub { font-size: .85rem; color: var(--muted); font-weight: 600; margin: 14px 
 .dbar i.pos { background: var(--accent); }
 .dbar i.neg { background: var(--danger); }
 .delta.muted { color: var(--muted); font-weight: 500; }
+
+.mismatch { font-size: .75rem; color: #9f8cff; text-align: left !important; font-weight: 600; }
+
+/* Ayuda ⓘ */
+button.info { position: relative; display: inline-flex; width: 18px; height: 18px; min-height: 0; min-width: 0; padding: 0; margin-left: 3px;
+  border-radius: 50%; font: italic 700 11px/1 Georgia, serif; color: var(--accent); background: transparent; border: 1.5px solid currentColor;
+  vertical-align: middle; text-transform: none; letter-spacing: 0; }
+button.info::after { content: ''; position: absolute; inset: -12px; }
+.gloss { margin-top: 8px; }
+.gloss p, .gloss ul { margin: 8px 0; line-height: 1.5; }
+.gloss ul { padding-left: 20px; }
+.gloss .formula { font-family: ui-monospace, Menlo, monospace; background: var(--card2); padding: 8px 10px; border-radius: 8px; font-size: .9rem; }
+.gt { border-collapse: collapse; width: 100%; font-size: .9rem; }
+.gt th, .gt td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+.gt td:first-child { font-weight: 700; white-space: nowrap; }
+
+/* Columnas compactas en la tabla de series: el peso no debe cortarse */
+.sets td:first-child, .sets th:first-child { width: 36px; }
+.sets .settype { min-width: 34px; padding: 2px; }
+.sets select { min-width: 0; padding-left: 4px; padding-right: 0; }
+.sets td input[data-set$=":w"] { min-width: 56px; }
+.sets .check { min-width: 38px; }
+.sets td:last-child > button.icon { min-width: 28px; padding: 4px 0; }
+.sets th { white-space: nowrap; }

@@ -14,14 +14,14 @@ const fmtSec = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s /
 
 /* Tipos de registro por ejercicio */
 const MODES = {
-  wr: { label: 'Peso × reps', fields: ['w', 'reps', 'rpe'] },
-  bw: { label: 'Peso corporal (+lastre)', fields: ['w', 'reps', 'rpe'] },
-  time: { label: 'Tiempo', fields: ['w', 'time', 'rpe'] },
-  dist: { label: 'Distancia y tiempo', fields: ['dist', 'time', 'rpe'] },
+  wr: { label: 'Peso × reps', fields: ['w', 'reps'] },
+  bw: { label: 'Peso corporal (+lastre)', fields: ['w', 'reps'] },
+  time: { label: 'Tiempo', fields: ['w', 'time'] },
+  dist: { label: 'Distancia y tiempo', fields: ['dist', 'time'] },
 };
 const FIELD = {
   w: { h: 'kg', step: '0.5' }, reps: { h: 'Reps', step: '1' }, time: { h: 'Seg', step: '1' },
-  dist: { h: 'Metros', step: '1' }, rpe: { h: 'RPE' },
+  dist: { h: 'Metros', step: '1' }, rpe: { h: 'RPE' }, rir: { h: 'RIR' },
 };
 const SET_TYPES = { E: 'Efectiva', C: 'Calentamiento', D: 'Drop set', F: 'Al fallo' };
 const CATEGORIES = ['Pierna', 'Empuje', 'Tirón', 'Halterofilia', 'Core', 'Brazos', 'Cardio', 'Otros'];
@@ -45,7 +45,7 @@ function seed() {
     exercises: DEFAULT_EXERCISES.map(([name, cat, mode]) => ({ id: uid(), name, cat, mode: mode || 'wr' })),
     equipment: DEFAULT_EQUIPMENT.map((name) => ({ id: uid(), name })),
     sessions: [],
-    settings: { rest: 120, vlWarn: 20, vlMax: 40, dropWarn: 10 },
+    settings: { rest: 120, dropWarn: 10, intensity: 'rpe' },
   };
 }
 function load() {
@@ -53,7 +53,7 @@ function load() {
   return seed();
 }
 let db = load();
-db.settings = { rest: 120, vlWarn: 20, vlMax: 40, dropWarn: 10, ...db.settings };
+db.settings = { rest: 120, dropWarn: 10, intensity: 'rpe', ...db.settings };
 let saveTimer;
 function save(now = false) {
   clearTimeout(saveTimer);
@@ -73,7 +73,7 @@ const sortedSessions = () => [...db.sessions].sort((a, b) => (b.date + b.created
 // 1RM estimado (Epley), corrigiendo por repeticiones en reserva si hay RPE.
 function e1rm(set) {
   if (!set.w || !set.reps) return null;
-  const rir = set.rpe ? Math.max(0, 10 - set.rpe) : 0;
+  const rir = set.rir != null ? set.rir : set.rpe ? Math.max(0, 10 - set.rpe) : 0;
   const r = set.reps + rir;
   if (r > 15) return null; // poco fiable
   return r === 1 ? set.w : set.w * (1 + r / 30);
@@ -92,7 +92,7 @@ function setsText(ex, sets) {
     else if (mode === 'time') t = (s.w ? `${fmt(s.w)} kg · ` : '') + `${fmtSec(s.time || 0)}`;
     else t = (mode === 'bw' ? (s.w ? `+${fmt(s.w)}` : 'PC') : fmt(s.w)) + `×${s.reps ?? '–'}`;
     if (s.rpe) t += ` @${fmt(s.rpe)}`;
-    if (velLoss(s) != null) t += ` VL${fmt(velLoss(s), 0)}%`;
+    if (s.rir != null) t += ` RIR${s.rir >= 6 ? '6+' : fmt(s.rir)}`;
     if (s.type === 'C') t = `(${t})`;
     if (s.type === 'D') t += ' D';
     return t;
@@ -156,27 +156,18 @@ function delta(now, before) {
   return `<small class="delta ${p > 0 ? 'up' : 'down'}">${p > 0 ? '▲' : '▼'}${fmt(Math.abs(p), 0)}%</small>`;
 }
 /* ---------- Fatiga ----------
- * 1) Pérdida de velocidad intraserie (VL%) = (V mejor rep − V última rep) / V mejor rep.
- *    Referencia: la repetición más rápida (no necesariamente la primera) y velocidad media.
- *    Sánchez-Medina y González-Badillo 2011 (MSSE): VL% correlaciona con lactato (r≈0,93-0,97) y amonio.
- *    Pareja-Blanco 2017: VL20 ≈ misma fuerza que VL40 con 40% menos reps; VL40 más hipertrofia pero
- *    pérdida de fibras IIX y peor salto. Umbrales configurables en Ajustes.
- * 2) Caída de rendimiento entre series: e1RM (corregido por RPE) de la serie frente a la mejor serie
- *    efectiva anterior del mismo ejercicio en la sesión. Proxy sin sensor; depende de un RPE honesto.
+ * Caída de rendimiento entre series: e1RM (corregido por RIR/RPE) de la serie frente a la mejor serie
+ * efectiva anterior del mismo ejercicio en la sesión. No necesita sensor; depende de un RIR/RPE honesto.
  */
-function velLoss(set) {
-  if (!set.vBest || !set.vLast || set.vBest <= 0) return null;
-  return Math.max(0, ((set.vBest - set.vLast) / set.vBest) * 100);
-}
-function vlZone(vl) {
-  if (vl == null) return null;
-  return vl >= db.settings.vlMax ? 'high' : vl >= db.settings.vlWarn ? 'mid' : 'low';
-}
-const VL_LABEL = { low: 'baja', mid: 'moderada', high: 'excesiva' };
-function vlBadge(vl) {
-  if (vl == null) return '<span class="vl">VL –</span>';
-  const z = vlZone(vl);
-  return `<span class="vl ${z}">VL ${fmt(vl, 0)}% · ${VL_LABEL[z]}</span>`;
+const INTENSITY = { rpe: 'RPE', rir: 'RIR', both: 'RPE + RIR' };
+const intensityOf = (def) => def?.intensity || db.settings.intensity || 'rpe';
+const intensityFields = (def) => ({ rpe: ['rpe'], rir: ['rir'], both: ['rpe', 'rir'] }[intensityOf(def)]);
+// RPE y RIR no cuadran (escala RPE ≈ 10 − RIR). Solo en la zona donde la escala es fiable.
+function rpeRirMismatch(set) {
+  if (set.rpe == null || set.rir == null) return null;
+  if (set.rpe < 7 && set.rir > 3) return null;
+  const d = set.rpe - (10 - set.rir);
+  return Math.abs(d) >= 1 ? d : null;
 }
 // Caída del e1RM de la serie j respecto a la mejor serie efectiva anterior del mismo ejercicio.
 function setDrop(sets, j) {
@@ -188,23 +179,16 @@ function setDrop(sets, j) {
   return ((prev - now) / prev) * 100;
 }
 function sessionFatigue(s) {
-  const vls = [], drops = [];
+  const drops = [];
   let nearFail = 0;
   for (const e of s.exercises) {
     e.sets.forEach((x, j) => {
       if (!isWork(x)) return;
-      const vl = velLoss(x); if (vl != null) vls.push(vl);
       const d = setDrop(e.sets, j); if (d != null) drops.push(d);
-      if (x.type === 'F' || (x.rpe && x.rpe >= 9.5)) nearFail++;
+      if (x.type === 'F' || x.rir === 0 || (x.rpe && x.rpe >= 9.5)) nearFail++;
     });
   }
-  return {
-    vls, drops, nearFail,
-    vlMean: vls.length ? vls.reduce((a, b) => a + b, 0) / vls.length : null,
-    vlHigh: vls.filter((v) => vlZone(v) === 'high').length,
-    vlMid: vls.filter((v) => vlZone(v) === 'mid').length,
-    dropHigh: drops.filter((d) => d >= db.settings.dropWarn).length,
-  };
+  return { drops, nearFail, dropHigh: drops.filter((d) => d >= db.settings.dropWarn).length };
 }
 
 /* ---------- Análisis: factores frente a rendimiento ----------
@@ -261,9 +245,9 @@ function viewAnalysis() {
   const rel = relativePerformance();
   const sess = db.sessions.filter((s) => rel[s.id] != null);
   let html = `<div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a></div>
-    <h1>Factores y rendimiento</h1>
+    <h1>Factores y rendimiento ${info('rel_perf')}</h1>
     <div class="card muted small">
-      <b>Cómo se calcula.</b> Para cada ejercicio con peso, el 1RM estimado del día se compara con la mediana de ese ejercicio en las
+      <b>Cómo se calcula.</b> Para cada ejercicio con peso, el 1RM estimado del día se compara con la mediana ${info('median')} de ese ejercicio en las
       ${WINDOW_DAYS / 7} semanas de alrededor (sin contar ese día), y así se descuenta tu progresión. La sesión recibe la media de sus ejercicios.
       Un −3% quiere decir que ese día rendiste un 3% por debajo de lo normal para ti en esas fechas.<br><br>
       «Rindes peor/mejor» aparece solo si la diferencia supera 2 errores estándar (≈ IC 95%) y hay al menos 3 sesiones en cada grupo.
@@ -273,12 +257,12 @@ function viewAnalysis() {
   if (sess.length < 6) {
     return html + `<div class="empty">Hacen falta más datos: hay ${sess.length} sesiones analizables.<br>
       Una sesión es analizable cuando sus ejercicios con peso aparecen al menos 2 veces más en las ${WINDOW_DAYS / 7} semanas de alrededor.
-      Apunta el RPE en las series para que el 1RM estimado sea fiable.</div>`;
+      Apunta el RPE o el RIR en las series para que el 1RM estimado sea fiable.</div>`;
   }
   const all = sess.map((s) => rel[s.id]);
   html += `<div class="card"><div class="stats">
     <div class="stat"><b>${sess.length}</b><span>sesiones analizadas</span></div>
-    <div class="stat"><b>±${fmt(sd(all), 1)}%</b><span>variación típica entre días</span></div>
+    <div class="stat"><b>±${fmt(sd(all), 1)}%</b><span>variación típica entre días ${info('se')}</span></div>
   </div></div>`;
 
   // Factores marcados
@@ -287,7 +271,7 @@ function viewAnalysis() {
     const b = sess.filter((s) => !(s.factors || []).includes(f)).map((s) => rel[s.id]);
     return { f, ...compareGroups(a, b) };
   }).filter((r) => r.na > 0).sort((x, y) => (x.diff ?? 0) - (y.diff ?? 0));
-  html += `<h2>Factores marcados</h2><div class="card">`;
+  html += `<h2>Factores marcados ${info('causation')}</h2><div class="card">`;
   html += rows.length ? rows.map((r) => {
     const [cls, txt] = VERDICT[r.verdict];
     return `<div class="arow"><div><b>${esc(r.f)}</b><div class="muted small">con: ${r.na} · sin: ${r.nb}</div></div>
@@ -320,10 +304,77 @@ function viewAnalysis() {
     const xs = bw.map((s) => s.bodyweight), ys = bw.map((s) => rel[s.id]);
     const mx = mean(xs), my = mean(ys);
     const r = xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / Math.sqrt(xs.reduce((a, x) => a + (x - mx) ** 2, 0) * ys.reduce((a, y) => a + (y - my) ** 2, 0) || 1);
-    html += `<h2>Peso corporal</h2><div class="card"><b>r = ${fmt(r, 2)}</b> <span class="muted small">(n = ${bw.length}).
+    html += `<h2>Peso corporal ${info('corr')}</h2><div class="card"><b>r = ${fmt(r, 2)}</b> <span class="muted small">(n = ${bw.length}).
       ${Math.abs(r) < 0.3 ? 'Relación débil o nula.' : r > 0 ? 'Con más peso corporal tiendes a rendir más.' : 'Con más peso corporal tiendes a rendir menos.'}</span></div>`;
   }
   return html;
+}
+
+/* ---------- Glosario: iconos ⓘ junto a términos técnicos ---------- */
+const GLOSSARY = {
+  rpe: ['RPE · Esfuerzo percibido', `
+    <p><b>RPE</b> (<i>Rating of Perceived Exertion</i>) puntúa de 1 a 10 lo dura que ha sido una serie. En fuerza se usa la versión basada en las repeticiones que te quedaban (Zourdos et al., 2016):</p>
+    <table class="gt"><tr><th>RPE</th><th>Significado</th></tr>
+      <tr><td>10</td><td>Máximo: no podías hacer ni una rep más ni subir peso</td></tr>
+      <tr><td>9,5</td><td>No podías otra rep, pero quizá sí algo más de peso</td></tr>
+      <tr><td>9</td><td>Te quedaba 1 rep</td></tr>
+      <tr><td>8,5</td><td>Quizá 2, seguro 1</td></tr>
+      <tr><td>8</td><td>Te quedaban 2 reps</td></tr>
+      <tr><td>7</td><td>Te quedaban 3 reps</td></tr>
+      <tr><td>≤ 6</td><td>4 o más; esfuerzo ligero o moderado</td></tr></table>
+    <p>Además de la cercanía al fallo, recoge sensaciones globales: respiración, molestias, dificultad técnica. Por eso a veces no cuadra exactamente con el RIR.</p>`],
+  rir: ['RIR · Repeticiones en reserva', `
+    <p><b>RIR</b> (<i>Repetitions In Reserve</i>) es cuántas repeticiones más podrías haber hecho <b>con buena técnica</b>. RIR 0 = fallo; RIR 2 = te quedaban dos.</p>
+    <p><b>Precisión:</b> se estima mejor cerca del fallo y en series de pocas repeticiones. Lejos del fallo (RIR 4 o más) o en series largas se suele <b>infraestimar</b>: crees que te quedan menos de las que en realidad te quedan. Mejora con la práctica; de vez en cuando, comprueba tu estimación llevando una serie segura al fallo.</p>`],
+  intensity: ['RPE, RIR o ambos', `
+    <p>Puedes medir la intensidad de cada ejercicio de tres formas; la app recuerda la elegida para ese ejercicio:</p>
+    <ul><li><b>RPE</b>: esfuerzo percibido (1-10).</li><li><b>RIR</b>: repeticiones que te quedaban.</li>
+    <li><b>RPE + RIR</b>: los dos. Si rellenas uno, la app propone el otro con la equivalencia <b>RPE ≈ 10 − RIR</b>.</li></ul>
+    <p><b>¿Para qué los dos?</b> El RIR mide lo cerca que estás del fallo muscular; el RPE, el esfuerzo global. Si no cuadran (p. ej. RPE 9 con RIR 3), la discrepancia es un dato: puede indicar fatiga general (cardiovascular, sueño), molestias, técnica exigente o que estás estimando mal el RIR.</p>
+    <p>Para el 1RM estimado tiene prioridad el <b>RIR</b>; si no hay, se usa 10 − RPE.</p>`],
+  e1rm: ['1RM estimado', `
+    <p>El <b>1RM</b> es el peso máximo que podrías levantar una vez. Aquí se <b>estima</b> sin probarlo, con la fórmula de Epley corregida por las repeticiones que te quedaban:</p>
+    <p class="formula">1RM ≈ peso × (1 + (reps + RIR) / 30)</p>
+    <p>Ejemplo: 100 kg × 5 con RIR 2 → 100 × (1 + 7/30) ≈ 123 kg.</p>
+    <p><b>Limitaciones:</b> pierde precisión con muchas repeticiones (no se calcula si reps + RIR &gt; 15), depende de que el RIR/RPE sea honesto, y <b>no sirve para movimientos de halterofilia</b> (arrancada, dos tiempos), donde la técnica y la velocidad limitan más que la fuerza. Si no apuntas RPE ni RIR, se asume que llegaste al fallo.</p>`],
+  pr: ['Récord estimado', `<p>La serie da un <b>1RM estimado superior</b> a cualquiera de sesiones anteriores de este ejercicio. No es un récord real de 1 repetición, sino una mejora de tu capacidad estimada.</p>`],
+  volume: ['Volumen (tonelaje)', `
+    <p>Suma de <b>peso × repeticiones</b> de las series efectivas (sin calentamiento). En ejercicios de peso corporal se cuentan repeticiones; en los de tiempo, segundos; en los de distancia, metros.</p>
+    <p><b>Limitación:</b> no tiene en cuenta lo cerca del fallo que estuviste. Para hipertrofia, el número de <b>series efectivas</b> cercanas al fallo por grupo muscular suele ser mejor indicador que los kilos totales.</p>`],
+  work_sets: ['Series efectivas', `<p>Todas las series salvo las de <b>calentamiento</b>. Son las que cuentan para volumen, récords y fatiga.</p>`],
+  set_types: ['Tipos de serie', `
+    <p>Toca el número de la serie para cambiar su tipo:</p>
+    <ul><li><b>1, 2, 3…</b> Efectiva: serie de trabajo normal.</li>
+    <li><b>C</b> Calentamiento: no cuenta para volumen, récords ni fatiga.</li>
+    <li><b>D</b> Drop set: serie que sigue a otra sin descanso, bajando el peso.</li>
+    <li><b>F</b> Al fallo: llevada hasta no poder completar otra repetición.</li></ul>`],
+  drop: ['Caída de rendimiento', `
+    <p>Compara el <b>1RM estimado de esta serie</b> con el de tu <b>mejor serie efectiva anterior</b> del mismo ejercicio en la sesión. Si cae más del umbral (por defecto 10%), es probable que la fatiga se esté acumulando.</p>
+    <p>Ejemplo: serie 1 → 120 kg estimados; serie 3 → 105 kg estimados → caída del 12,5%.</p>
+    <p><b>Fiabilidad:</b> depende totalmente de que apuntes RPE o RIR con honestidad. Mide la fatiga <i>entre</i> series, no dentro de la serie. Una caída puede ser buscada (series de volumen tras una pesada); el aviso es información, no una orden.</p>`],
+  near_fail: ['Series al fallo o cerca', `<p>Series marcadas como <b>F</b>, con <b>RIR 0</b> o con <b>RPE ≥ 9,5</b>. Muchas en una misma sesión elevan la fatiga y el tiempo de recuperación, sin que eso suponga necesariamente más ganancias.</p>`],
+  srpe: ['RPE de la sesión (sRPE)', `
+    <p>Valoración del esfuerzo <b>global</b> de toda la sesión (1-10), idealmente unos 30 minutos después de terminar (método de Foster, 2001).</p>
+    <p>Multiplicado por la duración da la <b>carga interna</b> en unidades arbitrarias (UA): 60 min × sRPE 7 = 420 UA. Sirve para comparar sesiones de tipos distintos y vigilar cambios bruscos de carga semana a semana.</p>`],
+  load: ['Carga interna (UA)', `<p><b>sRPE × minutos</b> de sesión, en unidades arbitrarias (UA). Combina cuánto duró y lo dura que fue. Su valor absoluto importa poco: es útil para comparar entre sesiones y semanas tuyas.</p>`],
+  readiness: ['Energía al empezar (readiness)', `<p>Cómo de preparado te sientes antes de entrenar, de 1 (muy bajo) a 5 (muy alto). Es subjetivo, pero en el análisis de factores se cruza con tu rendimiento real para ver si te sirve como predictor.</p>`],
+  rel_perf: ['Rendimiento relativo', `
+    <p>Para cada ejercicio con peso, compara el <b>1RM estimado del día</b> con la <b>mediana</b> de ese ejercicio en las 6 semanas de alrededor (sin contar ese día):</p>
+    <p class="formula">rendimiento = 1RM est. del día / mediana de su entorno − 1</p>
+    <p>Así se descuenta tu progresión a largo plazo: un −3% significa que ese día rendiste un 3% por debajo de lo normal para ti en esas fechas. La sesión recibe la media de sus ejercicios.</p>`],
+  median: ['Mediana', `<p>El valor central de una lista ordenada. A diferencia de la media, apenas le afecta un día excepcionalmente bueno o malo, por eso se usa como referencia.</p>`],
+  se: ['Error estándar e IC 95%', `
+    <p>El <b>±</b> que acompaña a cada diferencia indica la incertidumbre: con pocas sesiones o mucha variación entre días, el número real podría estar bastante lejos del calculado.</p>
+    <p>Se muestra <b>±2 errores estándar</b>, que equivale aproximadamente a un <b>intervalo de confianza del 95%</b>. «Rindes peor/mejor» solo aparece si la diferencia es mayor que ese margen y hay al menos 3 sesiones en cada grupo.</p>`],
+  corr: ['Correlación (r)', `
+    <p>El coeficiente <b>r de Pearson</b> va de −1 a 1: 1 = cuando una variable sube, la otra también, siempre; −1 = sube una y baja la otra; 0 = sin relación lineal.</p>
+    <p>Orientativo: |r| &lt; 0,3 débil; 0,3-0,5 moderada; &gt; 0,5 fuerte. <b>Correlación no implica causa.</b></p>`],
+  causation: ['Correlación no es causa', `<p>Que rindas peor los días que marcas «Dormí mal» no prueba que el sueño sea la causa: puede coincidir con estrés, peor alimentación… O puedes marcarlo <i>porque</i> la sesión fue mal. Para reducir este sesgo, <b>marca los factores antes de entrenar</b>.</p>`],
+  load_table: ['Tabla de cargas', `<p>Peso aproximado que podrías mover para cada número de repeticiones <b>llevando la serie al fallo</b> (RPE 10 / RIR 0), calculado a partir de tu mejor 1RM estimado con la fórmula de Epley y redondeado a 2,5 kg. Para series a RIR 2, súmale 2 a las repeticiones.</p>`],
+  pct1rm: ['% del 1RM', `<p>Porcentaje de tu 1RM estimado. Es habitual programar por porcentajes: ~80% suele permitir unas 6-8 repeticiones al fallo, aunque varía mucho entre personas y ejercicios.</p>`],
+};
+function info(k) {
+  return `<button class="info" data-action="info" data-k="${k}" aria-label="Qué es: ${esc(GLOSSARY[k]?.[0] || k)}">i</button>`;
 }
 
 const sortKey = (s) => s.date + s.createdAt;
@@ -430,7 +481,7 @@ function viewSession(id) {
       <div class="grid2" style="margin-top:10px">
         <div><label>Peso corporal (kg)</label><input type="number" inputmode="decimal" step="0.1" data-s="bodyweight" value="${s.bodyweight ?? ''}"></div>
         <div><label>Horas de sueño</label><input type="number" inputmode="decimal" step="0.5" data-s="sleep" value="${s.sleep ?? ''}"></div>
-        <div><label>Energía (1 baja – 5 alta)</label>${scaleSelect('readiness', s.readiness, 1, 5)}</div>
+        <div><label>Energía (1 baja – 5 alta) ${info('readiness')}</label>${scaleSelect('readiness', s.readiness, 1, 5)}</div>
         <div><label>Estrés (1 bajo – 5 alto)</label>${scaleSelect('stress', s.stress, 1, 5)}</div>
       </div>
       <label style="margin-top:10px">Factores que pueden influir</label>
@@ -451,7 +502,7 @@ function viewSession(id) {
       <label>Notas finales de la sesión</label>
       <textarea data-s="notes" placeholder="Cómo fue, qué cambiar la próxima vez…">${esc(s.notes)}</textarea>
       <div style="height:8px"></div>
-      <label>RPE de la sesión (esfuerzo global 1-10)</label>${scaleSelect('srpe', s.srpe, 1, 10)}
+      <label>RPE de la sesión (esfuerzo global 1-10) ${info('srpe')}</label>${scaleSelect('srpe', s.srpe, 1, 10)}
     </div>
     ${s.endedAt
       ? `<button class="block" data-action="reopen-session">Reabrir sesión (seguir cronometrando)</button>`
@@ -463,6 +514,8 @@ function sessionSummary(s) {
   const all = s.exercises.flatMap((e) => e.sets.filter(isWork));
   const reps = all.reduce((a, x) => a + (x.reps || 0), 0);
   const rpes = all.map((x) => x.rpe).filter(Boolean);
+  const rirs = all.map((x) => x.rir).filter((x) => x != null);
+  const mins = Math.round(((s.endedAt || Date.now()) - s.startedAt) / 60000);
   let records = 0;
   const volEx = [], catSets = {};
   for (const e of s.exercises) {
@@ -485,11 +538,13 @@ function sessionSummary(s) {
 
   return `<h2>Resumen de la sesión</h2><div class="card">
     <div class="stats">
-      <div class="stat"><b>${fmt(vol, 0)} kg ${prev ? delta(volIn(s, common), volIn(prev, common)) : ''}</b><span>volumen</span></div>
-      <div class="stat"><b>${all.length}</b><span>series efectivas</span></div>
+      <div class="stat"><b>${fmt(vol, 0)} kg ${prev ? delta(volIn(s, common), volIn(prev, common)) : ''}</b><span>volumen ${info('volume')}</span></div>
+      <div class="stat"><b>${all.length}</b><span>series efectivas ${info('work_sets')}</span></div>
       <div class="stat"><b>${reps}</b><span>reps</span></div>
-      <div class="stat"><b>${rpes.length ? fmt(rpes.reduce((a, b) => a + b, 0) / rpes.length) : '–'}</b><span>RPE medio</span></div>
-      <div class="stat"><b>${records ? '★ ' + records : '0'}</b><span>récords</span></div>
+      ${rpes.length ? `<div class="stat"><b>${fmt(mean(rpes))}</b><span>RPE medio ${info('rpe')}</span></div>` : ''}
+      ${rirs.length ? `<div class="stat"><b>${fmt(mean(rirs))}</b><span>RIR medio ${info('rir')}</span></div>` : ''}
+      <div class="stat"><b>${records ? '★ ' + records : '0'}</b><span>récords ${info('pr')}</span></div>
+      ${s.srpe && mins > 0 ? `<div class="stat"><b>${s.srpe * mins} UA</b><span>carga interna ${info('load')}</span></div>` : ''}
     </div>
     ${prev ? `<div class="muted small" style="margin-top:8px">Variación de volumen frente a «${esc(prev.title)}» del ${fmtDate(prev.date)}, solo en los ejercicios comunes.</div>` : s.title ? '' : '<div class="muted small" style="margin-top:8px">Pon nombre a la sesión para compararla con las anteriores del mismo tipo.</div>'}
     ${fatigueBlock(s)}
@@ -501,16 +556,14 @@ function sessionSummary(s) {
 
 function fatigueBlock(s) {
   const f = sessionFatigue(s);
-  if (!f.vls.length && !f.drops.length && !f.nearFail) return '';
-  const level = f.vlHigh || f.dropHigh >= 2 ? 'high' : f.vlMid || f.dropHigh || f.nearFail >= 3 ? 'mid' : 'low';
+  if (!f.drops.length && !f.nearFail) return '';
+  const level = f.dropHigh >= 2 ? 'high' : f.dropHigh || f.nearFail >= 3 ? 'mid' : 'low';
   const msg = { high: 'Fatiga alta: valora cortar series o bajar carga en lo que queda.', mid: 'Fatiga moderada.', low: 'Fatiga controlada.' }[level];
   return `<h3 class="sub">Fatiga</h3>
     <div class="fat ${level}">${msg}</div>
     <div class="stats">
-      ${f.vls.length ? `<div class="stat"><b>${fmt(f.vlMean, 0)}%</b><span>VL media (${f.vls.length} series)</span></div>
-        <div class="stat"><b>${f.vlHigh}</b><span>series VL ≥ ${db.settings.vlMax}%</span></div>` : ''}
-      <div class="stat"><b>${f.dropHigh}</b><span>series con caída ≥ ${db.settings.dropWarn}%</span></div>
-      <div class="stat"><b>${f.nearFail}</b><span>series al fallo o RPE ≥ 9,5</span></div>
+      <div class="stat"><b>${f.dropHigh}</b><span>series con caída ≥ ${db.settings.dropWarn}% ${info('drop')}</span></div>
+      <div class="stat"><b>${f.nearFail}</b><span>al fallo, RIR 0 o RPE ≥ 9,5 ${info('near_fail')}</span></div>
     </div>`;
 }
 function bars(items, unit) {
@@ -529,6 +582,12 @@ function rpeSelect(val, i, j) {
   return `<select data-set="${i}:${j}:rpe" aria-label="RPE">${o}</select>`;
 }
 
+function rirSelect(val, i, j) {
+  let o = `<option value="">–</option>`;
+  for (let r = 0; r <= 6; r++) o += `<option value="${r}" ${val === r ? 'selected' : ''}>${r === 6 ? '6+' : r}</option>`;
+  return `<select data-set="${i}:${j}:rir" aria-label="RIR">${o}</select>`;
+}
+
 /* ---------- Tarjeta de ejercicio (registro de series) ---------- */
 function exerciseCard(s, ex, i) {
   const def = exById(ex.exerciseId) || { name: '(ejercicio borrado)', mode: 'wr' };
@@ -541,6 +600,7 @@ function exerciseCard(s, ex, i) {
   const prevBest = maxOf(before.map((h) => entryStats(h.entry).best));
   const open = ui.openEquip.has(ex.id);
   const chartOpen = ui.openChart.has(ex.id);
+  const fields = [...mode.fields, ...intensityFields(def)];
 
   let rows = '';
   ex.sets.forEach((set, j) => {
@@ -548,17 +608,15 @@ function exerciseCard(s, ex, i) {
     const isPR = est && prevBest && est > prevBest;
     rows += `<tr class="${set.done ? 'done' : ''}">
       <td><button class="settype ${set.type}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
-      ${mode.fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>`
+      ${fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>` : f === 'rir' ? `<td>${rirSelect(set.rir, i, j)}</td>`
         : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}"></td>`).join('')}
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
       <td><button class="icon ghost" data-action="del-set" data-i="${i}" data-j="${j}" aria-label="Borrar serie">✕</button></td>
-    </tr>${isPR ? `<tr><td></td><td colspan="${mode.fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label})</td></tr>` : ''}`;
+    </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
     const drop = setDrop(ex.sets, j);
-    if (drop != null && drop >= db.settings.dropWarn) rows += `<tr><td></td><td colspan="${mode.fields.length + 1}" class="fatigue">⚠ Rendimiento −${fmt(drop, 0)}% frente a tu mejor serie de hoy: posible fatiga acumulada</td></tr>`;
-    if (ex.vbt && isWork(set)) rows += `<tr class="vrow"><td></td><td colspan="${mode.fields.length + 2}"><div class="vbt">
-        <input type="number" inputmode="decimal" step="0.01" data-set="${i}:${j}:vBest" value="${set.vBest ?? ''}" placeholder="V mejor" aria-label="Velocidad de la repetición más rápida (m/s)">
-        <input type="number" inputmode="decimal" step="0.01" data-set="${i}:${j}:vLast" value="${set.vLast ?? ''}" placeholder="V última" aria-label="Velocidad de la última repetición (m/s)">
-        <span id="vl-${i}-${j}">${vlBadge(velLoss(set))}</span></div></td></tr>`;
+    if (drop != null && drop >= db.settings.dropWarn) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="fatigue">⚠ Rendimiento −${fmt(drop, 0)}% frente a tu mejor serie de hoy: posible fatiga acumulada ${info('drop')}</td></tr>`;
+    const mis = rpeRirMismatch(set);
+    if (mis != null) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="mismatch">RPE ${fmt(set.rpe)} y RIR ${fmt(set.rir)} no cuadran (RPE ${fmt(set.rpe)} ≈ RIR ${fmt(10 - set.rpe)}): ${mis > 0 ? 'más esfuerzo global que cercanía al fallo' : 'más cerca del fallo de lo que sentiste'} ${info('intensity')}</td></tr>`;
   });
 
   const pts = [...before].reverse().map((h) => ({ d: h.sess.date, v: entryStats(h.entry).best })).filter((p) => p.v);
@@ -569,15 +627,14 @@ function exerciseCard(s, ex, i) {
   return `<div class="card" data-ex="${i}">
     <div class="ex-head">
       <h3><a href="#/exercise/${ex.exerciseId}" style="color:inherit;text-decoration:none">${esc(def.name)}</a></h3>
-      ${def.mode === 'wr' || def.mode === 'bw' ? `<button class="icon ghost ${ex.vbt ? 'active' : ''}" data-action="toggle-vbt" data-i="${i}" aria-label="Velocidad (VBT)" title="Registrar velocidad">⚡</button>` : ''}
       <button class="icon ghost ${chartOpen ? 'active' : ''}" data-action="toggle-chart" data-i="${i}" aria-label="Gráfica y datos">📈</button>
       <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="-1" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>↑</button>
       <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="1" aria-label="Bajar" ${i === s.exercises.length - 1 ? 'disabled' : ''}>↓</button>
       <button class="icon ghost danger" data-action="del-ex" data-i="${i}" aria-label="Quitar ejercicio">🗑</button>
     </div>
     <div class="exstats">
-      <div><b>${fmtM(st.best, m)}</b> ${delta(st.best, pst?.best)}<span>${m.label} hoy</span></div>
-      <div><b>${fmtM(st.vol, m, m.volUnit)}</b> ${delta(st.vol, pst?.vol)}<span>volumen hoy</span></div>
+      <div><b>${fmtM(st.best, m)}</b> ${delta(st.best, pst?.best)}<span>${m.label} hoy ${st.mode === 'wr' ? info('e1rm') : ''}</span></div>
+      <div><b>${fmtM(st.vol, m, m.volUnit)}</b> ${delta(st.vol, pst?.vol)}<span>volumen hoy ${info('volume')}</span></div>
       <div><b>${fmtM(prevBest, m)}</b><span>récord previo</span></div>
     </div>
     ${prev ? `<div class="prev">Anterior (${fmtDate(prev.sess.date)}): ${esc(setsText(prev.entry, prev.entry.sets))}${prev.entry.equipment.length ? ' · ' + esc(prev.entry.equipment.map((x) => eqById(x)?.name).filter(Boolean).join(', ')) : ''}</div>
@@ -587,7 +644,7 @@ function exerciseCard(s, ex, i) {
       <div class="stats">
         <div class="stat"><b>${before.length + 1}</b><span>sesiones</span></div>
         <div class="stat"><b>${fmtM(maxOf([st.topW, ...before.map((h) => entryStats(h.entry).topW)]), m, 'kg')}</b><span>peso máx. histórico</span></div>
-        ${st.mode === 'wr' && maxOf([st.best, prevBest]) ? `<div class="stat"><b>${fmt(Math.round(maxOf([st.best, prevBest]) * 0.8 / 2.5) * 2.5)} kg</b><span>80% del 1RM</span></div>` : ''}
+        ${st.mode === 'wr' && maxOf([st.best, prevBest]) ? `<div class="stat"><b>${fmt(Math.round(maxOf([st.best, prevBest]) * 0.8 / 2.5) * 2.5)} kg</b><span>80% del 1RM ${info('pct1rm')}</span></div>` : ''}
         <div class="stat"><b>${before.length ? fmtDate(before[0].sess.date).replace(/ \d{4}$/, '') : '–'}</b><span>última vez</span></div>
       </div>
     </div>` : ''}
@@ -595,9 +652,9 @@ function exerciseCard(s, ex, i) {
       ${(open ? db.equipment : eqSel).map((e) => `<button class="chip ${ex.equipment.includes(e.id) ? 'on' : ''}" data-action="toggle-eq" data-i="${i}" data-eq="${e.id}">${esc(e.name)}</button>`).join('')}
       <button class="chip" data-action="open-eq" data-i="${i}">${open ? 'Listo' : '＋ Material'}</button>
     </div>
-    ${ex.vbt ? `<div class="muted small" style="margin-top:6px">⚡ Velocidad media (m/s) de la repetición <b>más rápida</b> y de la <b>última</b>. Zonas: &lt;${db.settings.vlWarn}% baja · ${db.settings.vlWarn}–${db.settings.vlMax}% moderada · ≥${db.settings.vlMax}% excesiva.</div>` : ''}
+    <div class="row" style="margin-top:8px"><button class="chip" data-action="cycle-intensity" data-i="${i}">Intensidad: <b>${INTENSITY[intensityOf(def)]}</b> ⇄</button>${info('intensity')}</div>
     <table class="sets">
-      <thead><tr><th>Serie</th>${mode.fields.map((f) => `<th>${f === 'w' && def.mode === 'bw' ? 'Lastre' : FIELD[f].h}</th>`).join('')}<th>✓</th><th></th></tr></thead>
+      <thead><tr><th>Serie ${info('set_types')}</th>${fields.map((f) => `<th>${f === 'w' && def.mode === 'bw' ? 'Lastre' : FIELD[f].h}${f === 'rpe' || f === 'rir' ? ' ' + info(f) : ''}</th>`).join('')}<th>✓</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <button class="block" style="margin-top:8px" data-action="add-set" data-i="${i}">＋ Serie</button>
@@ -658,17 +715,17 @@ function viewExercise(id) {
     </div>`;
   }
   html += `<div class="card" style="margin-top:12px"><div class="stats">
-      <div class="stat"><b>${best ? fmtM(best.v, m) : '–'}</b><span>mejor ${m.label}</span></div>
+      <div class="stat"><b>${best ? fmtM(best.v, m) : '–'}</b><span>mejor ${m.label} ${def.mode === 'wr' ? info('e1rm') : ''}</span></div>
       ${def.mode === 'wr' || def.mode === 'bw' ? `<div class="stat"><b>${topW ? fmt(topW.v) + ' kg' : '–'}</b><span>peso máximo</span></div>` : ''}
       <div class="stat"><b>${hist.length}</b><span>sesiones</span></div>
-      <div class="stat"><b>${fmtM(totalVol, m, m.volUnit)}</b><span>volumen total</span></div>
+      <div class="stat"><b>${fmtM(totalVol, m, m.volUnit)}</b><span>volumen total ${info('volume')}</span></div>
     </div></div>`;
 
   const pts = hist.map((h) => ({ d: h.sess.date, v: entryStats(h.entry).best })).filter((p) => p.v).reverse();
   if (pts.length >= 2) html += `<h2>${m.label} por sesión</h2><div class="card">${chart(pts)}</div>`;
 
   if (best && def.mode === 'wr') {
-    html += `<h2>Tabla de cargas (1RM est. ${fmt(best.v)} kg)</h2><div class="card"><div class="stats">
+    html += `<h2>Tabla de cargas (1RM est. ${fmt(best.v)} kg) ${info('load_table')}</h2><div class="card"><div class="stats">
       ${[1, 2, 3, 5, 8, 10].map((r) => `<div class="stat"><b>${fmt(Math.round(best.v / (1 + (r === 1 ? 0 : r / 30)) / 2.5) * 2.5)} kg</b><span>${r} rep @10</span></div>`).join('')}
     </div></div>`;
   }
@@ -709,15 +766,13 @@ function viewSettings() {
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
       <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha. 0 = desactivado.</div>
     </div>
-    <h2>Indicadores de fatiga</h2>
+    <h2>Intensidad y fatiga</h2>
     <div class="card">
-      <div class="grid2">
-        <div><label>VL% moderada desde</label><input type="number" inputmode="numeric" data-setting="vlWarn" value="${db.settings.vlWarn}"></div>
-        <div><label>VL% excesiva desde</label><input type="number" inputmode="numeric" data-setting="vlMax" value="${db.settings.vlMax}"></div>
-        <div><label>Aviso de caída de 1RM est. (%)</label><input type="number" inputmode="numeric" data-setting="dropWarn" value="${db.settings.dropWarn}"></div>
-      </div>
-      <div class="muted small" style="margin-top:8px">Por defecto 20% / 40%. Con VL ~20% se gana casi la misma fuerza que con ~40% haciendo un 40% menos de repeticiones; con ~40% hay más hipertrofia pero también más fatiga y pérdida de fibras rápidas (Pareja-Blanco 2017).
-      A igual VL, en press banca has hecho una fracción menor de tus repeticiones posibles que en sentadilla (Rodríguez-Rosell 2020), así que el mismo umbral no significa lo mismo en todos los ejercicios.</div>
+      <label>Medir la intensidad por defecto con ${info('intensity')}</label>
+      <select data-setting-str="intensity">${Object.entries(INTENSITY).map(([k, v]) => `<option value="${k}" ${db.settings.intensity === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <div class="muted small" style="margin:6px 0 10px">Se aplica a los ejercicios en los que no hayas elegido otra cosa. En cada ejercicio puedes cambiarlo con «Intensidad ⇄».</div>
+      <label>Aviso de caída de rendimiento entre series (%) ${info('drop')}</label>
+      <input type="number" inputmode="numeric" data-setting="dropWarn" value="${db.settings.dropWarn}">
     </div>
     <h2>Material</h2>
     <div class="card">
@@ -815,7 +870,7 @@ function newSession(fromId, date = ui.day || todayISO()) {
     exercises: src ? src.exercises.map((e) => ({
       id: uid(), exerciseId: e.exerciseId, notes: '', equipment: [...e.equipment],
       // Copia la estructura y cargas de la sesión anterior como punto de partida, sin marcar como hechas.
-      sets: e.sets.map((x) => ({ ...x, done: false, vBest: null, vLast: null })), vbt: e.vbt,
+      sets: e.sets.map((x) => ({ ...x, done: false })),
     })) : [],
   };
   db.sessions.push(s); save(true);
@@ -828,10 +883,10 @@ function download(name, text, type) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 function toCSV() {
-  const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'segundos', 'metros', 'hecha', 'e1rm', 'v_mejor', 'v_ultima', 'vl_pct', 'material', 'notas_ejercicio']];
+  const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'e1rm', 'material', 'notas_ejercicio']];
   for (const s of sortedSessions().reverse()) for (const e of s.exercises) e.sets.forEach((x, j) => rows.push([
-    s.date, s.title, s.bodyweight, s.readiness, s.sleep, s.stress, (s.factors || []).join(' | '), exById(e.exerciseId)?.name, j + 1, SET_TYPES[x.type], x.w, x.reps, x.rpe, x.time, x.dist, x.done ? 'si' : 'no',
-    e1rm(x) ? fmt(e1rm(x)) : '', x.vBest, x.vLast, velLoss(x) != null ? fmt(velLoss(x), 1) : '', e.equipment.map((q) => eqById(q)?.name).join(' | '), j === 0 ? e.notes : '',
+    s.date, s.title, s.bodyweight, s.readiness, s.sleep, s.stress, (s.factors || []).join(' | '), exById(e.exerciseId)?.name, j + 1, SET_TYPES[x.type], x.w, x.reps, x.rpe, x.rir, x.time, x.dist, x.done ? 'si' : 'no',
+    e1rm(x) ? fmt(e1rm(x)) : '', e.equipment.map((q) => eqById(q)?.name).join(' | '), j === 0 ? e.notes : '',
   ]));
   return rows.map((r) => r.map((c) => { const v = String(c ?? ''); return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }).join(';')).join('\n');
 }
@@ -865,8 +920,7 @@ const actions = {
     s.exercises.push({
       id: uid(), exerciseId: el.dataset.id, notes: '',
       equipment: prev ? [...prev.entry.equipment] : [],
-      vbt: prev ? prev.entry.vbt : false,
-      sets: prev ? prev.entry.sets.map((x) => ({ ...x, done: false, vBest: null, vLast: null })) : [{ type: 'E', w: null, reps: null, rpe: null, done: false }],
+      sets: prev ? prev.entry.sets.map((x) => ({ ...x, done: false })) : [{ type: 'E', w: null, reps: null, rpe: null, rir: null, done: false }],
     });
     save(); rerender();
     setTimeout(() => document.querySelector(`[data-ex="${s.exercises.length - 1}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
@@ -891,7 +945,7 @@ const actions = {
   'add-set': (el) => {
     const ex = currentSession().exercises[+el.dataset.i];
     const last = ex.sets[ex.sets.length - 1];
-    ex.sets.push(last ? { ...last, done: false, type: last.type === 'C' ? 'E' : last.type } : { type: 'E', w: null, reps: null, rpe: null, done: false });
+    ex.sets.push(last ? { ...last, done: false, type: last.type === 'C' ? 'E' : last.type } : { type: 'E', w: null, reps: null, rpe: null, rir: null, done: false });
     save(); rerender();
   },
   'del-set': (el) => { currentSession().exercises[+el.dataset.i].sets.splice(+el.dataset.j, 1); save(); rerender(); },
@@ -926,8 +980,17 @@ const actions = {
     s.factors = s.factors.includes(f) ? s.factors.filter((x) => x !== f) : [...s.factors, f];
     ui.preOpen[s.id] = true; save(); rerender();
   },
-  'toggle-vbt': (el) => {
-    const ex = currentSession().exercises[+el.dataset.i]; ex.vbt = !ex.vbt; save(); rerender();
+  'cycle-intensity': (el) => {
+    const def = exById(currentSession().exercises[+el.dataset.i].exerciseId);
+    const order = Object.keys(INTENSITY);
+    def.intensity = order[(order.indexOf(intensityOf(def)) + 1) % order.length];
+    save(); rerender();
+  },
+  'info': (el) => {
+    const [title, body] = GLOSSARY[el.dataset.k] || ['', ''];
+    openModal(`<div class="row"><h3 class="spacer">${title}</h3><button class="ghost" data-action="close-modal" aria-label="Cerrar">✕</button></div>
+      <div class="gloss">${body}</div>
+      <button class="block" style="margin-top:12px" data-action="close-modal">Entendido</button>`);
   },
   'toggle-chart': (el) => {
     const id = currentSession().exercises[+el.dataset.i].id;
@@ -1004,6 +1067,7 @@ document.addEventListener('input', (e) => {
     const n = $(`[data-action-input="${k}"]`); n.focus(); n.setSelectionRange(pos, pos); return;
   }
   if (t.dataset.setting) { db.settings[t.dataset.setting] = num(t.value) ?? 0; save(); return; }
+  if (t.dataset.settingStr) { db.settings[t.dataset.settingStr] = t.value; save(); return; }
   const s = currentSession(); if (!s) return;
   if (t.dataset.s) {
     const k = t.dataset.s;
@@ -1014,8 +1078,14 @@ document.addEventListener('input', (e) => {
   if (t.dataset.exnote != null) { s.exercises[+t.dataset.exnote].notes = t.value; save(); return; }
   if (t.dataset.set) {
     const [i, j, f] = t.dataset.set.split(':');
-    s.exercises[+i].sets[+j][f] = num(t.value); save();
-    if (f === 'vBest' || f === 'vLast') { const b = $(`#vl-${i}-${j}`); if (b) b.innerHTML = vlBadge(velLoss(s.exercises[+i].sets[+j])); }
+    const set = s.exercises[+i].sets[+j];
+    set[f] = num(t.value);
+    // Modo RPE + RIR: rellenar el otro valor si está vacío (RPE ≈ 10 − RIR).
+    if (intensityOf(exById(s.exercises[+i].exerciseId)) === 'both') {
+      if (f === 'rpe' && set.rpe != null && set.rir == null && Number.isInteger(10 - set.rpe) && set.rpe >= 6) set.rir = 10 - set.rpe;
+      if (f === 'rir' && set.rir != null && set.rpe == null && set.rir <= 4) set.rpe = 10 - set.rir;
+    }
+    save();
   }
 });
 // Al cambiar cosas que afectan a cálculos visibles (récords, volumen), refresca al salir del campo.
