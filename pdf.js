@@ -250,6 +250,6 @@ function showShareResult(blob, filename, title, preview = '') {
     </div>`);
 }
 async function shareFile() {
-  try { await navigator.share({ files: [ui.shareFile], title: ui.shareFile.name }); }
+  try { await navigator.share({ files: [ui.shareFile], title: ui.shareFile.name }); if (window.markExported) markExported(); }
   catch (e) { if (e.name !== 'AbortError') alert('No se pudo compartir: ' + e.message + '\nUsa «Descargar».'); }
 }
