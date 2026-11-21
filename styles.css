@@ -156,3 +156,28 @@ h3.sub { font-size: .85rem; color: var(--muted); font-weight: 600; margin: 14px 
 .bar div { background: var(--card2); border-radius: 6px; height: 12px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
 .bar b { font-variant-numeric: tabular-nums; }
+
+/* Fatiga */
+.vbt { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: center; }
+.vbt input { min-height: 36px !important; font-size: .85rem; }
+.vl { font-size: .72rem; font-weight: 700; padding: 4px 8px; border-radius: 999px; background: var(--card2); color: var(--muted); white-space: nowrap; }
+.vl.low { color: var(--accent); }
+.vl.mid { color: var(--warn); }
+.vl.high { color: #fff; background: var(--danger); }
+.fatigue { font-size: .75rem; color: var(--warn); text-align: left !important; font-weight: 600; }
+.fat { padding: 8px 10px; border-radius: 10px; font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
+.fat.low { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.fat.mid { background: color-mix(in srgb, var(--warn) 22%, transparent); }
+.fat.high { background: color-mix(in srgb, var(--danger) 25%, transparent); }
+
+/* Análisis */
+.arow { display: grid; grid-template-columns: minmax(0, 1.3fr) 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.arow:last-child { border-bottom: 0; }
+.aval { text-align: right; min-width: 84px; }
+.aval small { display: block; }
+.dbar { position: relative; height: 12px; background: var(--card2); border-radius: 6px; }
+.dbar::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--muted); }
+.dbar i { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
+.dbar i.pos { background: var(--accent); }
+.dbar i.neg { background: var(--danger); }
+.delta.muted { color: var(--muted); font-weight: 500; }
