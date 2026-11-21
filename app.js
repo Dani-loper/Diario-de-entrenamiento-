@@ -1354,6 +1354,13 @@ function viewReport() {
 
   // Reparto e intensidad
   const catItems = muscleItems(cur.setsCat);
+  // Figura: media semanal por músculo, para que la escala signifique lo mismo en 1 mes que en 1 año.
+  const muscleWeekly = Object.fromEntries(Object.entries(cur.setsCat).map(([m, v]) => [m, v / weeks]));
+  if (Object.keys(muscleWeekly).length) {
+    html += `<section class="rsec"><h2>Volumen por músculo ${info('muscle_volume')}</h2><div class="rcard">
+      ${bodyMapHTML(muscleWeekly, { steps: [5, 10, 15, 20], unit: 'series / semana' })}
+      <div class="muted small">Media semanal de series efectivas en el periodo (principal 1, secundario 0,5).</div></div></section>`;
+  }
   html += `<section class="rsec"><h2>Reparto del entrenamiento</h2><div class="r-grid">
     <div class="rcard"><b>Series por músculo</b><div class="muted small">Principal 1 · secundario 0,5</div>${bars(catItems, '')}</div>
     ${cur.pcts.length ? `<div class="rcard"><b>Series por zona de intensidad (%1RM)</b>${bars(ZONES.map(([label, t]) => ({ label, v: cur.pcts.filter(t).length })), '')}</div>` : ''}
