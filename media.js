@@ -192,6 +192,11 @@ function setMenuHTML(sess, i, j) {
         ? `<div class="grid2"><button data-action="video-pick" data-i="${i}" data-j="${j}">🔁 Cambiar vídeo</button><button data-action="video-save" data-i="${i}" data-j="${j}">💾 Guardar en el móvil</button></div>
            <button class="danger" data-action="video-del" data-i="${i}" data-j="${j}">🗑 Borrar vídeo</button>`
         : `<button data-action="video-pick" data-i="${i}" data-j="${j}">🎥 Grabar o elegir vídeo</button>`}
+      ${j > 0 ? `<div class="rest-edit"><label>Descanso antes de esta serie ${info('rest')}</label>
+        <div class="row"><input id="set-rest" inputmode="numeric" placeholder="m:ss" value="${set.restSec != null ? fmtSec(set.restSec) : ''}" style="flex:1">
+        <button data-action="rest-save" data-i="${i}" data-j="${j}">Guardar</button>
+        ${set.restSec != null ? `<button class="ghost" data-action="rest-clear" data-i="${i}" data-j="${j}" aria-label="Quitar descanso">✕</button>` : ''}</div>
+        ${set.restSrc === 'auto' ? '<div class="muted small">Ahora es aproximado (incluye la ejecución). Corrígelo si lo sabes.</div>' : ''}</div>` : ''}
       <button class="primary" data-action="share-set" data-i="${i}" data-j="${j}">📤 Compartir serie</button>
       <button class="danger" data-action="del-set" data-i="${i}" data-j="${j}">Borrar serie</button>
     </div>

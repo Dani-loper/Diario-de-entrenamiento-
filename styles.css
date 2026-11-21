@@ -309,3 +309,21 @@ code { font-size: .85em; background: var(--card2); padding: 1px 5px; border-radi
 @media print {
   :root, :root[data-theme] { --m0: #e3e7ec; --m1: #c6eddd; --m2: #8fdcbd; --m3: #45bf8f; --m4: #15936a; --m5: #0b5e44; --body: #f4f6f8; --body-line: #b9c1cb; }
 }
+
+/* Descansos */
+.sets tr.rest-row td { padding: 0 0 2px; text-align: left; }
+.rest { display: inline-block; font-size: .72rem; color: var(--muted); padding: 1px 8px; border-radius: 999px; background: var(--card2); margin-left: 40px; }
+.rest.approx { font-style: italic; }
+.rest-edit { background: var(--card2); border-radius: 10px; padding: 8px 10px; }
+.rest-edit input { min-height: 40px; }
+
+/* Temporizador con «▶ Serie»: cabe en móviles estrechos */
+.timer button[data-action=timer-start-set] { background: var(--accent-ink); color: var(--accent); font-weight: 700; padding: 6px 12px; white-space: nowrap; }
+.timer.over button[data-action=timer-start-set] { color: var(--warn); }
+@media (max-width: 480px) {
+  #timer-label { display: none; }
+  .timer { gap: 6px; padding: 8px; }
+  .timer button { padding: 6px 8px; }
+}
+/* El aviso flotante no tapa el temporizador */
+body.timer-on .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }

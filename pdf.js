@@ -33,6 +33,7 @@ function reportDataFor(months) {
     volPts: wks.map((w) => ({ d: w, v: Math.round(wData[w].vol) })),
     siPts: wks.map((w) => ({ d: w, v: Math.round(wData[w].si * 10) / 10 })),
     catItems: muscleItems(cur.setsCat),
+    muscleWeekly: Object.fromEntries(Object.entries(cur.setsCat).map(([m, v]) => [m, v / weeks])),
     zoneItems: cur.pcts.length ? ZONES.map(([label, t]) => ({ label, v: cur.pcts.filter(t).length })) : [],
     wb: [['Sueño medio', cur.sleep, ' h'], ['Energía media (1-5)', cur.readiness, ''], ['Estrés medio (1-5)', cur.stress, '']].filter(([, v]) => v.length),
     topF: Object.entries(cur.factors).sort((x, y) => y[1] - x[1]).slice(0, 5),
@@ -190,6 +191,37 @@ async function buildReportPDF(months) {
     y += chh + 4;
   }
 
+  // Volumen por músculo: figura frontal y posterior (vectorial) con la media semanal del periodo
+  if (Object.keys(D.muscleWeekly).length) {
+    const steps = [5, 10, 15, 20], H = 88;
+    section('Volumen por músculo', H);
+    card(M, y, CW, H);
+    const k = 0.2, fw = 200 * k; // cada figura: 40 x 74,4 mm
+    bodyPDF(doc, M + 4, y + 5, k, FRONT, D.muscleWeekly, steps);
+    bodyPDF(doc, M + 8 + fw, y + 5, k, BACK, D.muscleWeekly, steps);
+    txt('Frontal', M + 4 + fw / 2, y + 83, { size: 7.5, color: C.muted, align: 'center' });
+    txt('Posterior', M + 8 + fw * 1.5, y + 83, { size: 7.5, color: C.muted, align: 'center' });
+    // Valores y leyenda a la derecha
+    const lx = M + 16 + fw * 2, lw = M + CW - 4 - lx;
+    txt('Series por semana (media del periodo)', lx, y + 9, { size: 9, bold: true });
+    const items = MUSCLE_KEYS.map((m) => [m, D.muscleWeekly[m] || 0]).sort((a, b) => b[1] - a[1]);
+    items.forEach(([m, v], i) => {
+      const ry = y + 15 + i * 5.2;
+      const [r, g, bl] = BODY_COLORS.levels[bodyLevel(v, steps)];
+      doc.setFillColor(r, g, bl); doc.setDrawColor(...BODY_COLORS.line); doc.setLineWidth(0.2); doc.roundedRect(lx, ry - 2.8, 3.4, 3.4, 0.6, 0.6, 'FD');
+      txt(MUSCLES[m], lx + 5.5, ry, { size: 8.5, color: v ? C.text : C.muted });
+      txt(v ? fmt(v, 1) : '–', lx + lw, ry, { size: 8.5, bold: !!v, align: 'right', color: v ? C.text : C.muted });
+    });
+    const legend = ['0', `<${steps[0]}`, ...steps.slice(0, -1).map((t, i) => `${t}-${steps[i + 1]}`), `${steps[steps.length - 1]}+`];
+    legend.forEach((l, i) => {
+      const lxx = lx + (i % 3) * (lw / 3), lyy = y + 74 + Math.floor(i / 3) * 5;
+      const [r, g, bl] = BODY_COLORS.levels[i];
+      doc.setFillColor(r, g, bl); doc.setDrawColor(...BODY_COLORS.line); doc.roundedRect(lxx, lyy - 2.6, 3.2, 3.2, 0.6, 0.6, 'FD');
+      txt(l, lxx + 4.6, lyy, { size: 7.5, color: C.muted });
+    });
+    y += H + 4;
+  }
+
   // Reparto
   {
     const cw = (CW - 6) / 2;
@@ -230,6 +262,59 @@ async function buildReportPDF(months) {
     txt(`Página ${i} de ${n}`, PW - M, PH - 7, { size: 7.5, color: C.muted, align: 'right' });
   }
   return doc;
+}
+
+/* ---------- Figura del cuerpo en PDF ----------
+ * Reutiliza las formas SVG de la figura en pantalla (BODY_BASE, LIMB_BASE, FRONT, BACK) y las convierte a
+ * primitivas vectoriales de jsPDF. Colores fijos del tema claro (el PDF siempre es claro). */
+const BODY_COLORS = {
+  levels: [[227, 231, 236], [198, 237, 221], [143, 220, 189], [69, 191, 143], [21, 147, 106], [11, 94, 68]],
+  body: [244, 246, 248], line: [185, 193, 203],
+};
+// Trazado SVG (M L H V Q Z, absolutos y relativos h v l z) → operaciones de jsPDF.path con coordenadas transformadas.
+function svgPathOps(d, tx) {
+  const t = d.match(/[MLHVQZmlhvqz]|-?\d*\.?\d+/g) || [];
+  const ops = []; let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0;
+  const n = () => +t[i++];
+  while (i < t.length) {
+    if (/[A-Za-z]/.test(t[i])) cmd = t[i++];
+    else if (!cmd || /[Zz]/.test(cmd)) break; // números sin comando: trazado mal formado
+    switch (cmd) {
+      case 'M': x = n(); y = n(); sx = x; sy = y; ops.push({ op: 'm', c: tx(x, y) }); cmd = 'L'; break;
+      case 'L': x = n(); y = n(); ops.push({ op: 'l', c: tx(x, y) }); break;
+      case 'l': x += n(); y += n(); ops.push({ op: 'l', c: tx(x, y) }); break;
+      case 'H': x = n(); ops.push({ op: 'l', c: tx(x, y) }); break;
+      case 'h': x += n(); ops.push({ op: 'l', c: tx(x, y) }); break;
+      case 'V': y = n(); ops.push({ op: 'l', c: tx(x, y) }); break;
+      case 'v': y += n(); ops.push({ op: 'l', c: tx(x, y) }); break;
+      case 'Q': { // cuadrática → cúbica
+        const qx = n(), qy = n(), ex = n(), ey = n();
+        const c1 = tx(x + (2 / 3) * (qx - x), y + (2 / 3) * (qy - y)), c2 = tx(ex + (2 / 3) * (qx - ex), ey + (2 / 3) * (qy - ey));
+        ops.push({ op: 'c', c: [...c1, ...c2, ...tx(ex, ey)] }); x = ex; y = ey; break;
+      }
+      case 'Z': case 'z': ops.push({ op: 'h', c: [] }); x = sx; y = sy; break;
+      default: i++;
+    }
+  }
+  return ops;
+}
+function drawSvgShape(doc, shape, ox, oy, k, mirror) {
+  const X = (x) => ox + (mirror ? 200 - x : x) * k, Y = (y) => oy + y * k;
+  const el = /<ellipse cx="([\d.]+)" cy="([\d.]+)" rx="([\d.]+)" ry="([\d.]+)"/.exec(shape);
+  if (el) { doc.ellipse(X(+el[1]), Y(+el[2]), +el[3] * k, +el[4] * k, 'FD'); return; }
+  const pa = /<path d="([^"]+)"/.exec(shape);
+  if (pa) { doc.path(svgPathOps(pa[1], (x, y) => [X(x), Y(y)])); doc.fillStroke(); }
+}
+function bodyPDF(doc, ox, oy, k, view, vals, steps) {
+  doc.setLineWidth(0.25);
+  doc.setFillColor(...BODY_COLORS.body); doc.setDrawColor(...BODY_COLORS.line);
+  for (const s of BODY_BASE) drawSvgShape(doc, s, ox, oy, k, false);
+  for (const s of LIMB_BASE) { drawSvgShape(doc, s, ox, oy, k, false); drawSvgShape(doc, s, ox, oy, k, true); }
+  for (const [m, s, mirror] of view.shapes) {
+    doc.setFillColor(...BODY_COLORS.levels[bodyLevel(vals[m] || 0, steps)]); doc.setDrawColor(...BODY_COLORS.line);
+    drawSvgShape(doc, s, ox, oy, k, false);
+    if (mirror) drawSvgShape(doc, s, ox, oy, k, true);
+  }
 }
 
 /* ---------- Resultado para compartir o descargar (PDF, imagen o vídeo) ----------

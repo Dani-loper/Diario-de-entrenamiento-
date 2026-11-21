@@ -164,7 +164,7 @@ function seed() {
     exercises: DEFAULT_EXERCISES.map(([name, mode]) => ({ id: uid(), name, mode: mode || 'wr', primary: DEFAULT_MUSCLES[name][0], secondary: [...DEFAULT_MUSCLES[name][1]] })),
     equipment: DEFAULT_EQUIPMENT.map((name) => ({ id: uid(), name })),
     sessions: [],
-    settings: { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets' },
+    settings: { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets', level: 'simple' },
   };
 }
 /* ---------- Usuarios (perfiles locales) ----------
@@ -200,6 +200,8 @@ const avatar = (u, size = 36) => `<span class="avatar" style="background:${userC
 
 function normalize(d) {
   d.settings = { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets', ...d.settings };
+  // Datos anteriores al modo de atleta: quien ya registraba sesiones sigue en avanzado.
+  if (!d.settings.level) d.settings.level = d.sessions?.length ? 'advanced' : 'simple';
   return migrateMuscles(d);
 }
 const load = () => normalize(readUserData(profiles.active) || seed());
@@ -326,7 +328,10 @@ function delta(now, before) {
  */
 const INTENSITY = { rpe: 'RPE', rir: 'RIR', both: 'RPE + RIR' };
 const intensityOf = (def) => def?.intensity || db.settings.intensity || 'rpe';
-const intensityFields = (def) => ({ rpe: ['rpe'], rir: ['rir'], both: ['rpe', 'rir'] }[intensityOf(def)]);
+const isSimple = () => db.settings.level === 'simple';
+const LEVELS = { simple: 'Sencillo', advanced: 'Avanzado' };
+// Modo sencillo: la intensidad se registra siempre con RIR.
+const intensityFields = (def) => isSimple() ? ['rir'] : ({ rpe: ['rpe'], rir: ['rir'], both: ['rpe', 'rir'] }[intensityOf(def)]);
 // RPE y RIR no cuadran (escala RPE ≈ 10 − RIR). Solo en la zona donde la escala es fiable.
 function rpeRirMismatch(set) {
   if (set.rpe == null || set.rir == null) return null;
@@ -506,7 +511,7 @@ const SYSTEMS = { sets: 'Series y volumen', si: 'Índice de estrés' };
 const JOINT = { multi: 'Multiarticular', mono: 'Monoarticular' };
 const MONO_DEFAULT = ['Curl femoral', 'Extensión de cuádriceps', 'Aperturas', 'Face pull', 'Curl de bíceps', 'Extensión de tríceps', 'Elevación de piernas'];
 const jointOf = (def) => def?.joint || (['biceps', 'triceps'].includes(def?.primary) || MONO_DEFAULT.includes(def?.name) ? 'mono' : 'multi');
-const systemOf = (s) => s.system || db.settings.system || 'sets';
+const systemOf = (s) => isSimple() ? 'sets' : (s.system || db.settings.system || 'sets');
 function stressIndex(set, def) {
   if (!isWork(set) || !['wr', 'bw'].includes(def?.mode || 'wr')) return null;
   const r = rirOf(set);
@@ -673,6 +678,16 @@ const GLOSSARY = {
     <p>Multiplicado por la duración da la <b>carga interna</b> en unidades arbitrarias (UA): 60 min × sRPE 7 = 420 UA. Sirve para comparar sesiones de tipos distintos y vigilar cambios bruscos de carga semana a semana.</p>`],
   load: ['Carga interna (UA)', `<p><b>sRPE × minutos</b> de sesión, en unidades arbitrarias (UA). Combina cuánto duró y lo dura que fue. Su valor absoluto importa poco: es útil para comparar entre sesiones y semanas tuyas.</p>`],
   readiness: ['Energía al empezar (readiness)', `<p>Cómo de preparado te sientes antes de entrenar, de 1 (muy bajo) a 5 (muy alto). Es subjetivo, pero en el análisis de factores se cruza con tu rendimiento real para ver si te sirve como predictor.</p>`],
+  level: ['Modo de atleta', `
+    <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
+    <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
+    <p>Es un ajuste de cada usuario y <b>no borra datos</b>: al volver a avanzado reaparece todo lo registrado.</p>`],
+  rest: ['Descanso entre series', `
+    <p>Tiempo entre el final de una serie y el inicio de la siguiente. Se guarda en la serie que viene después.</p>
+    <ul><li><b>Exacto:</b> al marcar ✓ arranca el temporizador; pulsa <b>«▶ Serie»</b> justo al empezar la siguiente.</li>
+    <li><b>Aproximado (≈):</b> si no pulsas «▶ Serie», se usa el tiempo entre las dos ✓, que <b>incluye la ejecución</b> de la serie (20-60 s de más).</li>
+    <li><b>Manual (✎):</b> desde el menú ⋯ de la serie.</li></ul>
+    <p>Orientativo: en fuerza con cargas altas suelen recomendarse 2-5 min; en hipertrofia, descansos de al menos 1,5-2 min tienden a dar mejores resultados que los muy cortos.</p>`],
   muscle_volume: ['Volumen por músculo', `
     <p>Cada ejercicio tiene un <b>músculo principal</b> y, opcionalmente, <b>secundarios</b>. Cada serie efectiva cuenta <b>1</b> para el principal y <b>0,5</b> para cada secundario (conteo fraccionado).</p>
     <p class="formula">4 series de press banca → pectoral 4 · tríceps 2 · hombros 2</p>
@@ -820,8 +835,8 @@ function viewSession(id) {
       <div><label>Fecha</label><input type="date" data-s="date" value="${esc(s.date)}"></div>
       <div><label>${s.endedAt ? 'Duración' : 'En curso'}</label><div class="pill">${fmtDur(dur)} · <b id="vol">${fmt(sessionVolume(s), 0)} kg</b></div></div>
     </div>
-    <div class="row" style="margin-top:10px"><button class="chip" data-action="cycle-system">Cuantificación: <b>${SYSTEMS[systemOf(s)]}</b> ⇄</button>${info('system')}</div>
-    <details class="card pre" id="pre" ${preOpen ? 'open' : ''} style="margin-top:12px">
+    ${isSimple() ? '' : `<div class="row" style="margin-top:10px"><button class="chip" data-action="cycle-system">Cuantificación: <b>${SYSTEMS[systemOf(s)]}</b> ⇄</button>${info('system')}</div>`}
+    ${isSimple() ? '' : `<details class="card pre" id="pre" ${preOpen ? 'open' : ''} style="margin-top:12px">
       <summary><b>Antes de empezar</b> <span class="muted small">opcional${preFilled && !preOpen ? ' · ✓ registrado' : ''}</span></summary>
       <div class="grid2" style="margin-top:10px">
         <div><label>Peso corporal (kg)</label><input type="number" inputmode="decimal" step="0.1" data-s="bodyweight" value="${s.bodyweight ?? ''}"></div>
@@ -837,7 +852,7 @@ function viewSession(id) {
       <div style="height:8px"></div>
       <label>Observaciones importantes</label>
       <textarea data-s="preObs" placeholder="Viaje, gimnasio distinto, competición cerca, medicación…">${esc(s.preObs)}</textarea>
-    </details>`;
+    </details>`}`;
 
   s.exercises.forEach((ex, i) => { html += exerciseCard(s, ex, i); });
 
@@ -846,8 +861,8 @@ function viewSession(id) {
     <div class="card" style="margin-top:12px">
       <label>Notas finales de la sesión</label>
       <textarea data-s="notes" placeholder="Cómo fue, qué cambiar la próxima vez…">${esc(s.notes)}</textarea>
-      <div style="height:8px"></div>
-      <label>RPE de la sesión (esfuerzo global 1-10) ${info('srpe')}</label>${scaleSelect('srpe', s.srpe, 1, 10)}
+      ${isSimple() ? '' : `<div style="height:8px"></div>
+      <label>RPE de la sesión (esfuerzo global 1-10) ${info('srpe')}</label>${scaleSelect('srpe', s.srpe, 1, 10)}`}
     </div>
     ${s.endedAt
       ? `<button class="block" data-action="reopen-session">Reabrir sesión (seguir cronometrando)</button>`
@@ -884,13 +899,14 @@ function sessionSummary(s) {
       <div class="stat"><b>${fmt(vol, 0)} kg ${prev ? delta(volIn(s, common), volIn(prev, common)) : ''}</b><span>volumen ${info('volume')}</span></div>
       <div class="stat"><b>${all.length}</b><span>series efectivas ${info('work_sets')}</span></div>
       <div class="stat"><b>${reps}</b><span>reps</span></div>
-      ${rpes.length ? `<div class="stat"><b>${fmt(mean(rpes))}</b><span>RPE medio ${info('rpe')}</span></div>` : ''}
+      ${rpes.length && !isSimple() ? `<div class="stat"><b>${fmt(mean(rpes))}</b><span>RPE medio ${info('rpe')}</span></div>` : ''}
       ${rirs.length ? `<div class="stat"><b>${fmt(mean(rirs))}</b><span>RIR medio ${info('rir')}</span></div>` : ''}
       <div class="stat"><b>${records ? '★ ' + records : '0'}</b><span>récords ${info('pr')}</span></div>
-      ${s.srpe && mins > 0 ? `<div class="stat"><b>${s.srpe * mins} UA</b><span>carga interna ${info('load')}</span></div>` : ''}
+      ${(() => { const r = restAvg(s.exercises.flatMap((e) => e.sets)); return r ? `<div class="stat"><b>${r.txt}</b><span>descanso medio ${info('rest')}</span></div>` : ''; })()}
+      ${s.srpe && mins > 0 && !isSimple() ? `<div class="stat"><b>${s.srpe * mins} UA</b><span>carga interna ${info('load')}</span></div>` : ''}
     </div>
     ${prev ? `<div class="muted small" style="margin-top:8px">Variación de volumen frente a «${esc(prev.title)}» del ${fmtDate(prev.date)}, solo en los ejercicios comunes.</div>` : s.title ? '' : '<div class="muted small" style="margin-top:8px">Pon nombre a la sesión para compararla con las anteriores del mismo tipo.</div>'}
-    ${fatigueBlock(s)}
+    ${isSimple() ? '' : fatigueBlock(s)}
     ${volEx.length ? `<h3 class="sub">Volumen por ejercicio (kg)</h3>${bars(volEx, '')}` : ''}
     ${systemOf(s) === 'si' ? siSummary(s) : ''}
     ${musclesBlock(s)}
@@ -962,21 +978,30 @@ function exerciseCard(s, ex, i) {
   const prevBest = maxOf(before.map((h) => entryStats(h.entry).best));
   const open = ui.openEquip.has(ex.id);
   const chartOpen = ui.openChart.has(ex.id);
-  const fields = [...mode.fields, ...intensityFields(def)];
+  // Nunca ocultar datos registrados: si hay series con RIR (o RPE) fuera del modo elegido, se muestran ambas columnas.
+  let intF = intensityFields(def);
+  if (!isSimple() && intF.length === 1) {
+    const other = intF[0] === 'rpe' ? 'rir' : 'rpe';
+    if (ex.sets.some((x) => x[other] != null && x[other] !== '')) intF = ['rpe', 'rir'];
+  }
+  const fields = [...mode.fields, ...intF];
   const siMode = systemOf(s) === 'si';
   const esi = entrySI(ex), pesi = prev ? entrySI(prev.entry) : null;
 
+  const simple = isSimple();
   let rows = '';
   ex.sets.forEach((set, j) => {
     const est = isWork(set) ? m.best([set]) : null;
     const isPR = est && prevBest && est > prevBest;
+    if (j > 0) rows += restRowHTML(set, fields.length + 3); // serie + campos + ✓ + ⋯
     rows += `<tr class="${set.done ? 'done' : ''}">
       <td><button class="settype ${set.type}${set.videoId ? ' has-video' : ''}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
       ${fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>` : f === 'rir' ? `<td>${rirSelect(set.rir, i, j)}</td>`
-        : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
+        : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${simple ? '' : f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
       <td><button class="icon ghost" data-action="set-menu" data-i="${i}" data-j="${j}" aria-label="Opciones de la serie ${j + 1}: vídeo, compartir, borrar">⋯</button></td>
     </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
+    if (simple) return;
     const drop = setDrop(ex.sets, j);
     if (drop != null && drop >= db.settings.dropWarn) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="fatigue">⚠ Rendimiento −${fmt(drop, 0)}% frente a tu mejor serie de hoy: posible fatiga acumulada ${info('drop')}</td></tr>`;
     const mis = rpeRirMismatch(set);
@@ -991,34 +1016,36 @@ function exerciseCard(s, ex, i) {
   return `<div class="card" data-ex="${i}">
     <div class="ex-head">
       <h3><a href="#/exercise/${ex.exerciseId}" style="color:inherit;text-decoration:none">${esc(def.name)}</a></h3>
-      <button class="icon ghost ${chartOpen ? 'active' : ''}" data-action="toggle-chart" data-i="${i}" aria-label="Gráfica y datos">📈</button>
+      ${simple ? '' : `<button class="icon ghost ${chartOpen ? 'active' : ''}" data-action="toggle-chart" data-i="${i}" aria-label="Gráfica y datos">📈</button>`}
       <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="-1" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>↑</button>
       <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="1" aria-label="Bajar" ${i === s.exercises.length - 1 ? 'disabled' : ''}>↓</button>
       <button class="icon ghost danger" data-action="del-ex" data-i="${i}" aria-label="Quitar ejercicio">🗑</button>
     </div>
-    <div class="exstats">
+    ${simple ? '' : `<div class="exstats">
       <div><b>${fmtM(st.best, m)}</b> ${delta(st.best, pst?.best)}<span>${m.label} hoy ${st.mode === 'wr' ? info('e1rm') : ''}</span></div>
       ${siMode && ['wr', 'bw'].includes(def.mode) ? `<div><b>${fmt(esi.si, 1)}</b> ${delta(esi.si, pesi?.si)}<span>IE hoy ${info('stress_index')}</span></div>`
         : `<div><b>${fmtM(st.vol, m, m.volUnit)}</b> ${delta(st.vol, pst?.vol)}<span>volumen hoy ${info('volume')}</span></div>`}
       <div><b>${fmtM(prevBest, m)}</b><span>récord previo</span></div>
-    </div>
+    </div>`}
     ${prev ? `<div class="prev">Anterior (${fmtDate(prev.sess.date)}): ${esc(setsText(prev.entry, prev.entry.sets))}${prev.entry.equipment.length ? ' · ' + esc(prev.entry.equipment.map((x) => eqById(x)?.name).filter(Boolean).join(', ')) : ''}</div>
       ${prev.entry.notes ? `<div class="prev">📝 ${esc(prev.entry.notes)}</div>` : ''}` : '<div class="prev">Primera vez que registras este ejercicio.</div>'}
-    ${chartOpen ? `<div class="insight">
+    ${chartOpen && !simple ? `<div class="insight">
       ${lastPts.length >= 2 ? `<div class="muted small">${m.label} por sesión (últimas ${lastPts.length})</div>${chart(lastPts)}` : '<div class="muted small">La gráfica aparece a partir de 2 sesiones con datos.</div>'}
       <div class="stats">
         <div class="stat"><b>${before.length + 1}</b><span>sesiones</span></div>
         <div class="stat"><b>${fmtM(maxOf([st.topW, ...before.map((h) => entryStats(h.entry).topW)]), m, 'kg')}</b><span>peso máx. histórico</span></div>
         ${st.mode === 'wr' && maxOf([st.best, prevBest]) ? `<div class="stat"><b>${fmt(Math.round(maxOf([st.best, prevBest]) * 0.8 / 2.5) * 2.5)} kg</b><span>80% del 1RM ${info('pct1rm')}</span></div>` : ''}
         <div class="stat"><b>${before.length ? fmtDate(before[0].sess.date).replace(/ \d{4}$/, '') : '–'}</b><span>última vez</span></div>
+        ${restAvg(ex.sets) ? `<div class="stat"><b>${restAvg(ex.sets).txt}</b><span>descanso medio hoy</span></div>` : ''}
       </div>
     </div>` : ''}
     <div class="chips" style="margin-top:8px">
-      ${(open ? db.equipment : eqSel).map((e) => `<button class="chip ${ex.equipment.includes(e.id) ? 'on' : ''}" data-action="toggle-eq" data-i="${i}" data-eq="${e.id}">${esc(e.name)}</button>`).join('')}
-      <button class="chip" data-action="open-eq" data-i="${i}">${open ? 'Listo' : '＋ Material'}</button>
+      ${simple ? '' : (open ? db.equipment : eqSel).map((e) => `<button class="chip ${ex.equipment.includes(e.id) ? 'on' : ''}" data-action="toggle-eq" data-i="${i}" data-eq="${e.id}">${esc(e.name)}</button>`).join('')}
+      ${simple ? '' : `<button class="chip" data-action="open-eq" data-i="${i}">${open ? 'Listo' : '＋ Material'}</button>`}
+      ${simple || open ? '' : `<button class="chip" data-action="rest-target" data-id="${def.id}" title="Descanso objetivo de este ejercicio">⏱ ${fmtSec(restTarget(def))}${def.rest != null ? '' : ' (general)'}</button>`}
       ${open ? '' : `<button class="chip" data-action="yt" data-id="${def.id}">▶ Técnica${def.refUrl ? ' ★' : ''}</button>`}
     </div>
-    <div class="row" style="margin-top:8px"><button class="chip" data-action="cycle-intensity" data-i="${i}">Intensidad: <b>${INTENSITY[intensityOf(def)]}</b> ⇄</button>${info('intensity')}</div>
+    ${simple ? '' : `<div class="row" style="margin-top:8px"><button class="chip" data-action="cycle-intensity" data-i="${i}">Intensidad: <b>${INTENSITY[intensityOf(def)]}</b> ⇄</button>${info('intensity')}</div>`}
     <table class="sets">
       <thead><tr><th>Serie ${info('set_types')}</th>${fields.map((f) => `<th>${f === 'w' && def.mode === 'bw' ? 'Lastre' : FIELD[f].h}${f === 'rpe' || f === 'rir' ? ' ' + info(f) : ''}</th>`).join('')}<th>✓</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
@@ -1035,9 +1062,9 @@ function viewExercises() {
   const counts = {};
   for (const s of db.sessions) for (const e of s.exercises) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
   let html = `<div class="row"><h1 class="spacer">Progreso</h1><button data-action="exercise-form">＋ Nuevo ejercicio</button></div>
-    <a class="card list-item" href="#/analysis" style="display:flex;align-items:center;gap:10px">
+    ${isSimple() ? '' : `<a class="card list-item" href="#/analysis" style="display:flex;align-items:center;gap:10px">
       <span style="font-size:1.4rem">🔬</span><span class="spacer"><b>Análisis</b>
-      <div class="muted small">Factores y rendimiento · índice de estrés semanal · intensidad relativa</div></span><span>›</span></a>
+      <div class="muted small">Factores y rendimiento · índice de estrés semanal · intensidad relativa</div></span><span>›</span></a>`}
     <a class="card list-item" href="#/report" style="display:flex;align-items:center;gap:10px">
       <span style="font-size:1.4rem">📄</span><span class="spacer"><b>Informe de evolución (PDF)</b>
       <div class="muted small">1, 3, 6 o 12 meses · evolución por ejercicio, carga, reparto y bienestar</div></span><span>›</span></a>
@@ -1134,12 +1161,21 @@ function chart(pts, label = 'Evolución') {
 function viewSettings() {
   const used = new Set(db.sessions.flatMap((s) => s.exercises.flatMap((e) => e.equipment)));
   return `<h1>Ajustes</h1>
+    <h2>Modo de atleta ${info('level')}</h2>
+    <div class="card">
+      <div class="seg" style="margin-bottom:8px">${Object.entries(LEVELS).map(([k, v]) => `<button class="${db.settings.level === k ? 'on' : ''}" data-action="set-level" data-l="${k}">${v}</button>`).join('')}</div>
+      <div class="muted small">${isSimple()
+        ? '<b>Sencillo:</b> series, peso, repeticiones, RIR y descansos. Oculta RPE, material, índice de estrés, %1RM, fatiga, «antes de empezar» y análisis avanzados.'
+        : '<b>Avanzado:</b> todo: RPE y RIR, material, sensaciones y factores, índice de estrés, %1RM, fatiga, análisis e informes completos.'}
+        Se aplica a ${esc(activeUser().name)}; no se borra nada al cambiar de modo.</div>
+    </div>
+    <h2>Descansos</h2>
     <div class="card">
       <label>Descanso por defecto entre series (segundos)</label>
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
-      <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha. 0 = desactivado.</div>
+      <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). Pulsa <b>«▶ Serie»</b> en el temporizador al empezar la siguiente serie para guardar el descanso exacto; si no, se guarda el tiempo entre las dos ✓ como aproximado (≈). ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (⏱ en la tarjeta del ejercicio).'}</div>
     </div>
-    <h2>Intensidad y fatiga</h2>
+    ${isSimple() ? '' : `<h2>Intensidad y fatiga</h2>
     <div class="card">
       <label>Medir la intensidad por defecto con ${info('intensity')}</label>
       <select data-setting-str="intensity">${Object.entries(INTENSITY).map(([k, v]) => `<option value="${k}" ${db.settings.intensity === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
@@ -1149,7 +1185,7 @@ function viewSettings() {
       <div style="height:10px"></div>
       <label>Aviso de caída de rendimiento entre series (%) ${info('drop')}</label>
       <input type="number" inputmode="numeric" data-setting="dropWarn" value="${db.settings.dropWarn}">
-    </div>
+    </div>`}
     <h2>Material</h2>
     <div class="card">
       <div class="chips">${db.equipment.map((e) => `<span class="chip">${esc(e.name)} <button class="ghost" style="min-height:0;padding:0 0 0 6px" data-action="del-equipment" data-id="${e.id}" aria-label="Borrar">✕</button></span>`).join('')}</div>
@@ -1354,6 +1390,13 @@ function viewReport() {
 
   // Reparto e intensidad
   const catItems = muscleItems(cur.setsCat);
+  // Figura: media semanal por músculo, para que la escala signifique lo mismo en 1 mes que en 1 año.
+  const muscleWeekly = Object.fromEntries(Object.entries(cur.setsCat).map(([m, v]) => [m, v / weeks]));
+  if (Object.keys(muscleWeekly).length) {
+    html += `<section class="rsec"><h2>Volumen por músculo ${info('muscle_volume')}</h2><div class="rcard">
+      ${bodyMapHTML(muscleWeekly, { steps: [5, 10, 15, 20], unit: 'series / semana' })}
+      <div class="muted small">Media semanal de series efectivas en el periodo (principal 1, secundario 0,5).</div></div></section>`;
+  }
   html += `<section class="rsec"><h2>Reparto del entrenamiento</h2><div class="r-grid">
     <div class="rcard"><b>Series por músculo</b><div class="muted small">Principal 1 · secundario 0,5</div>${bars(catItems, '')}</div>
     ${cur.pcts.length ? `<div class="rcard"><b>Series por zona de intensidad (%1RM)</b>${bars(ZONES.map(([label, t]) => ({ label, v: cur.pcts.filter(t).length })), '')}</div>` : ''}
@@ -1482,7 +1525,7 @@ function newSession(fromId, date = ui.day || todayISO()) {
     exercises: src ? src.exercises.map((e) => ({
       id: uid(), exerciseId: e.exerciseId, notes: '', equipment: [...e.equipment],
       // Copia la estructura y cargas de la sesión anterior como punto de partida, sin marcar como hechas.
-      sets: e.sets.map((x) => ({ ...x, done: false, videoId: undefined })),
+      sets: e.sets.map((x) => ({ ...x, done: false, videoId: undefined, doneAt: undefined, restSec: undefined, restSrc: undefined })),
     })) : [],
   };
   db.sessions.push(s); save(true);
@@ -1505,6 +1548,37 @@ function restoreAllData(d, origin) {
 function muscleOptions(sel) {
   return `<option value="" ${!sel ? 'selected' : ''}>— Ninguno (cardio u otros) —</option>` + MUSCLE_KEYS.map((m) => `<option value="${m}" ${sel === m ? 'selected' : ''}>${MUSCLES[m]}</option>`).join('');
 }
+/* ---------- Descansos ----------
+ * restSec en una serie = descanso ANTES de esa serie. restSrc: 'timer' (exacto, «▶ Serie»),
+ * 'auto' (tiempo entre dos ✓, incluye la ejecución: aproximado) o 'manual'. */
+const restTarget = (def) => def?.rest ?? (+db.settings.rest || 0);
+function parseRest(v) {
+  const t = String(v).trim().replace(',', '.');
+  let m;
+  if ((m = /^(\d{1,3}):([0-5]?\d)$/.exec(t))) return +m[1] * 60 + +m[2];
+  if (/^\d{1,4}$/.test(t)) return +t;
+  return null;
+}
+// Asigna el descanso medido con «▶ Serie» a la serie siguiente (si existe y no tiene uno manual).
+function applyPendingRest(s, i) {
+  const p = ui.restPending;
+  if (!p || p.sid !== s.id || p.i !== i) return;
+  const next = s.exercises[i]?.sets[p.j + 1];
+  if (!next) return; // se aplicará al añadir la serie
+  if (next.restSrc !== 'manual') { next.restSec = p.sec; next.restSrc = 'timer'; }
+  ui.restPending = null;
+}
+function restAvg(sets) {
+  const r = sets.filter((x) => isWork(x) && x.restSec != null);
+  if (!r.length) return null;
+  const avg = mean(r.map((x) => x.restSec));
+  return { sec: avg, approx: r.some((x) => x.restSrc === 'auto'), txt: (r.some((x) => x.restSrc === 'auto') ? '≈' : '') + fmtSec(avg) };
+}
+function restRowHTML(set, colspan) {
+  if (set.restSec == null) return '';
+  const approx = set.restSrc === 'auto';
+  return `<tr class="rest-row"><td colspan="${colspan}"><span class="rest${approx ? ' approx' : ''}" title="${approx ? 'Aproximado: tiempo entre las dos ✓ (incluye la ejecución de la serie)' : set.restSrc === 'manual' ? 'Introducido a mano' : 'Medido con «▶ Serie»'}">⏱ ${approx ? '≈' : ''}${fmtSec(set.restSec)} de descanso${set.restSrc === 'manual' ? ' ✎' : ''}</span></td></tr>`;
+}
 const fileSafe = (t) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'usuario';
 // Exportar: ofrece «Compartir o guardar» (en iPhone, Guardar en Archivos) y «Descargar».
 function download(name, text, type) {
@@ -1512,9 +1586,9 @@ function download(name, text, type) {
     '<div class="hint">📱 <b>iPhone:</b> «Compartir o guardar» → Guardar en Archivos. 🤖 <b>Android:</b> «Descargar» (carpeta Descargas).</div>');
 }
 function toCSV() {
-  const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'pct_1rm', 'e1rm', 'indice_estres', 'material', 'notas_ejercicio']];
+  const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'descanso_s', 'descanso_tipo', 'pct_1rm', 'e1rm', 'indice_estres', 'material', 'notas_ejercicio']];
   for (const s of sortedSessions().reverse()) for (const e of s.exercises) e.sets.forEach((x, j) => rows.push([
-    s.date, s.title, s.bodyweight, s.readiness, s.sleep, s.stress, (s.factors || []).join(' | '), exById(e.exerciseId)?.name, j + 1, SET_TYPES[x.type], x.w, x.reps, x.rpe, x.rir, x.time, x.dist, x.done ? 'si' : 'no',
+    s.date, s.title, s.bodyweight, s.readiness, s.sleep, s.stress, (s.factors || []).join(' | '), exById(e.exerciseId)?.name, j + 1, SET_TYPES[x.type], x.w, x.reps, x.rpe, x.rir, x.time, x.dist, x.done ? 'si' : 'no', x.restSec ?? '', x.restSrc || '',
     pct1rm(x) ? fmt(pct1rm(x)) : '', e1rm(x) ? fmt(e1rm(x)) : '', stressIndex(x, exById(e.exerciseId)) != null ? fmt(stressIndex(x, exById(e.exerciseId)), 1) : '', e.equipment.map((q) => eqById(q)?.name).join(' | '), j === 0 ? e.notes : '',
   ]));
   return rows.map((r) => r.map((c) => { const v = String(c ?? ''); return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }).join(';')).join('\n');
@@ -1551,7 +1625,7 @@ const actions = {
     s.exercises.push({
       id: uid(), exerciseId: el.dataset.id, notes: '',
       equipment: prev ? [...prev.entry.equipment] : [],
-      sets: prev ? prev.entry.sets.map((x) => ({ ...x, done: false, videoId: undefined })) : [{ type: 'E', w: null, reps: null, rpe: null, rir: null, done: false }],
+      sets: prev ? prev.entry.sets.map((x) => ({ ...x, done: false, videoId: undefined, doneAt: undefined, restSec: undefined, restSrc: undefined })) : [{ type: 'E', w: null, reps: null, rpe: null, rir: null, done: false }],
     });
     save(); rerender();
     setTimeout(() => document.querySelector(`[data-ex="${s.exercises.length - 1}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
@@ -1578,7 +1652,8 @@ const actions = {
   'add-set': (el) => {
     const ex = currentSession().exercises[+el.dataset.i];
     const last = ex.sets[ex.sets.length - 1];
-    ex.sets.push(last ? { ...last, done: false, videoId: undefined, type: last.type === 'C' ? 'E' : last.type } : { type: 'E', w: null, reps: null, rpe: null, rir: null, done: false });
+    ex.sets.push(last ? { ...last, done: false, videoId: undefined, doneAt: undefined, restSec: undefined, restSrc: undefined, type: last.type === 'C' ? 'E' : last.type } : { type: 'E', w: null, reps: null, rpe: null, rir: null, done: false });
+    applyPendingRest(currentSession(), +el.dataset.i);
     save(); rerender();
   },
   'del-set': (el) => {
@@ -1593,9 +1668,61 @@ const actions = {
     save(); rerender();
   },
   'toggle-done': (el) => {
+    const s = currentSession(), i = +el.dataset.i, j = +el.dataset.j, ex = s.exercises[i], set = ex.sets[j];
+    set.done = !set.done;
+    if (set.done) {
+      set.doneAt = Date.now();
+      applyPendingRest(s, i);
+      // Sin «▶ Serie»: tiempo entre esta ✓ y la anterior del mismo ejercicio (incluye la ejecución: aproximado).
+      if (j > 0 && set.restSec == null) {
+        const prevDone = ex.sets.slice(0, j).reverse().find((x) => x.doneAt);
+        const gap = prevDone ? set.doneAt - prevDone.doneAt : 0;
+        if (gap > 0 && gap < 30 * 60e3) { set.restSec = Math.round(gap / 1000); set.restSrc = 'auto'; }
+      }
+      ui.rest = { sid: s.id, i, j, start: Date.now() };
+    } else {
+      delete set.doneAt;
+      if (set.restSrc === 'auto') { delete set.restSec; delete set.restSrc; }
+    }
+    save(); rerender();
+    if (set.done) startTimer(restTarget(exById(ex.exerciseId)));
+  },
+  // «▶ Serie» en el temporizador: el descanso exacto termina ahora y pertenece a la serie siguiente.
+  'timer-start-set': () => {
+    const r = ui.rest;
+    stopTimer();
+    if (!r) return;
+    const s = sessionById(r.sid); if (!s) return;
+    const sec = Math.round((Date.now() - r.start) / 1000);
+    ui.restPending = { ...r, sec };
+    ui.rest = null;
+    applyPendingRest(s, r.i);
+    save(); if (currentSession()?.id === s.id) rerender();
+    toast(`⏱ Descanso de ${fmtSec(sec)} guardado`);
+  },
+  'set-level': (el) => {
+    db.settings.level = el.dataset.l;
+    // Quien venía de sencillo registraba con RIR: si la intensidad por defecto sigue en RPE, pasa a RIR.
+    if (el.dataset.l === 'advanced' && db.settings.intensity === 'rpe' && db.sessions.some((s) => s.exercises.some((e) => e.sets.some((x) => x.rir != null && x.rpe == null)))) db.settings.intensity = 'rir';
+    save(true); rerender();
+  },
+  'rest-target': (el) => {
+    const def = exById(el.dataset.id);
+    const v = prompt(`Descanso objetivo para «${def.name}» (m:ss o segundos). Vacío = usar el general (${fmtSec(+db.settings.rest || 0)}).`, def.rest != null ? fmtSec(def.rest) : '');
+    if (v == null) return;
+    if (!v.trim()) delete def.rest;
+    else { const sec = parseRest(v); if (sec == null) return alert('Formato no válido. Ejemplos: 2:30 o 150.'); def.rest = sec; }
+    save(true); rerender();
+  },
+  'rest-save': (el) => {
     const set = currentSession().exercises[+el.dataset.i].sets[+el.dataset.j];
-    set.done = !set.done; save(); rerender();
-    if (set.done) startTimer(+db.settings.rest || 0);
+    const sec = parseRest($('#set-rest').value);
+    if (sec == null) return alert('Formato no válido. Ejemplos: 2:30 o 150.');
+    set.restSec = sec; set.restSrc = 'manual'; save(true); rerender(); openSetMenu(+el.dataset.i, +el.dataset.j);
+  },
+  'rest-clear': (el) => {
+    const set = currentSession().exercises[+el.dataset.i].sets[+el.dataset.j];
+    delete set.restSec; delete set.restSrc; save(true); rerender(); openSetMenu(+el.dataset.i, +el.dataset.j);
   },
   'open-eq': (el) => {
     const id = currentSession().exercises[+el.dataset.i].id;
