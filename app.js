@@ -170,9 +170,11 @@ function render() {
   const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
   app.innerHTML = bar + view(r.id);
   if (r.name === 'settings' && window.fillVideoStats) fillVideoStats();
+  if (r.name === 'settings' && window.fillSnapList) fillSnapList();
 }
 function rerender() { const y = scrollY; render(); scrollTo(0, y); }
-window.addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
+// Al cambiar de pantalla (también con «atrás») se cierra cualquier ventana abierta.
+window.addEventListener('hashchange', () => { if (modal.open) modal.close(); render(); scrollTo(0, 0); });
 
 /* ---------- Vistas ---------- */
 /* ---------- Métricas por tipo de ejercicio ---------- */
@@ -643,6 +645,7 @@ function viewCalendar() {
   const q = norm(ui.csearch).trim();
 
   let html = `<h1>Calendario</h1>
+    ${window.backupReminderHTML ? backupReminderHTML() : ''}
     <input type="search" data-action-input="csearch" placeholder="Buscar: ejercicio, nota, material, sensación…" value="${esc(ui.csearch)}">
     <div style="height:12px"></div>`;
 
@@ -1029,12 +1032,12 @@ function viewSettings() {
       <div class="muted small" style="margin:8px 0">Los vídeos se guardan dentro de la app y <b>no</b> se incluyen en la copia de seguridad. Para conservarlos, ábrelos desde la serie (⋯) y usa «Guardar en el móvil».</div>
       <button class="danger block" data-action="delete-videos">Borrar todos los vídeos de ${esc(activeUser().name)}</button>
     </div>
-    <h2>Copia en Google Drive</h2>
-    ${window.cloudSettingsHTML ? cloudSettingsHTML() : ''}
+    ${typeof cloudClientId === 'function' && cloudClientId() ? `<h2>Copia en Google Drive</h2>${cloudSettingsHTML()}` : ''}
     <h2>Copia de seguridad</h2>
     <div class="card">
-      <div class="muted small" style="margin-bottom:8px">Los datos viven solo en este dispositivo. Exporta con frecuencia: si borras los datos del navegador (o iOS los purga), se pierden.</div>
-      <button class="primary block" data-action="export-all" style="margin-bottom:8px">⬇ Exportar todos los usuarios</button>
+      <div class="muted small" style="margin-bottom:8px">Tus datos se guardan solo en este dispositivo. Guarda una copia en los archivos del móvil con frecuencia y, de vez en cuando, pásala a un ordenador: si se borran los datos del navegador o pierdes el móvil, se pierde todo.</div>
+      ${window.backupStatusHTML ? backupStatusHTML() : ''}
+      <button class="primary block" data-action="export-all" style="margin-bottom:8px">💾 Guardar copia en el móvil (todos los usuarios)</button>
       <div class="muted small" style="margin-bottom:6px">Solo ${esc(activeUser().name)}:</div>
       <div class="grid2">
         <button data-action="export-json">⬇ Exportar JSON</button>
@@ -1045,7 +1048,13 @@ function viewSettings() {
       <div class="muted small" style="margin-top:6px">«Importar JSON» acepta una copia de un usuario (sustituye al activo) o una copia de todos (sustituye a todos).</div>
       <input type="file" id="import-file" accept="application/json,.json" class="hidden">
     </div>
-    <p class="muted small">${db.sessions.length} sesiones guardadas.</p>`;
+    <h2>Copias automáticas</h2>
+    <div class="card">
+      <div class="muted small" style="margin-bottom:8px">La app guarda sola una copia al día y otra antes de restaurar, importar o borrar. Se conservan las últimas 14, <b>dentro de la app</b>: sirven para deshacer errores, no sustituyen a guardar la copia en el móvil.</div>
+      <div id="snap-list" class="small">Cargando…</div>
+      <button class="block" style="margin-top:8px" data-action="snap-now">Crear una copia ahora</button>
+    </div>
+    <p class="muted small">${esc(activeUser().name)}: ${db.sessions.length} ${db.sessions.length === 1 ? 'sesión guardada' : 'sesiones guardadas'}.</p>`;
 }
 
 /* ---------- Informe de evolución (imprimible / PDF) ---------- */
@@ -1349,7 +1358,8 @@ function restoreAllData(d, origin) {
   if (d?.type !== 'diario-entreno-todos' || !d.profiles?.users?.length || !d.data) throw new Error('Copia de usuarios incompleta o con otro formato');
   const names = d.profiles.users.map((u) => u.name).join(', ');
   const n = Object.values(d.data).reduce((a, x) => a + (x?.sessions?.length || 0), 0);
-  if (!confirm(`Restaurar la copia ${origin}: ${d.profiles.users.length} usuarios (${names}), ${n} sesiones.\nReemplaza TODOS los usuarios y datos de este dispositivo.`)) return false;
+  if (!confirm(`Restaurar la copia ${origin}: ${d.profiles.users.length} usuarios (${names}), ${n} sesiones.\nReemplaza TODOS los usuarios y datos de este dispositivo.\n\n(Antes se guarda una copia automática del estado actual.)`)) return false;
+  if (window.takeSnapshot) takeSnapshot('Antes de restaurar');
   clearTimeout(saveTimer);
   for (const u of profiles.users) localStorage.removeItem(dataKey(u.id));
   for (const u of d.profiles.users) if (d.data[u.id]) localStorage.setItem(dataKey(u.id), JSON.stringify(d.data[u.id]));
@@ -1358,11 +1368,10 @@ function restoreAllData(d, origin) {
   return true;
 }
 const fileSafe = (t) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'usuario';
+// Exportar: ofrece «Compartir o guardar» (en iPhone, Guardar en Archivos) y «Descargar».
 function download(name, text, type) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type }));
-  a.download = name; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  showShareResult(new Blob([text], { type }), name, 'Archivo listo',
+    '<div class="hint">📱 <b>iPhone:</b> «Compartir o guardar» → Guardar en Archivos. 🤖 <b>Android:</b> «Descargar» (carpeta Descargas).</div>');
 }
 function toCSV() {
   const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'pct_1rm', 'e1rm', 'indice_estres', 'material', 'notas_ejercicio']];
@@ -1524,6 +1533,7 @@ const actions = {
     const n = (u.id === profiles.active ? db : readUserData(u.id))?.sessions.length || 0;
     const typed = prompt(`Se borrarán ${u.name} y sus ${n} sesiones de este dispositivo. No se puede deshacer.\n\nEscribe el nombre para confirmar:`);
     if (typed == null || norm(typed.trim()) !== norm(u.name)) { if (typed != null) alert('El nombre no coincide. No se ha borrado nada.'); return; }
+    if (window.takeSnapshot) takeSnapshot(`Antes de borrar a ${u.name}`);
     const wasActive = u.id === profiles.active;
     if (wasActive) clearTimeout(saveTimer);
     profiles.users = profiles.users.filter((x) => x.id !== u.id);
@@ -1613,6 +1623,7 @@ const actions = {
   'wipe': () => {
     if (!confirm(`¿Borrar TODOS los datos de ${activeUser().name}? Exporta antes una copia.`)) return;
     if (!confirm('Seguro. Esto no se puede deshacer.')) return;
+    if (window.takeSnapshot) takeSnapshot(`Antes de borrar datos de ${activeUser().name}`);
     db = seed(); save(true); videoDeleteByUser(profiles.active); rerender();
   },
   'delete-videos': async () => {
@@ -1771,6 +1782,7 @@ document.addEventListener('change', (e) => {
       if (d.type === 'diario-entreno-todos') { restoreAllData(d, 'del archivo'); return; }
       if (!d.sessions || !d.exercises || !d.equipment) throw new Error('Formato no reconocido');
       if (!confirm(`Importar ${d.sessions.length} sesiones en ${activeUser().name}? Reemplaza sus datos actuales.`)) return;
+      if (window.takeSnapshot) takeSnapshot('Antes de importar');
       db = normalize(d); save(true); videoGc(); rerender();
     }).catch((err) => alert('No se pudo importar: ' + err.message));
     return;

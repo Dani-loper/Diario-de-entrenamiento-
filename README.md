@@ -16,7 +16,11 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
 - **Vídeo por serie** (menú ⋯ de la serie): grabar o elegir un vídeo, que se guarda en el almacenamiento interno de la app (IndexedDB) y se puede reproducir, cambiar, borrar o «Guardar en el móvil». Los vídeos no entran en la copia de seguridad JSON; Ajustes muestra el espacio usado.
 - **Compartir una serie**: vídeo con los datos superpuestos (re-codificado en el móvil; MP4 si el navegador lo permite), imagen 4:5 con los datos (con un fotograma del vídeo si lo hay) o texto. No incluye el nombre del atleta.
 - **Técnica en YouTube**: búsqueda del ejercicio en YouTube y un vídeo de referencia guardado para cada ejercicio (solo enlaces https).
-- **Copia en Google Drive** (Ajustes): copia de todos los usuarios en la carpeta «Diario de entrenamiento» del Drive del usuario, automática al finalizar cada sesión y tras los cambios mientras el acceso está vigente; restauración en otro dispositivo; detección de conflictos entre dispositivos. Permiso `drive.file`: la app solo ve sus propios archivos. Los vídeos no se suben.
+- **Copias de seguridad locales** (sin nube):
+  - *Copias automáticas dentro de la app*: una al día y otra antes de restaurar, importar o borrar; se conservan las últimas 14 y se pueden restaurar o guardar. Sirven para deshacer errores, no protegen si se borran los datos del navegador o se pierde el móvil.
+  - *Guardar copia en el móvil*: archivo con todos los usuarios mediante el menú de compartir (iPhone: «Guardar en Archivos») o descarga (Android: carpeta Descargas). Todas las exportaciones usan este mismo sistema.
+  - *Aviso* en el calendario si hace más de 14 días que no se guarda una copia fuera de la app.
+- **Copia en Google Drive** (opcional; solo aparece si se configura un ID de cliente en `config.js`): copia de todos los usuarios en la carpeta «Diario de entrenamiento» del Drive del usuario, automática al finalizar cada sesión y tras los cambios mientras el acceso está vigente; restauración en otro dispositivo; detección de conflictos entre dispositivos. Permiso `drive.file`: la app solo ve sus propios archivos. Los vídeos no se suben.
 - **Fatiga**: aviso de caída de rendimiento entre series (1RM estimado ≥10% por debajo de la mejor serie del día) y recuento de series al fallo, con RIR 0 o RPE ≥ 9,5.
 - **Carga interna** de la sesión (sRPE × minutos, método de Foster).
 - **Ayuda ⓘ** junto a los términos técnicos (RPE, RIR, 1RM estimado, volumen, carga interna, error estándar, correlación…), que abre una explicación.
