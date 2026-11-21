@@ -45,7 +45,7 @@ function seed() {
     exercises: DEFAULT_EXERCISES.map(([name, cat, mode]) => ({ id: uid(), name, cat, mode: mode || 'wr' })),
     equipment: DEFAULT_EQUIPMENT.map((name) => ({ id: uid(), name })),
     sessions: [],
-    settings: { rest: 120, dropWarn: 10, intensity: 'rpe' },
+    settings: { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets' },
   };
 }
 function load() {
@@ -53,7 +53,7 @@ function load() {
   return seed();
 }
 let db = load();
-db.settings = { rest: 120, dropWarn: 10, intensity: 'rpe', ...db.settings };
+db.settings = { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets', ...db.settings };
 let saveTimer;
 function save(now = false) {
   clearTimeout(saveTimer);
@@ -71,12 +71,11 @@ const sortedSessions = () => [...db.sessions].sort((a, b) => (b.date + b.created
 
 /* ---------- Cálculos ---------- */
 // 1RM estimado (Epley), corrigiendo por repeticiones en reserva si hay RPE.
+// 1RM estimado = peso / %1RM de la tabla RTS (reps 1-12, RIR 0-3,5). Fuera de rango no se calcula.
 function e1rm(set) {
   if (!set.w || !set.reps) return null;
-  const rir = set.rir != null ? set.rir : set.rpe ? Math.max(0, 10 - set.rpe) : 0;
-  const r = set.reps + rir;
-  if (r > 15) return null; // poco fiable
-  return r === 1 ? set.w : set.w * (1 + r / 30);
+  const p = pct1rm(set);
+  return p ? set.w / (p / 100) : null;
 }
 const isWork = (s) => s.type !== 'C';
 function sessionVolume(sess) {
@@ -241,11 +240,10 @@ function divBar(v, scale = 10) {
 }
 const pct = (v) => v == null ? '–' : `${v > 0 ? '+' : ''}${fmt(v, 1)}%`;
 
-function viewAnalysis() {
+function viewFactors() {
   const rel = relativePerformance();
   const sess = db.sessions.filter((s) => rel[s.id] != null);
-  let html = `<div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a></div>
-    <h1>Factores y rendimiento ${info('rel_perf')}</h1>
+  let html = `<h2>Factores y rendimiento ${info('rel_perf')}</h2>
     <div class="card muted small">
       <b>Cómo se calcula.</b> Para cada ejercicio con peso, el 1RM estimado del día se compara con la mediana ${info('median')} de ese ejercicio en las
       ${WINDOW_DAYS / 7} semanas de alrededor (sin contar ese día), y así se descuenta tu progresión. La sesión recibe la media de sus ejercicios.
@@ -310,6 +308,157 @@ function viewAnalysis() {
   return html;
 }
 
+/* ---------- Intensidad relativa (tabla RTS de Tuchscherer) ----------
+ * %1RM según repeticiones (1-12) y RPE 10…6,5 (RIR 0…3,5). En la tabla RTS el % depende solo de
+ * reps + RIR (bajar 1 punto de RPE equivale a 1 repetición más), así que se guarda como una serie:
+ * índice = (reps + RIR − 1) × 2. Celdas contrastadas: 1@10=100, 1@9,5=97,8, 1@9=95,5, 2@10=95,5,
+ * 3@10=92,2, 5@10=86,3, 5@8=81,1. Fuera de 1-12 reps o de RIR 0-3,5 no se calcula.
+ */
+const RTS = [100, 97.8, 95.5, 93.9, 92.2, 90.7, 89.2, 87.8, 86.3, 85.0, 83.7, 82.4, 81.1, 79.9, 78.6,
+  77.4, 76.2, 75.1, 73.9, 72.3, 70.7, 69.4, 68.0, 66.7, 65.3, 64.0, 62.6, 61.3, 59.9, 58.6];
+// Botón ⓘ usable dentro del propio glosario (no consulta GLOSSARY, que aún no existe al definirse).
+const infoBtn = (k) => `<button class="info" data-action="info" data-k="${k}" aria-label="Más información">i</button>`;
+const rirOf = (set) => set.rir != null ? set.rir : set.rpe ? Math.max(0, 10 - set.rpe) : null;
+function pct1rm(set) {
+  const reps = set.reps, rir = rirOf(set) ?? 0; // sin RPE/RIR se asume serie al fallo
+  if (!reps || reps < 1 || reps > 12 || !Number.isInteger(reps) || rir > 3.5 || (rir * 2) % 1) return null;
+  return RTS[(reps + rir - 1) * 2] ?? null;
+}
+function rtsTableHTML() {
+  const rirs = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5];
+  let h = '<div class="gt-wrap"><table class="gt rts"><tr><th>Reps</th>' + rirs.map((r) => `<th>RPE ${fmt(10 - r)}<br><small>RIR ${fmt(r)}</small></th>`).join('') + '</tr>';
+  for (let n = 1; n <= 12; n++) h += `<tr><td>${n}</td>${rirs.map((r) => `<td>${fmt(RTS[(n + r - 1) * 2])}</td>`).join('')}</tr>`;
+  return h + '</table></div>';
+}
+
+/* ---------- Índice de estrés (Stress Index) ----------
+ * Valor por serie efectiva según RIR y tipo de ejercicio (concepto de M. Tuchscherer; tabla
+ * difundida por PowerExplosive/Vitónica): multiarticular 1,4 − 0,2·RIR; monoarticular 1,3 − 0,2·RIR
+ * (RIR 0-5). Decisiones de la app: RIR > 5 suma 0; sin RPE/RIR la serie no se cuenta (se avisa).
+ */
+const SYSTEMS = { sets: 'Series y volumen', si: 'Índice de estrés' };
+const JOINT = { multi: 'Multiarticular', mono: 'Monoarticular' };
+const MONO_DEFAULT = ['Curl femoral', 'Extensión de cuádriceps', 'Aperturas', 'Face pull', 'Curl de bíceps', 'Extensión de tríceps', 'Elevación de piernas'];
+const jointOf = (def) => def?.joint || (def?.cat === 'Brazos' || MONO_DEFAULT.includes(def?.name) ? 'mono' : 'multi');
+const systemOf = (s) => s.system || db.settings.system || 'sets';
+function stressIndex(set, def) {
+  if (!isWork(set) || !['wr', 'bw'].includes(def?.mode || 'wr')) return null;
+  const r = rirOf(set);
+  if (r == null) return null;
+  if (r > 5) return 0;
+  return Math.max(0, (jointOf(def) === 'mono' ? 1.3 : 1.4) - 0.2 * r);
+}
+function entrySI(entry) {
+  const def = exById(entry.exerciseId);
+  let si = 0, counted = 0, missing = 0;
+  for (const s of entry.sets) {
+    if (!isWork(s) || !['wr', 'bw'].includes(def?.mode || 'wr')) continue;
+    if (!s.reps && !s.w) continue;
+    const v = stressIndex(s, def);
+    if (v == null) missing++; else { si += v; counted++; }
+  }
+  return { si, counted, missing };
+}
+function sessionSI(s) {
+  const byCat = {};
+  let total = 0, missing = 0;
+  for (const e of s.exercises) {
+    const r = entrySI(e);
+    const cat = exById(e.exerciseId)?.cat || 'Otros';
+    if (r.counted) byCat[cat] = (byCat[cat] || 0) + r.si;
+    total += r.si; missing += r.missing;
+  }
+  return { total, byCat, missing };
+}
+const pctTxt = (set) => { const p = pct1rm(set); return p ? `${Math.round(p)}%` : set.reps > 12 ? '>12 rep' : (rirOf(set) ?? 0) > 3.5 ? 'RIR>3,5' : ''; };
+const siTxt = (set, def) => { const v = stressIndex(set, def); return v == null ? (isWork(set) && (set.reps || set.w) ? 'sin RIR' : '') : `IE ${fmt(v, 1)}`; };
+
+/* ---------- Análisis: carga semanal e intensidad ---------- */
+function weekStart(iso) {
+  const d = new Date(iso + 'T12:00');
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function lastWeeks(n) {
+  const out = [], d = new Date(weekStart(todayISO()) + 'T12:00');
+  for (let i = 0; i < n; i++) { out.unshift(weekStart(d.toISOString().slice(0, 10))); d.setDate(d.getDate() - 7); }
+  return out;
+}
+function weeklyData(n = 12) {
+  const weeks = lastWeeks(n);
+  const data = Object.fromEntries(weeks.map((w) => [w, { si: 0, sets: 0, byCat: {}, setsCat: {}, missing: 0, pcts: [], sessions: 0 }]));
+  for (const s of db.sessions) {
+    const w = data[weekStart(s.date)]; if (!w) continue;
+    w.sessions++;
+    const r = sessionSI(s);
+    w.si += r.total; w.missing += r.missing;
+    for (const [c, v] of Object.entries(r.byCat)) w.byCat[c] = (w.byCat[c] || 0) + v;
+    for (const e of s.exercises) {
+      const def = exById(e.exerciseId), cat = def?.cat || 'Otros';
+      for (const x of e.sets.filter(isWork)) {
+        w.sets++; w.setsCat[cat] = (w.setsCat[cat] || 0) + 1;
+        if ((def?.mode || 'wr') === 'wr') { const p = pct1rm(x); if (p) w.pcts.push(p); }
+      }
+    }
+  }
+  return { weeks, data };
+}
+const wkLabel = (w) => new Date(w + 'T12:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+
+function viewLoad() {
+  const { weeks, data } = weeklyData(12);
+  const cur = data[weeks[weeks.length - 1]], prev = data[weeks[weeks.length - 2]], prev2 = data[weeks[weeks.length - 3]];
+  // La semana actual está incompleta: la variación se calcula entre las dos últimas semanas cerradas.
+  let html = `<div class="card"><div class="stats">
+      <div class="stat"><b>${fmt(cur.si, 1)}</b><span>IE esta semana (en curso) ${info('stress_index')}</span></div>
+      <div class="stat"><b>${fmt(prev.si, 1)} ${delta(prev.si, prev2.si)}</b><span>IE semana pasada (vs. anterior)</span></div>
+      <div class="stat"><b>${cur.sets}</b><span>series efectivas ${info('work_sets')}</span></div>
+      <div class="stat"><b>${cur.sessions}</b><span>sesiones</span></div>
+    </div>
+    ${cur.missing ? `<div class="mismatch" style="margin-top:8px">${cur.missing} series de esta semana sin RPE ni RIR: no suman al índice de estrés.</div>` : ''}
+    </div>`;
+  const pts = weeks.map((w) => ({ d: w, v: data[w].si }));
+  if (pts.filter((p) => p.v).length >= 2) html += `<h2>Índice de estrés semanal ${info('weekly_load')}</h2><div class="card">${chart(pts)}</div>`;
+  else html += `<div class="empty">Registra RPE o RIR durante al menos 2 semanas para ver la evolución.</div>`;
+
+  const last4 = weeks.slice(-4);
+  const cats = CATEGORIES.filter((c) => last4.some((w) => data[w].byCat[c] || data[w].setsCat[c]));
+  if (cats.length) {
+    html += `<h2>Por grupo (últimas 4 semanas)</h2><div class="card gt-wrap"><table class="gt wtable">
+      <tr><th>Grupo</th>${last4.map((w) => `<th>${wkLabel(w)}</th>`).join('')}</tr>
+      ${cats.map((c) => `<tr><td>${c}</td>${last4.map((w) => `<td><b>${data[w].byCat[c] ? fmt(data[w].byCat[c], 1) : '–'}</b><br><small class="muted">${data[w].setsCat[c] || 0} series</small></td>`).join('')}</tr>`).join('')}
+    </table><div class="muted small" style="margin-top:6px">Arriba, índice de estrés; abajo, series efectivas.</div></div>`;
+  }
+  return html;
+}
+
+const ZONES = [['< 70%', (p) => p < 70], ['70-79%', (p) => p >= 70 && p < 80], ['80-89%', (p) => p >= 80 && p < 90], ['≥ 90%', (p) => p >= 90]];
+function viewIntensity() {
+  const { weeks, data } = weeklyData(12);
+  const recent = weeks.slice(-4).flatMap((w) => data[w].pcts);
+  let html = `<div class="card muted small">Intensidad relativa de cada serie efectiva con peso, según la tabla RTS ${info('rts')}: repeticiones de 1 a 12 con RIR de 0 a 3,5.
+    Las series fuera de ese rango no tienen %1RM.</div>`;
+  if (!recent.length) return html + '<div class="empty">Sin series con %1RM calculable en las últimas 4 semanas.</div>';
+  html += `<div class="card"><div class="stats">
+      <div class="stat"><b>${fmt(mean(recent), 1)}%</b><span>%1RM medio (4 sem.) ${info('pct1rm')}</span></div>
+      <div class="stat"><b>${recent.length}</b><span>series con %1RM</span></div>
+    </div></div>
+    <h2>Distribución por zonas (4 semanas) ${info('zones')}</h2><div class="card">${bars(ZONES.map(([label, t]) => ({ label, v: recent.filter(t).length })), ' series')}</div>`;
+  const pts = weeks.map((w) => ({ d: w, v: mean(data[w].pcts) })).filter((p) => p.v);
+  if (pts.length >= 2) html += `<h2>%1RM medio por semana</h2><div class="card">${chart(pts)}</div>`;
+  return html;
+}
+
+function viewAnalysis() {
+  const tab = ui.atab || 'factors';
+  const tabs = { factors: 'Factores', load: 'Carga (IE)', intensity: 'Intensidad' };
+  const body = { factors: viewFactors, load: viewLoad, intensity: viewIntensity }[tab]();
+  return `<div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a></div>
+    <h1>Análisis</h1>
+    <div class="seg">${Object.entries(tabs).map(([k, v]) => `<button class="${k === tab ? 'on' : ''}" data-action="atab" data-t="${k}">${v}</button>`).join('')}</div>
+    ${body}`;
+}
+
 /* ---------- Glosario: iconos ⓘ junto a términos técnicos ---------- */
 const GLOSSARY = {
   rpe: ['RPE · Esfuerzo percibido', `
@@ -333,10 +482,10 @@ const GLOSSARY = {
     <p><b>¿Para qué los dos?</b> El RIR mide lo cerca que estás del fallo muscular; el RPE, el esfuerzo global. Si no cuadran (p. ej. RPE 9 con RIR 3), la discrepancia es un dato: puede indicar fatiga general (cardiovascular, sueño), molestias, técnica exigente o que estás estimando mal el RIR.</p>
     <p>Para el 1RM estimado tiene prioridad el <b>RIR</b>; si no hay, se usa 10 − RPE.</p>`],
   e1rm: ['1RM estimado', `
-    <p>El <b>1RM</b> es el peso máximo que podrías levantar una vez. Aquí se <b>estima</b> sin probarlo, con la fórmula de Epley corregida por las repeticiones que te quedaban:</p>
-    <p class="formula">1RM ≈ peso × (1 + (reps + RIR) / 30)</p>
-    <p>Ejemplo: 100 kg × 5 con RIR 2 → 100 × (1 + 7/30) ≈ 123 kg.</p>
-    <p><b>Limitaciones:</b> pierde precisión con muchas repeticiones (no se calcula si reps + RIR &gt; 15), depende de que el RIR/RPE sea honesto, y <b>no sirve para movimientos de halterofilia</b> (arrancada, dos tiempos), donde la técnica y la velocidad limitan más que la fuerza. Si no apuntas RPE ni RIR, se asume que llegaste al fallo.</p>`],
+    <p>El <b>1RM</b> es el peso máximo que podrías levantar una vez. Aquí se <b>estima</b> sin probarlo: se busca en la tabla RTS ${infoBtn('rts')} qué %1RM corresponde a tus repeticiones y RIR, y se divide el peso entre ese porcentaje.</p>
+    <p class="formula">1RM ≈ peso / %1RM(reps, RIR)</p>
+    <p>Ejemplo: 100 kg × 5 con RIR 2 → la tabla da 81,1% → 100 / 0,811 ≈ 123 kg.</p>
+    <p><b>Solo se calcula entre 1 y 12 repeticiones y con RIR de 0 a 3,5</b> (RPE 6,5-10): fuera de ese rango la estimación deja de ser fiable. Si no apuntas RPE ni RIR, se asume que llegaste al fallo. <b>No sirve para movimientos de halterofilia</b>, donde la técnica y la velocidad limitan más que la fuerza.</p>`],
   pr: ['Récord estimado', `<p>La serie da un <b>1RM estimado superior</b> a cualquiera de sesiones anteriores de este ejercicio. No es un récord real de 1 repetición, sino una mejora de tu capacidad estimada.</p>`],
   volume: ['Volumen (tonelaje)', `
     <p>Suma de <b>peso × repeticiones</b> de las series efectivas (sin calentamiento). En ejercicios de peso corporal se cuentan repeticiones; en los de tiempo, segundos; en los de distancia, metros.</p>
@@ -370,8 +519,29 @@ const GLOSSARY = {
     <p>El coeficiente <b>r de Pearson</b> va de −1 a 1: 1 = cuando una variable sube, la otra también, siempre; −1 = sube una y baja la otra; 0 = sin relación lineal.</p>
     <p>Orientativo: |r| &lt; 0,3 débil; 0,3-0,5 moderada; &gt; 0,5 fuerte. <b>Correlación no implica causa.</b></p>`],
   causation: ['Correlación no es causa', `<p>Que rindas peor los días que marcas «Dormí mal» no prueba que el sueño sea la causa: puede coincidir con estrés, peor alimentación… O puedes marcarlo <i>porque</i> la sesión fue mal. Para reducir este sesgo, <b>marca los factores antes de entrenar</b>.</p>`],
-  load_table: ['Tabla de cargas', `<p>Peso aproximado que podrías mover para cada número de repeticiones <b>llevando la serie al fallo</b> (RPE 10 / RIR 0), calculado a partir de tu mejor 1RM estimado con la fórmula de Epley y redondeado a 2,5 kg. Para series a RIR 2, súmale 2 a las repeticiones.</p>`],
-  pct1rm: ['% del 1RM', `<p>Porcentaje de tu 1RM estimado. Es habitual programar por porcentajes: ~80% suele permitir unas 6-8 repeticiones al fallo, aunque varía mucho entre personas y ejercicios.</p>`],
+  load_table: ['Tabla de cargas', `<p>Peso aproximado que podrías mover para cada número de repeticiones <b>llevando la serie al fallo</b> (RPE 10 / RIR 0), calculado con tu mejor 1RM estimado y la tabla RTS, y redondeado a 2,5 kg. Para series a RIR 2, súmale 2 a las repeticiones.</p>`],
+  pct1rm: ['Intensidad relativa (%1RM)', `
+    <p>Porcentaje de tu 1RM que supone el peso de una serie, deducido de <b>repeticiones + RIR</b> con la tabla RTS. Ejemplos: 5 reps a RIR 0 ≈ 86%; 5 reps a RIR 2 ≈ 81%; 10 reps a RIR 0 ≈ 74%.</p>
+    <p><b>Rango:</b> de 1 a 12 repeticiones y RIR de 0 a 3,5. Con más de 12 repeticiones o más de 3,5 RIR <b>no se calcula</b>.</p>
+    <p><b>Limitación:</b> la tabla es una media. Las repeticiones que una persona hace a un mismo %1RM varían mucho según el ejercicio (en prensa o en máquinas salen más que en press banca), el entrenamiento y el tipo de fibra.</p>`],
+  rts: ['Tabla RTS: repeticiones × RIR → %1RM', `
+    <p>Tabla de Mike Tuchscherer (Reactive Training Systems), obtenida de powerlifters. En ella, bajar un punto de RPE equivale a hacer una repetición más, así que el % depende solo de <b>reps + RIR</b>.</p>
+    ${rtsTableHTML()}
+    <p class="muted small">Valores en % del 1RM. RPE ≈ 10 − RIR.</p>`],
+  stress_index: ['Índice de estrés (Stress Index)', `
+    <p>Forma de cuantificar el volumen que no cuenta todas las series igual: cada serie efectiva suma según lo <b>cerca del fallo</b> que terminó y el <b>tipo de ejercicio</b>. Concepto de Mike Tuchscherer; tabla difundida por PowerExplosive y Vitónica.</p>
+    <table class="gt"><tr><th>RIR</th><th>Multiarticular</th><th>Monoarticular</th></tr>
+      ${[0, 1, 2, 3, 4, 5].map((r) => `<tr><td>${r}</td><td>${fmt(1.4 - 0.2 * r, 1)}</td><td>${fmt(1.3 - 0.2 * r, 1)}</td></tr>`).join('')}</table>
+    <p>Ejemplo: 3 series de sentadilla a RIR 2 (1,0 cada una) + 3 de curl femoral a RIR 1 (1,1) = 6,3.</p>
+    <p><b>Decisiones de esta app:</b> con RIR mayor que 5 la serie suma 0; las medias (RIR 1,5) se interpolan; si no apuntas RPE ni RIR la serie <b>no cuenta</b> y se avisa. Si usas RPE, se convierte a RIR = 10 − RPE.</p>
+    <p><b>Limitaciones:</b> no es un método validado en estudios revisados por pares, hay variantes con otros valores (alguna da 1,6 al fallo) y depende de que el RIR sea honesto. <b>Más índice no significa mejores resultados</b>: sirve para comparar tus semanas entre sí.</p>`],
+  joint: ['Multiarticular / monoarticular', `<p><b>Multiarticular</b>: mueve varias articulaciones (sentadilla, peso muerto, press, remo, dominadas). <b>Monoarticular</b>: una sola (curl, extensión de cuádriceps, aperturas). En el índice de estrés las monoarticulares suman 0,1 menos por serie. Puedes cambiarlo al editar el ejercicio.</p>`],
+  system: ['Cuantificar con series o con índice de estrés', `
+    <p><b>Series y volumen</b>: cuenta las series efectivas y los kilos movidos (peso × reps).</p>
+    <p><b>Índice de estrés</b> ${infoBtn('stress_index')}: cada serie pesa según su RIR y el tipo de ejercicio. Muestra el índice por serie, por ejercicio y por grupo muscular. Para usarlo, apunta RPE o RIR en todas las series efectivas.</p>
+    <p>Cada sesión puede usar un sistema; el de por defecto se elige en Ajustes. Los cálculos de la pantalla de Análisis se hacen siempre con los dos.</p>`],
+  weekly_load: ['Índice de estrés semanal', `<p>Suma del índice de estrés de todas las sesiones de cada semana (de lunes a domingo). Sirve para ver si tu carga sube, se mantiene o baja, y para detectar <b>saltos bruscos</b> de una semana a otra, que se asocian a más fatiga. No hay un valor «correcto» universal: compárate contigo.</p>`],
+  zones: ['Zonas de intensidad', `<p>Reparto de tus series efectivas según su %1RM: por debajo del 70% (trabajo más metabólico, series largas), 70-79%, 80-89% (rango típico de fuerza) y 90% o más (cargas muy altas, pocas repeticiones). Son rangos orientativos.</p>`],
 };
 function info(k) {
   return `<button class="info" data-action="info" data-k="${k}" aria-label="Qué es: ${esc(GLOSSARY[k]?.[0] || k)}">i</button>`;
@@ -476,6 +646,7 @@ function viewSession(id) {
       <div><label>Fecha</label><input type="date" data-s="date" value="${esc(s.date)}"></div>
       <div><label>${s.endedAt ? 'Duración' : 'En curso'}</label><div class="pill">${fmtDur(dur)} · <b id="vol">${fmt(sessionVolume(s), 0)} kg</b></div></div>
     </div>
+    <div class="row" style="margin-top:10px"><button class="chip" data-action="cycle-system">Cuantificación: <b>${SYSTEMS[systemOf(s)]}</b> ⇄</button>${info('system')}</div>
     <details class="card pre" id="pre" ${preOpen ? 'open' : ''} style="margin-top:12px">
       <summary><b>Antes de empezar</b> <span class="muted small">opcional${preFilled && !preOpen ? ' · ✓ registrado' : ''}</span></summary>
       <div class="grid2" style="margin-top:10px">
@@ -549,11 +720,22 @@ function sessionSummary(s) {
     ${prev ? `<div class="muted small" style="margin-top:8px">Variación de volumen frente a «${esc(prev.title)}» del ${fmtDate(prev.date)}, solo en los ejercicios comunes.</div>` : s.title ? '' : '<div class="muted small" style="margin-top:8px">Pon nombre a la sesión para compararla con las anteriores del mismo tipo.</div>'}
     ${fatigueBlock(s)}
     ${volEx.length ? `<h3 class="sub">Volumen por ejercicio (kg)</h3>${bars(volEx, '')}` : ''}
-    <h3 class="sub">Series efectivas por grupo</h3>${bars(Object.entries(catSets).filter(([, v]) => v).map(([label, v]) => ({ label, v })), '')}
+    ${systemOf(s) === 'si' ? siSummary(s) : `<h3 class="sub">Series efectivas por grupo</h3>${bars(Object.entries(catSets).filter(([, v]) => v).map(([label, v]) => ({ label, v })), '')}`}
     ${trend.length >= 2 ? `<h3 class="sub">Volumen en «${esc(s.title)}» (últimas ${trend.length})</h3>${chart(trend)}` : ''}
   </div>`;
 }
 
+function siSummary(s) {
+  const r = sessionSI(s);
+  const pcts = s.exercises.filter((e) => (exById(e.exerciseId)?.mode || 'wr') === 'wr').flatMap((e) => e.sets.filter(isWork).map(pct1rm)).filter(Boolean);
+  return `<h3 class="sub">Índice de estrés ${info('stress_index')}</h3>
+    <div class="stats">
+      <div class="stat"><b>${fmt(r.total, 1)}</b><span>IE de la sesión</span></div>
+      ${pcts.length ? `<div class="stat"><b>${fmt(mean(pcts), 0)}%</b><span>%1RM medio ${info('pct1rm')}</span></div>` : ''}
+    </div>
+    ${r.missing ? `<div class="mismatch" style="margin:6px 0">${r.missing} series sin RPE ni RIR: no suman al índice.</div>` : ''}
+    ${Object.keys(r.byCat).length ? `<h3 class="sub">IE por grupo</h3>${bars(Object.entries(r.byCat).map(([label, v]) => ({ label, v: Math.round(v * 10) / 10 })), '')}` : ''}`;
+}
 function fatigueBlock(s) {
   const f = sessionFatigue(s);
   if (!f.drops.length && !f.nearFail) return '';
@@ -568,7 +750,7 @@ function fatigueBlock(s) {
 }
 function bars(items, unit) {
   const max = Math.max(1, ...items.map((i) => i.v));
-  return items.map((i) => `<div class="bar"><span>${esc(i.label)}</span><div><i style="width:${(i.v / max * 100).toFixed(1)}%"></i></div><b>${fmt(i.v, 0)}${unit}</b></div>`).join('');
+  return items.map((i) => `<div class="bar"><span>${esc(i.label)}</span><div><i style="width:${(i.v / max * 100).toFixed(1)}%"></i></div><b>${fmt(i.v, i.v % 1 ? 1 : 0)}${unit}</b></div>`).join('');
 }
 
 function scaleSelect(key, val, a, b) {
@@ -601,6 +783,8 @@ function exerciseCard(s, ex, i) {
   const open = ui.openEquip.has(ex.id);
   const chartOpen = ui.openChart.has(ex.id);
   const fields = [...mode.fields, ...intensityFields(def)];
+  const siMode = systemOf(s) === 'si';
+  const esi = entrySI(ex), pesi = prev ? entrySI(prev.entry) : null;
 
   let rows = '';
   ex.sets.forEach((set, j) => {
@@ -609,7 +793,7 @@ function exerciseCard(s, ex, i) {
     rows += `<tr class="${set.done ? 'done' : ''}">
       <td><button class="settype ${set.type}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
       ${fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>` : f === 'rir' ? `<td>${rirSelect(set.rir, i, j)}</td>`
-        : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}"></td>`).join('')}
+        : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
       <td><button class="icon ghost" data-action="del-set" data-i="${i}" data-j="${j}" aria-label="Borrar serie">✕</button></td>
     </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
@@ -634,7 +818,8 @@ function exerciseCard(s, ex, i) {
     </div>
     <div class="exstats">
       <div><b>${fmtM(st.best, m)}</b> ${delta(st.best, pst?.best)}<span>${m.label} hoy ${st.mode === 'wr' ? info('e1rm') : ''}</span></div>
-      <div><b>${fmtM(st.vol, m, m.volUnit)}</b> ${delta(st.vol, pst?.vol)}<span>volumen hoy ${info('volume')}</span></div>
+      ${siMode && ['wr', 'bw'].includes(def.mode) ? `<div><b>${fmt(esi.si, 1)}</b> ${delta(esi.si, pesi?.si)}<span>IE hoy ${info('stress_index')}</span></div>`
+        : `<div><b>${fmtM(st.vol, m, m.volUnit)}</b> ${delta(st.vol, pst?.vol)}<span>volumen hoy ${info('volume')}</span></div>`}
       <div><b>${fmtM(prevBest, m)}</b><span>récord previo</span></div>
     </div>
     ${prev ? `<div class="prev">Anterior (${fmtDate(prev.sess.date)}): ${esc(setsText(prev.entry, prev.entry.sets))}${prev.entry.equipment.length ? ' · ' + esc(prev.entry.equipment.map((x) => eqById(x)?.name).filter(Boolean).join(', ')) : ''}</div>
@@ -670,8 +855,8 @@ function viewExercises() {
   for (const s of db.sessions) for (const e of s.exercises) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
   let html = `<div class="row"><h1 class="spacer">Progreso</h1><button data-action="exercise-form">＋ Nuevo ejercicio</button></div>
     <a class="card list-item" href="#/analysis" style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:1.4rem">🔬</span><span class="spacer"><b>Factores y rendimiento</b>
-      <div class="muted small">Cómo influyen el sueño, el estrés, la energía y los factores que marcas</div></span><span>›</span></a>
+      <span style="font-size:1.4rem">🔬</span><span class="spacer"><b>Análisis</b>
+      <div class="muted small">Factores y rendimiento · índice de estrés semanal · intensidad relativa</div></span><span>›</span></a>
     <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">
     <div style="height:12px"></div>`;
   const items = db.exercises.filter((e) => norm(e.name).includes(q))
@@ -726,7 +911,7 @@ function viewExercise(id) {
 
   if (best && def.mode === 'wr') {
     html += `<h2>Tabla de cargas (1RM est. ${fmt(best.v)} kg) ${info('load_table')}</h2><div class="card"><div class="stats">
-      ${[1, 2, 3, 5, 8, 10].map((r) => `<div class="stat"><b>${fmt(Math.round(best.v / (1 + (r === 1 ? 0 : r / 30)) / 2.5) * 2.5)} kg</b><span>${r} rep @10</span></div>`).join('')}
+      ${[1, 2, 3, 5, 8, 10, 12].map((r) => `<div class="stat"><b>${fmt(Math.round(best.v * RTS[(r - 1) * 2] / 100 / 2.5) * 2.5)} kg</b><span>${r} rep @10</span></div>`).join('')}
     </div></div>`;
   }
 
@@ -771,6 +956,9 @@ function viewSettings() {
       <label>Medir la intensidad por defecto con ${info('intensity')}</label>
       <select data-setting-str="intensity">${Object.entries(INTENSITY).map(([k, v]) => `<option value="${k}" ${db.settings.intensity === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
       <div class="muted small" style="margin:6px 0 10px">Se aplica a los ejercicios en los que no hayas elegido otra cosa. En cada ejercicio puedes cambiarlo con «Intensidad ⇄».</div>
+      <label>Cuantificar las sesiones nuevas con ${info('system')}</label>
+      <select data-setting-str="system">${Object.entries(SYSTEMS).map(([k, v]) => `<option value="${k}" ${db.settings.system === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <div style="height:10px"></div>
       <label>Aviso de caída de rendimiento entre series (%) ${info('drop')}</label>
       <input type="number" inputmode="numeric" data-setting="dropWarn" value="${db.settings.dropWarn}">
     </div>
@@ -865,7 +1053,7 @@ function newSession(fromId, date = ui.day || todayISO()) {
   const src = fromId && sessionById(fromId);
   const s = {
     id: uid(), createdAt: new Date().toISOString(), date, startedAt: Date.now(), endedAt: null,
-    title: src ? src.title : '', notes: '', bodyweight: null, readiness: null, sleep: null, stress: null, srpe: null,
+    title: src ? src.title : '', system: src ? src.system : db.settings.system, notes: '', bodyweight: null, readiness: null, sleep: null, stress: null, srpe: null,
     factors: [], preNotes: '', preObs: '',
     exercises: src ? src.exercises.map((e) => ({
       id: uid(), exerciseId: e.exerciseId, notes: '', equipment: [...e.equipment],
@@ -883,10 +1071,10 @@ function download(name, text, type) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 function toCSV() {
-  const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'e1rm', 'material', 'notas_ejercicio']];
+  const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'pct_1rm', 'e1rm', 'indice_estres', 'material', 'notas_ejercicio']];
   for (const s of sortedSessions().reverse()) for (const e of s.exercises) e.sets.forEach((x, j) => rows.push([
     s.date, s.title, s.bodyweight, s.readiness, s.sleep, s.stress, (s.factors || []).join(' | '), exById(e.exerciseId)?.name, j + 1, SET_TYPES[x.type], x.w, x.reps, x.rpe, x.rir, x.time, x.dist, x.done ? 'si' : 'no',
-    e1rm(x) ? fmt(e1rm(x)) : '', e.equipment.map((q) => eqById(q)?.name).join(' | '), j === 0 ? e.notes : '',
+    pct1rm(x) ? fmt(pct1rm(x)) : '', e1rm(x) ? fmt(e1rm(x)) : '', stressIndex(x, exById(e.exerciseId)) != null ? fmt(stressIndex(x, exById(e.exerciseId)), 1) : '', e.equipment.map((q) => eqById(q)?.name).join(' | '), j === 0 ? e.notes : '',
   ]));
   return rows.map((r) => r.map((c) => { const v = String(c ?? ''); return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }).join(';')).join('\n');
 }
@@ -980,6 +1168,11 @@ const actions = {
     s.factors = s.factors.includes(f) ? s.factors.filter((x) => x !== f) : [...s.factors, f];
     ui.preOpen[s.id] = true; save(); rerender();
   },
+  'cycle-system': () => {
+    const s = currentSession(); const order = Object.keys(SYSTEMS);
+    s.system = order[(order.indexOf(systemOf(s)) + 1) % order.length]; save(); rerender();
+  },
+  'atab': (el) => { ui.atab = el.dataset.t; rerender(); },
   'cycle-intensity': (el) => {
     const def = exById(currentSession().exercises[+el.dataset.i].exerciseId);
     const order = Object.keys(INTENSITY);
@@ -1003,6 +1196,7 @@ const actions = {
       <div style="display:grid;gap:10px;margin-top:10px">
         <div><label>Nombre</label><input id="ef-name" value="${esc(e?.name)}" placeholder="p. ej. Sentadilla búlgara"></div>
         <div><label>Grupo</label><select id="ef-cat">${CATEGORIES.map((c) => `<option ${e?.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div><label>Tipo ${info('joint')}</label><select id="ef-joint">${Object.entries(JOINT).map(([k, v]) => `<option value="${k}" ${jointOf(e || {}) === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
         <div><label>Cómo se registra</label><select id="ef-mode" ${used ? 'disabled' : ''}>${Object.entries(MODES).map(([k, m]) => `<option value="${k}" ${e?.mode === k ? 'selected' : ''}>${m.label}</option>`).join('')}</select>
           ${used ? '<div class="muted small">No se puede cambiar: ya tiene series registradas.</div>' : ''}</div>
         <button class="primary" data-action="save-exercise" data-id="${e?.id || ''}">Guardar</button>
@@ -1014,7 +1208,7 @@ const actions = {
     if (dup) return alert('Ya existe un ejercicio con ese nombre.');
     let e = el.dataset.id && exById(el.dataset.id);
     if (!e) { e = { id: uid() }; db.exercises.push(e); }
-    e.name = name; e.cat = $('#ef-cat').value; if (!$('#ef-mode').disabled) e.mode = $('#ef-mode').value;
+    e.name = name; e.cat = $('#ef-cat').value; e.joint = $('#ef-joint').value; if (!$('#ef-mode').disabled) e.mode = $('#ef-mode').value;
     save(); closeModal(); location.hash = `#/exercise/${e.id}`; rerender();
   },
   'filter-eq': (el) => { ui.filterEq = el.dataset.eq; rerender(); },
@@ -1086,6 +1280,8 @@ document.addEventListener('input', (e) => {
       if (f === 'rir' && set.rir != null && set.rpe == null && set.rir <= 4) set.rpe = 10 - set.rir;
     }
     save();
+    const cap = $(`#cap-${i}-${j}`); if (cap) cap.textContent = pctTxt(set);
+    const sic = $(`#si-${i}-${j}`); if (sic) sic.textContent = siTxt(set, exById(s.exercises[+i].exerciseId));
   }
 });
 // Al cambiar cosas que afectan a cálculos visibles (récords, volumen), refresca al salir del campo.

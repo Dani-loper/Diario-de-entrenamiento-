@@ -8,6 +8,9 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
 - **Datos en el registro de series**: 1RM/volumen de hoy frente a la vez anterior, récord previo y gráfica desplegable (📈).
 - **Resumen de sesión**: volumen, series, reps, RPE medio, récords, barras por ejercicio y grupo, y tendencia frente a sesiones con el mismo nombre.
 - **Intensidad por ejercicio con RPE, RIR o ambos**: la app recuerda el modo de cada ejercicio. En modo combinado propone uno a partir del otro (RPE ≈ 10 − RIR) y avisa si no cuadran. El 1RM estimado usa el RIR con prioridad.
+- **Intensidad relativa (%1RM)** por serie con la tabla RTS de Tuchscherer (repeticiones + RIR). Solo de 1 a 12 repeticiones y RIR 0–3,5; fuera de ese rango no se calcula. El 1RM estimado sale de la misma tabla.
+- **Índice de estrés (Stress Index)** como sistema de cuantificación de cada sesión (o por defecto en Ajustes): multiarticular 1,4 − 0,2·RIR y monoarticular 1,3 − 0,2·RIR (RIR 0–5), con el índice por serie, ejercicio y grupo muscular.
+- **Análisis** con pestañas: factores y rendimiento; carga semanal (índice de estrés por semana y por grupo); intensidad (zonas de %1RM y %1RM medio semanal).
 - **Fatiga**: aviso de caída de rendimiento entre series (1RM estimado ≥10% por debajo de la mejor serie del día) y recuento de series al fallo, con RIR 0 o RPE ≥ 9,5.
 - **Carga interna** de la sesión (sRPE × minutos, método de Foster).
 - **Ayuda ⓘ** junto a los términos técnicos (RPE, RIR, 1RM estimado, volumen, carga interna, error estándar, correlación…), que abre una explicación.
@@ -34,4 +37,5 @@ Los datos se guardan solo en el navegador del dispositivo: **exporta copias de s
 - Zourdos et al. (2016): escala RPE basada en repeticiones en reserva (RPE ≈ 10 − RIR).
 - Precisión del RIR: mejor cerca del fallo y con pocas repeticiones; se suele infraestimar lejos del fallo (Helms, Zourdos y colaboradores).
 - Foster et al. (2001): sRPE × duración como carga interna.
-- Epley: 1RM ≈ peso × (1 + reps/30), con las repeticiones en reserva sumadas a las reps.
+- Tabla RTS (M. Tuchscherer, Reactive Training Systems): %1RM según reps + RIR. Celdas contrastadas: 1@10=100, 1@9,5=97,8, 1@9=95,5, 2@10=95,5, 3@10=92,2, 5@10=86,3, 5@8=81,1.
+- Índice de estrés: concepto de M. Tuchscherer; valores difundidos por PowerExplosive y Vitónica. No está validado en literatura revisada por pares.

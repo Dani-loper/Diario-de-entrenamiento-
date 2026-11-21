@@ -199,3 +199,19 @@ button.info::after { content: ''; position: absolute; inset: -12px; }
 .sets .check { min-width: 38px; }
 .sets td:last-child > button.icon { min-width: 28px; padding: 4px 0; }
 .sets th { white-space: nowrap; }
+
+/* %1RM e índice de estrés bajo los campos */
+.sets .cap { display: block; font-size: .66rem; color: var(--muted); line-height: 1.1; margin-top: 2px; min-height: .75rem; white-space: nowrap; }
+
+/* Pestañas de análisis */
+.seg { display: flex; gap: 4px; background: var(--card2); padding: 4px; border-radius: 12px; margin-bottom: 14px; }
+.seg button { flex: 1; min-height: 38px; border: 0; background: transparent; font-size: .9rem; padding: 6px 4px; }
+.seg button.on { background: var(--card); color: var(--accent); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+
+/* Tablas anchas con scroll propio */
+.gt-wrap { overflow-x: auto; }
+.gt.rts { font-size: .78rem; font-variant-numeric: tabular-nums; }
+.gt.rts th, .gt.rts td { padding: 4px 5px; text-align: center; }
+.gt.rts th small { font-weight: 400; color: var(--muted); }
+.wtable td, .wtable th { text-align: center; }
+.wtable td:first-child, .wtable th:first-child { text-align: left; }
