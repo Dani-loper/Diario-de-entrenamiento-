@@ -1859,7 +1859,7 @@ const fileSafe = (t) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''
 // Exportar: ofrece «Compartir o guardar» (en iPhone, Guardar en Archivos) y «Descargar».
 function download(name, text, type) {
   showShareResult(new Blob([text], { type }), name, 'Archivo listo',
-    '<div class="hint"><b>iPhone:</b> «Compartir o guardar» → Guardar en Archivos. <b>Android:</b> «Descargar» (carpeta Descargas).</div>');
+    (IS_NATIVE ? '' : '<div class="hint"><b>iPhone:</b> «Compartir o guardar» → Guardar en Archivos. <b>Android:</b> «Descargar» (carpeta Descargas).</div>'));
 }
 function toCSV() {
   const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'descanso_despues_s', 'pct_1rm', 'e1rm', 'indice_estres', 'material', 'notas_ejercicio']];
@@ -2216,6 +2216,7 @@ const actions = {
   },
   'share-text': async (el) => {
     const t = setText(setInfo(currentSession(), +el.dataset.i, +el.dataset.j));
+    if (IS_NATIVE) { try { await nativeShareText(t); return; } catch (e) { if (/cancel/i.test(e.message || '')) return; } }
     if (navigator.share) { try { await navigator.share({ text: t }); return; } catch (e) { if (e.name === 'AbortError') return; } }
     try { await navigator.clipboard.writeText(t); alert('Texto copiado al portapapeles.'); } catch (e) { prompt('Copia el texto:', t); }
   },
@@ -2370,6 +2371,7 @@ setInterval(() => {
   if (s && !s.endedAt && !document.activeElement?.matches('input,textarea,select') && !modal.open) rerender();
 }, 60000);
 
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+// En la app Android los archivos ya van dentro de la app: no hace falta service worker.
+if ('serviceWorker' in navigator && location.protocol !== 'file:' && !IS_NATIVE) navigator.serviceWorker.register('sw.js').catch(() => {});
 
 render();
