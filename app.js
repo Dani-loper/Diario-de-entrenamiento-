@@ -71,9 +71,9 @@ const DEFAULT_EQUIPMENT = ['Straps', 'Zapatillas de halterofilia', 'Cinturón', 
  * cada secundario: 0,5 por defecto (Pelland et al., 2024) o 0,25 / 0,75 según el ejercicio (def.sw).
  * Criterios y fuentes: catalog.js y docs/volumen-por-musculo.md. */
 const MUSCLES = {
-  pectoral: 'Pectoral', espalda: 'Espalda', delt_ant: 'Deltoides anterior', delt_lat: 'Deltoides lateral', delt_post: 'Deltoides posterior',
-  biceps: 'Bíceps', triceps: 'Tríceps',
-  abdomen: 'Abdomen', gluteos: 'Glúteos', cuadriceps: 'Cuádriceps', femoral: 'Femoral', gemelos: 'Gemelos',
+  pectoral: 'Pectoral', espalda: 'Espalda', trapecio: 'Trapecio', delt_ant: 'Deltoides anterior', delt_lat: 'Deltoides lateral', delt_post: 'Deltoides posterior',
+  biceps: 'Bíceps', triceps: 'Tríceps', antebrazo: 'Antebrazo',
+  abdomen: 'Abdomen', gluteos: 'Glúteos', aductores: 'Aductores', cuadriceps: 'Cuádriceps', femoral: 'Femoral', gemelos: 'Gemelos',
 };
 const MUSCLE_KEYS = Object.keys(MUSCLES);
 const SECONDARY_WEIGHT = 0.5;
@@ -184,23 +184,27 @@ const LIMB_BASE = [ // lado izquierdo; se refleja
 ];
 const FRONT = { // [músculo, forma del lado izquierdo, ¿reflejar?]
   shapes: [
+    ['trapecio', '<path d="M92 50L78 64L92 61Z"/>', true],
     ['delt_lat', '<ellipse cx="53" cy="80" rx="6" ry="10"/>', true],
     ['delt_ant', '<ellipse cx="65" cy="79" rx="8" ry="10"/>', true],
     ['pectoral', '<path d="M99 70L76 72Q67 84 71 100Q85 108 99 103Z"/>', true],
     ['biceps', '<ellipse cx="57" cy="108" rx="7.5" ry="18"/>', true],
     ['abdomen', '<path d="M86 108H114L116 168Q100 180 84 168Z"/>', false],
     ['abdomen', '<path d="M73 108H83L82 164L75 158Q72 130 73 108Z"/>', true],
+    ['antebrazo', '<path d="M51 138H65L60 186H48Z"/>', true],
     ['cuadriceps', '<path d="M74 198Q71 236 77 268Q87 276 96 268Q99 232 97 200Z"/>', true],
+    ['aductores', '<path d="M90 201H98L97 244Q92 236 90 216Z"/>', true],
   ],
 };
 const BACK = {
   shapes: [
-    ['espalda', '<path d="M100 50L82 66L100 112L118 66Z"/>', false], // trapecio
+    ['trapecio', '<path d="M100 50L82 66L100 112L118 66Z"/>', false],
     ['espalda', '<path d="M75 82Q67 112 80 150L98 140V108L84 80Z"/>', true], // dorsal
     ['espalda', '<path d="M93 114H107V170H93Z"/>', false], // lumbares
     ['delt_lat', '<ellipse cx="53" cy="80" rx="6" ry="10"/>', true],
     ['delt_post', '<ellipse cx="65" cy="79" rx="8" ry="10"/>', true],
     ['triceps', '<ellipse cx="57" cy="108" rx="7.5" ry="18"/>', true],
+    ['antebrazo', '<path d="M51 138H65L60 186H48Z"/>', true],
     ['gluteos', '<ellipse cx="86" cy="196" rx="15" ry="14"/>', true],
     ['femoral', '<path d="M75 214Q72 244 78 268Q87 274 95 268Q98 242 97 216Z"/>', true],
     ['gemelos', '<ellipse cx="86" cy="302" rx="8.5" ry="21"/>', true],

@@ -35,9 +35,12 @@ function muscleSetsBetween(from, to) {
 /* Referencias de volumen por músculo (series/semana), aproximadas a la tabla de Mike Israetel (Renaissance Periodization):
  * MV mantenimiento · MEV mínimo efectivo · MAV rango adaptativo (mín.-máx.) · MRV máximo recuperable.
  * Son orientativas (distintas ediciones publican cifras algo distintas) y se pueden editar por atleta en Ajustes › Avanzado.
- * Deltoides anterior: MEV 0 porque los empujes de pecho y hombro ya lo trabajan; lateral y posterior comparten cifras en la tabla original. */
+ * Deltoides anterior: MEV 0 porque los empujes de pecho y hombro ya lo trabajan; lateral y posterior comparten cifras en la tabla original.
+ * Trapecio: cifras de Israetel (MEV 0: remos y pesos muertos ya lo trabajan). Antebrazo y aductores: Israetel no publica
+ * cifras propias para ellos (o no se han podido verificar); son estimaciones por analogía con músculos de tamaño y uso
+ * parecidos, con MEV bajo porque el agarre y las sentadillas ya los trabajan. Editables por atleta. */
 const LANDMARKS = {
-  pectoral: [4, 6, 12, 20, 22], espalda: [6, 10, 14, 22, 25], delt_ant: [0, 0, 6, 8, 12], delt_lat: [0, 8, 16, 22, 26], delt_post: [0, 8, 16, 22, 26], biceps: [4, 8, 14, 20, 26],
+  pectoral: [4, 6, 12, 20, 22], espalda: [6, 10, 14, 22, 25], trapecio: [0, 0, 12, 20, 26], antebrazo: [0, 2, 6, 12, 20], aductores: [0, 0, 6, 12, 18], delt_ant: [0, 0, 6, 8, 12], delt_lat: [0, 8, 16, 22, 26], delt_post: [0, 8, 16, 22, 26], biceps: [4, 8, 14, 20, 26],
   triceps: [4, 6, 10, 14, 18], abdomen: [0, 0, 16, 20, 25], gluteos: [0, 0, 4, 12, 16], cuadriceps: [6, 8, 12, 18, 20],
   femoral: [3, 4, 10, 16, 20], gemelos: [6, 8, 12, 16, 20],
 };

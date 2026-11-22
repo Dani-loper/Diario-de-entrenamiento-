@@ -67,6 +67,18 @@ Cada **serie efectiva** (RIR ≤ 4, sin calentamientos) cuenta:
 
 → **No se cuentan** en los básicos, salvo un **¼** en la sentadilla frontal por la exigencia de mantener el tronco vertical. Es una estimación.
 
+### Aductores, trapecio y antebrazo (músculos añadidos)
+- **Aductores.** Con sentadilla completa crecieron casi como el glúteo (+6,2 % frente a +6,7 %, [Kubo 2019](https://link.springer.com/doi/10.1007/s00421-019-04181-y)). Crecieron más con sentadilla que con hip thrust ([Plotkin 2023](https://www.frontiersin.org/journals/physiology/articles/10.3389/fphys.2023.1279170/full)), y el aductor mayor creció con prensa pero no con extensión de cuádriceps.
+  → **¾** en sentadillas profundas (trasera, frontal, goblet) y en peso muerto sumo; **½** en prensa, hack, péndulo y zancadas; **¼** en peso muerto convencional y rumano (el aductor mayor también extiende la cadera). Ejercicios propios: aducción en máquina, polea o banda y plancha Copenhague.
+- **Trapecio.** Antes estaba dentro de «Espalda». Ahora es principal en encogimientos y paseo del granjero, **½** en face pull, remo al mentón y tirones de halterofilia, y **¼** en remos, pájaros y pesos muertos (el trabajo isométrico del trapecio superior al sostener la barra). No hay estudios de crecimiento por ejercicio: es una estimación por biomecánica.
+- **Antebrazo.** Principal en curl de muñeca, curl de muñeca inverso, curl inverso y colgarse de la barra; **½** en curl martillo (braquiorradial) y paseo del granjero; **¼** en pesos muertos y dominadas (agarre). También es una estimación.
+- **Referencias de volumen:**
+  - Trapecio: MV 0 · MEV 0 · MAV 12-20 · MRV 26, de la tabla de Israetel.
+  - Antebrazo: MV 0 · MEV 2 · MAV 6-12 · MRV 20, **estimación**.
+  - Aductores: MV 0 · MEV 0 · MAV 6-12 · MRV 18, **estimación**.
+
+  Israetel no publica cifras propias para estos dos últimos o no se han podido verificar. Todas se pueden editar por atleta.
+
 ## 3. Cambios respecto a la versión anterior (todos los secundarios a ½)
 
 | Ejercicio | Antes | Ahora |
@@ -87,13 +99,13 @@ Los ejercicios que habías personalizado conservan tus músculos. Los nuevos lle
 
 ## 4. Catálogo ampliado
 
-143 ejercicios, cada uno con su **material** (barra, mancuernas, máquina, polea, peso corporal, kettlebell, bandas). Esto permite filtrar en el selector y montar entrenamientos de **gimnasio comercial** (máquinas guiadas, poleas, multipower, hack, péndulo, prensa, contractor…) o **doméstico** (peso corporal, mancuernas, kettlebell, bandas). Todos los músculos tienen al menos 4 ejercicios como principal.
+154 ejercicios, cada uno con su **material** (barra, mancuernas, máquina, polea, peso corporal, kettlebell, bandas). Esto permite filtrar en el selector y montar entrenamientos de **gimnasio comercial** (máquinas guiadas, poleas, multipower, hack, péndulo, prensa, contractor…) o **doméstico** (peso corporal, mancuernas, kettlebell, bandas). Los 15 músculos tienen al menos 4 ejercicios como principal.
 
 ## 5. Limitaciones
 
 - **Muestras pequeñas y casi siempre de principiantes.** En personas entrenadas, la contribución de los secundarios probablemente sea menor; el caso del bíceps en el jalón es el más dudoso.
 - **La activación (EMG) no equivale a crecimiento.** Donde solo hay EMG, el valor es una estimación por biomecánica.
-- **Faltan músculos que también crecen**, sobre todo los **aductores** (crecen mucho con sentadilla y prensa), y el trapecio y el antebrazo por separado. La app no los mide hoy; añadirlos haría el reparto más fiel.
+- **Quedan fuera** los erectores de la columna (siguen dentro de «Espalda») y los músculos profundos de la cadera.
 - **Los valores son la mejor aproximación con los datos disponibles, no medidas exactas.** Cada entrenador puede ajustarlos por ejercicio.
 
 ## Referencias

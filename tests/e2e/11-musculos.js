@@ -17,7 +17,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   });
   await p.reload();
   const mig = await p.evaluate(() => db.exercises.map((e) => [e.name, e.primary, (e.secondary || []).join('+'), !!e.reviewMuscles, 'cat' in e]));
-  assert(JSON.stringify(mig.slice(0, 6)) === JSON.stringify([['Press banca', 'pectoral', 'triceps+delt_ant', false, false], ['Sentadilla Zercher', 'cuadriceps', '', true, false], ['Carrera', null, '', false, false], ['Elevación de gemelos', 'gemelos', '', false, false], ['Elevaciones laterales', 'delt_lat', '', false, false], ['Pájaros', 'delt_post', 'espalda', false, false]]),
+  assert(JSON.stringify(mig.slice(0, 6)) === JSON.stringify([['Press banca', 'pectoral', 'triceps+delt_ant', false, false], ['Sentadilla Zercher', 'cuadriceps', '', true, false], ['Carrera', null, '', false, false], ['Elevación de gemelos', 'gemelos', '', false, false], ['Elevaciones laterales', 'delt_lat', '', false, false], ['Pájaros', 'delt_post', 'trapecio', false, false]]),
     'migración: los por defecto reciben sus músculos; los propios, principal según la categoría antigua y marcados para revisar');
   await p.goto('http://localhost:8123/#/exercises');
   assert(await p.isVisible('[data-action=review-muscles]'), 'aviso para revisar ejercicios propios');
@@ -65,7 +65,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   // Selector agrupado por músculo
   await p.click('[data-action=add-exercise]');
   const groups = await p.$$eval('.picker-cat', (x) => x.map((e) => e.textContent));
-  assert(groups[0] === 'Pectoral' && groups.at(-1) === 'Sin músculo (cardio y otros)' && groups.length === 13, 'selector agrupado por músculo: ' + groups.join(', '));
+  assert(groups[0] === 'Pectoral' && groups.at(-1) === 'Sin músculo (cardio y otros)' && groups.length === 16, 'selector agrupado por músculo: ' + groups.join(', '));
   await p.click('#modal [data-action=close-modal]');
   // Modo índice de estrés: reparto del IE
   await p.click('[data-action=cycle-system]');

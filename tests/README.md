@@ -49,4 +49,4 @@ npm test -- 13 18                    # solo las que empiezan por 13 y 18
 | 28-bienvenida | Ventana de bienvenida del primer arranque y datos del atleta en Usuarios |
 | 29-sesiones-abiertas | Aviso de sesiones olvidadas, cierre con la hora de la última serie, cierre automático |
 | 30-app-android | Dentro de la app Android (puente simulado): archivos por la hoja de compartir nativa, sin service worker |
-| 31-catalogo-y-pesos | Catálogo de 143 ejercicios, pesos por músculo secundario, migración desde la versión anterior, editor de pesos, filtro por material |
+| 31-catalogo-y-pesos | Catálogo de 154 ejercicios y músculos nuevos (aductores, trapecio, antebrazo), pesos por músculo secundario, migración desde la versión anterior, editor de pesos, filtro por material |
