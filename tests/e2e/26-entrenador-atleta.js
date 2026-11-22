@@ -12,7 +12,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await A.evaluate((S) => {
     profiles.users[0].name = 'Laura'; saveProfiles();
     const sq = db.exercises.find((e) => e.name === 'Sentadilla trasera').id;
-    db.exercises.push({ id: 'arnoldA', name: 'Press Arnold', mode: 'wr', primary: 'delt_ant', secondary: [] });
+    db.exercises.push({ id: 'arnoldA', name: 'Press Bradford', mode: 'wr', primary: 'delt_ant', secondary: [] });
     db.sessions.push(eval(S)('s1', addDays(todayISO(), -6), sq, 100), eval(S)('s2', addDays(todayISO(), -3), 'arnoldA', 20));
     db.daily = { [todayISO()]: { steps: 9000 } }; save(true);
   }, session.toString());
@@ -28,7 +28,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   // El entrenador entra en Laura, crea su propio «Press Arnold» (otro id) y le prepara una sesión y una tabla
   await C.evaluate((id) => switchUser(id), payload.profile.id);
   await C.evaluate((S) => {
-    db.exercises.push({ id: 'arnoldC', name: 'press arnold', mode: 'wr', primary: 'delt_ant', secondary: [] });
+    db.exercises.push({ id: 'arnoldC', name: 'press bradford', mode: 'wr', primary: 'delt_ant', secondary: [] });
     db.sessions.push(eval(S)('c1', addDays(todayISO(), -1), 'arnoldC', 22));
     db.sessions.find((s) => s.id === 's1').notes = 'Revisado: buena profundidad'; save(true);
     tplSaveAll([...tplList(), { id: 'tp1', name: 'Bloque fuerza', updatedAt: Date.now(), exercises: [] }]);
@@ -39,11 +39,11 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await A.evaluate((S) => { db.sessions.push(eval(S)('s3', todayISO(), db.exercises.find((e) => e.name === 'Sentadilla trasera').id, 102.5)); save(true); }, session.toString());
   // ---- La atleta importa lo del entrenador ----
   await importFile(A, fileC);
-  const r = await A.evaluate(() => ({ ids: db.sessions.map((s) => s.id).sort().join(), note: db.sessions.find((s) => s.id === 's1').notes, arnold: db.exercises.filter((e) => norm(e.name) === 'press arnold').length,
+  const r = await A.evaluate(() => ({ ids: db.sessions.map((s) => s.id).sort().join(), note: db.sessions.find((s) => s.id === 's1').notes, arnold: db.exercises.filter((e) => norm(e.name) === 'press bradford').length,
     c1ex: db.sessions.find((s) => s.id === 'c1')?.exercises[0].exerciseId, tpl: tplList().some((t) => t.name === 'Bloque fuerza'), users: profiles.users.length, steps: db.daily[todayISO()]?.steps }));
   assert(r.ids === 'c1,s1,s2,s3', 'combinar no pierde nada: sus sesiones (s1-s3) + la del entrenador (c1): ' + r.ids);
   assert(r.note === 'Revisado: buena profundidad', 'la sesión revisada por el entrenador se actualiza');
-  assert(r.arnold === 1 && r.c1ex === 'arnoldA', '«press arnold» del entrenador se unifica con su «Press Arnold» (mismo nombre)');
+  assert(r.arnold === 1 && r.c1ex === 'arnoldA', '«press bradford» del entrenador se unifica con su «Press Bradford» (mismo nombre)');
   assert(r.tpl, 'recibe la tabla del entrenador');
   assert(r.users === 1, 'no se crea un perfil duplicado: se combina con el suyo');
   assert(r.steps === 9000, 'conserva sus datos diarios');

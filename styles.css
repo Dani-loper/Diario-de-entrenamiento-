@@ -514,3 +514,6 @@ i.vz.opt { background: var(--accent); } i.vz.high { background: var(--warn); } i
 .zc.z-high { background: var(--warn); color: #111; }
 .zc.z-over { background: var(--danger); color: #fff; }
 .welcome h3 { font-size: 1.15rem; }
+.chip .secw { margin-left: 2px; }
+.kit-chips { margin: 0 0 8px; }
+.kit-chips .chip { min-height: 32px; padding: 4px 10px; font-size: .8rem; }

@@ -25,7 +25,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.waitForSelector('.mbars');
   const bars = await p.$$eval('.mbar', (x) => Object.fromEntries(x.map((e) => [e.dataset.m, e.querySelector('.mb-v').textContent.trim()])));
   assert(bars.cuadriceps === '4', 'cuádriceps: 4 efectivas (sin calentamiento, sin la de RIR 6, sin la de hace 8 días): ' + bars.cuadriceps);
-  assert(bars.gluteos === '2', 'glúteos: 4 × 0,5 = 2');
+  assert(bars.gluteos === '3', 'glúteos: 4 series de sentadilla × ¾ = 3');
   assert(bars.pectoral === '2+3', 'pectoral: 2 efectivas + 3 sin RIR aparte: ' + bars.pectoral);
   assert(bars.triceps === '1+1,5', 'tríceps: 2 × 0,5 + 3 × 0,5 sin RIR: ' + bars.triceps);
   assert(bars.femoral === '0', 'femoral: 0');
