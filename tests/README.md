@@ -41,3 +41,4 @@ npm test -- 13 18                    # solo las que empiezan por 13 y 18
 | 20-deltoides | División de hombros en tres deltoides y su migración |
 | 21-solapes | Ningún control visible se solapa, a 320/375/390/430 px |
 | 22-aviso-ios | Aviso de instalar la app en iPhone |
+| 23-peso-sugerido-y-calentamiento | Peso sugerido (y su ajuste con las series de hoy), calentamiento y discos |

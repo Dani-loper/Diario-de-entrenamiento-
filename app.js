@@ -39,6 +39,7 @@ const ICONS = {
   alert: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/>',
   save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V3z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+  plate: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>',
   hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/>',
 };
 const ic = (name, cls = '') => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -827,6 +828,15 @@ const GLOSSARY = {
     <p>Colores: gris por debajo del MEV, verde claro entre MEV y MAV, verde en el MAV, naranja entre MAV y MRV, rojo por encima del MRV.</p>
     <p>Los valores por defecto son <b>aproximados</b>: varían entre ediciones de sus guías y entre personas (más entrenadas, más volumen toleran). Lo habitual es empezar un mesociclo cerca del MEV e ir subiendo hacia el MRV. Puedes ajustarlos para cada atleta en Ajustes › Avanzado.</p>
     <p>Aquí las series secundarias cuentan 0,5. Israetel no cuenta así exactamente (por ejemplo, da MEV 0 a glúteos porque las sentadillas y el peso muerto ya los trabajan), así que en músculos que trabajan mucho como secundarios el valor puede salir algo alto frente a su tabla.</p>`],
+  suggest: ['Peso sugerido', `
+    <p>Peso propuesto para la serie a partir de tu <b>1RM estimado</b> y de las repeticiones y el RIR objetivo, con la tabla RTS: peso = 1RM × %1RM(reps, RIR), redondeado al incremento mínimo.</p>
+    <p><b>1RM de referencia:</b> si ya has hecho series de ese ejercicio hoy, se usan esas (si hoy vas más fuerte o más cansado, la sugerencia se ajusta); si no, tu última sesión; si no, tu mejor marca de los últimos 120 días.</p>
+    <p><b>Objetivo:</b> el de la tabla si la serie viene de una; si no, las repeticiones y el RIR de la serie equivalente de tu última sesión.</p>
+    <p>Aparece como texto gris en el campo de peso y no se guarda hasta que lo escribas o pulses «Rellenar». Solo para ejercicios con peso, de 1 a 12 repeticiones.</p>`],
+  warmup: ['Calentamiento y discos', `
+    <p>El botón con un disco que aparece bajo el peso de la <b>siguiente serie pendiente</b> abre una rampa de calentamiento hasta ese peso y los discos que hay que poner en cada lado.</p>
+    <p>Rampa: barra × 10 y luego 40 % × 5, 60 % × 3, 75 % × 2 y 85 % × 1 del peso de trabajo. Si la serie es de 8 o más repeticiones, basta con 50 % × 5 y 70 % × 3. Se omiten los escalones que no aportan (por debajo de la barra o repetidos).</p>
+    <p>«Añadir series de calentamiento» las inserta como series de calentamiento (no cuentan en volumen ni récords).</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -1145,13 +1155,14 @@ function exerciseCard(s, ex, i) {
 
   const simple = isSimple();
   let rows = '';
+  const wuJ = window.nextPendingSet ? nextPendingSet(s, i) : -1; // botón de calentamiento solo en la siguiente serie pendiente
   ex.sets.forEach((set, j) => {
     const est = isWork(set) ? m.best([set]) : null;
     const isPR = est && prevBest && est > prevBest;
     rows += `<tr class="${set.done ? 'done' : ''}">
       <td><button class="settype ${set.type}${set.videoId ? ' has-video' : ''}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
       ${fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>` : f === 'rir' ? `<td>${rirSelect(set.rir, i, j)}</td>`
-        : `<td><input type="text" inputmode="${FIELD[f].step === '1' ? 'numeric' : 'decimal'}" autocomplete="off" enterkeyhint="next" data-set="${i}:${j}:${f}" value="${decIn(set[f])}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${simple ? '' : f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${set.type === 'C' ? '' : pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
+        : `<td><input type="text" inputmode="${FIELD[f].step === '1' ? 'numeric' : 'decimal'}" autocomplete="off" enterkeyhint="next" data-set="${i}:${j}:${f}" value="${decIn(set[f])}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : (f === 'w' || f === 'reps') && window.suggestPlaceholder ? suggestPlaceholder(s, i, j, f) : ''}">${f === 'w' && j === wuJ ? `<button class="mini-wu" data-action="warmup" data-i="${i}" data-j="${j}" aria-label="Calentamiento y discos">${ic('plate')}</button>` : ''}${simple ? '' : f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${set.type === 'C' ? '' : pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
       <td><button class="icon ghost" data-action="set-menu" data-i="${i}" data-j="${j}" aria-label="Opciones de la serie ${j + 1}: vídeo, compartir, borrar">⋯</button></td>
     </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
@@ -1203,6 +1214,7 @@ function exerciseCard(s, ex, i) {
       ${open ? '' : `<button class="chip" data-action="yt" data-id="${def.id}">${ic('play')} Técnica${def.refUrl ? ' ★' : ''}</button>`}
     </div>
     ${simple ? '' : `<div class="row" style="margin-top:8px"><button class="chip" data-action="cycle-intensity" data-i="${i}">Intensidad: <b>${INTENSITY[intensityOf(def)]}</b> ⇄</button>${info('intensity')}</div>`}
+    ${window.suggestLineHTML ? suggestLineHTML(s, i) : ''}
     <table class="sets">
       <thead><tr><th title="Serie"># ${info('set_types')}</th>${fields.map((f) => `<th>${f === 'w' && def.mode === 'bw' ? 'Lastre' : FIELD[f].h}${f === 'rpe' || f === 'rir' ? ' ' + info(f) : ''}</th>`).join('')}<th>✓</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
@@ -1341,6 +1353,7 @@ function viewSettings() {
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
       <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
     </div>
+    ${window.weightsSettingsHTML ? weightsSettingsHTML() : ''}
     <h2>Avanzado</h2>
     <div class="card">
       <label>Semana del atleta ${info('athlete_week')}</label>

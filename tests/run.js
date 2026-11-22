@@ -26,7 +26,11 @@ function serve() {
       res.end(data);
     });
   });
-  return new Promise((resolve) => server.listen(PORT, () => resolve(server)));
+  // Si ya hay un servidor en el puerto (p. ej. `python3 -m http.server 8123` mientras se desarrolla), se usa ese.
+  return new Promise((resolve) => {
+    server.once('error', (e) => { if (e.code !== 'EADDRINUSE') throw e; console.log(`(puerto ${PORT} ocupado: se usa el servidor que ya está en marcha)`); resolve(null); });
+    server.listen(PORT, () => resolve(server));
+  });
 }
 
 function runOne(file) {
@@ -65,7 +69,7 @@ function runOne(file) {
       if (!r.fails.length && !r.pageErrors.length) console.log(r.log.split('\n').slice(-25).map((l) => '    ' + l).join('\n'));
     }
   }
-  server.close();
+  if (server) server.close();
   console.log(`\n${files.length - failed}/${files.length} pruebas superadas`);
   process.exit(failed ? 1 : 0);
 })();
