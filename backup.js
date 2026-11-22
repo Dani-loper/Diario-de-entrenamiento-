@@ -19,7 +19,7 @@ function backupData() {
   save(true);
   const data = {};
   for (const u of profiles.users) data[u.id] = u.id === profiles.active ? db : readUserData(u.id);
-  return { type: 'diario-entreno-todos', version: 1, exportedAt: new Date().toISOString(), profiles, data };
+  return { type: 'diario-entreno-todos', version: 1, exportedAt: new Date().toISOString(), profiles, data, templates: window.tplList ? tplList() : [] };
 }
 const countSessions = (d) => Object.values(d.data).reduce((a, x) => a + (x?.sessions?.length || 0), 0);
 
