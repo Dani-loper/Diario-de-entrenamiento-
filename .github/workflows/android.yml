@@ -28,7 +28,11 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci --no-audit --no-fund
-      - run: npm run android:sync
+      - name: Versión dentro de la app
+        run: |
+          npm run build:web
+          echo "{\"version\": \"$VERSION_NAME\", \"code\": $VERSION_CODE}" > www/version.json
+      - run: npx cap sync android
       - name: Clave de firma
         id: firma
         env:

@@ -10,8 +10,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
 
   // Datos antiguos (categorías) -> migración
   await p.goto('http://localhost:8123/');
-  await p.evaluate(() => {
-    localStorage.clear();
+  await p.evaluate(async () => {
+    await kv.clearAll();
     localStorage.setItem('diario-entreno.v1', JSON.stringify({ version: 1, settings: {}, equipment: [], sessions: [],
       exercises: [{ id: 'pb', name: 'Press banca', cat: 'Empuje', mode: 'wr' }, { id: 'sb', name: 'Sentadilla Zercher', cat: 'Pierna', mode: 'wr' }, { id: 'cr', name: 'Carrera', cat: 'Cardio', mode: 'dist' }] }));
   });
@@ -35,7 +35,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   assert(!(await p.isVisible('[data-action=review-muscles]')), 'tras revisar, desaparece el aviso');
 
   // Catálogo nuevo (usuario nuevo)
-  await p.evaluate(() => { localStorage.clear(); });
+  await p.evaluate(async () => { await kv.clearAll(); });
   await p.reload();
   await p.evaluate(() => { db.settings.level = 'advanced'; save(true); rerender(); });
   const seedOk = await p.evaluate(() => db.exercises.every((e) => 'primary' in e && Array.isArray(e.secondary) && (e.primary === null || MUSCLES[e.primary])) && db.exercises.filter((e) => e.primary === null).length === 9 && db.exercises.some((e) => e.primary === 'gemelos'));

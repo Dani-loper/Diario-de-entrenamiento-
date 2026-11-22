@@ -15,6 +15,20 @@ pw.chromium.launch = async (...args) => {
     if (!welcome) await ctx.addInitScript(() => { try { localStorage.setItem('diario-entreno.bienvenida', '1'); } catch (e) { /* nada */ } });
     await ctx.clock.install({ time: new Date(FIXED) });
     await ctx.clock.resume();
+    // La app carga sus datos (IndexedDB) antes del resto de scripts: tras cada navegación se espera a que esté lista.
+    const newPage = ctx.newPage.bind(ctx);
+    ctx.newPage = async (...x) => {
+      const p = await newPage(...x);
+      for (const m of ['goto', 'reload']) {
+        const orig = p[m].bind(p);
+        p[m] = async (...y) => {
+          const r = await orig(...y);
+          await p.waitForFunction(() => window.__appReady === true || !document.querySelector('script[src="storage.js"]'), null, { timeout: 15000 }).catch(() => {});
+          return r;
+        };
+      }
+      return p;
+    };
     return ctx;
   };
   browser.newPage = async (...a) => (await browser.newContext(...a)).newPage();

@@ -8,8 +8,8 @@
  *   estadísticas hasta marcar ✓. El descanso de la tabla es el objetivo del cronómetro, no rellena el campo. */
 
 const TPL_KEY = 'diario-entreno.tablas';
-function tplList() { try { const v = JSON.parse(localStorage.getItem(TPL_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
-function tplSaveAll(list) { try { localStorage.setItem(TPL_KEY, JSON.stringify(list)); } catch (e) { alert('No se pudo guardar la tabla: ' + e.message); } }
+function tplList() { try { const v = JSON.parse(kv.get(TPL_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function tplSaveAll(list) { kv.set(TPL_KEY, JSON.stringify(list)); }
 const tplGet = (id) => tplList().find((t) => t.id === id);
 function tplUpdate(id, fn) { const list = tplList(); const t = list.find((x) => x.id === id); if (!t) return null; fn(t); t.updatedAt = Date.now(); tplSaveAll(list); return t; }
 

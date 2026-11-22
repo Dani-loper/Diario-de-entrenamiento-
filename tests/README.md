@@ -8,7 +8,11 @@ npm install                          # instala Playwright (solo la primera vez)
 npx playwright install chromium      # descarga el navegador (solo la primera vez)
 npm test                             # todas
 npm test -- 13 18                    # solo las que empiezan por 13 y 18
+npm run lint                         # revisión estática del código
 ```
+
+`npm run lint` pasa ESLint y además falla si dos archivos de la app declaran el mismo nombre de primer nivel
+(los archivos comparten el ámbito global: en el navegador, el segundo no cargaría). GitHub lo ejecuta antes de las pruebas.
 
 - `run.js` sirve la app en `http://localhost:8123`, ejecuta cada archivo de `e2e/` y resume el resultado.
   Una prueba falla si imprime `FAIL:`, si termina con error o si la página lanza un error de JavaScript.
@@ -50,3 +54,4 @@ npm test -- 13 18                    # solo las que empiezan por 13 y 18
 | 29-sesiones-abiertas | Aviso de sesiones olvidadas, cierre con la hora de la última serie, cierre automático |
 | 30-app-android | Dentro de la app Android (puente simulado): archivos por la hoja de compartir nativa, sin service worker |
 | 31-catalogo-y-pesos | Catálogo de 154 ejercicios y músculos nuevos (aductores, trapecio, antebrazo), pesos por músculo secundario, migración desde la versión anterior, editor de pesos, filtro por material |
+| 32-almacenamiento-y-version | Datos en IndexedDB, migración desde localStorage, recuperación de cambios pendientes, más de 5 MB, sin IndexedDB, aviso de versión nueva |

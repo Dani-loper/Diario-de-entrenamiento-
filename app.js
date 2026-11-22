@@ -1,5 +1,5 @@
 'use strict';
-/* Diario de entrenamiento — PWA sin dependencias. Datos en localStorage. */
+/* Diario de entrenamiento — PWA sin dependencias. Datos en IndexedDB a través de kv (storage.js). */
 
 const KEY = 'diario-entreno.v1';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -241,27 +241,27 @@ function seed() {
   };
 }
 /* ---------- Usuarios (perfiles locales) ----------
- * Cada usuario tiene sus propios datos (sesiones, catálogo, material, ajustes) en su clave de localStorage.
+ * Cada usuario tiene sus propios datos (sesiones, catálogo, material, ajustes) en su clave de kv (IndexedDB).
  * El índice de perfiles guarda la lista y el usuario activo. Al primer arranque se migran los datos antiguos.
  */
 const PKEY = 'diario-entreno.perfiles';
 const dataKey = (id) => `diario-entreno.u.${id}`;
 function loadProfiles() {
-  try { const p = JSON.parse(localStorage.getItem(PKEY)); if (p && p.users && p.users.length) return p; } catch (e) { /* índice corrupto */ }
+  try { const p = JSON.parse(kv.get(PKEY)); if (p && p.users && p.users.length) return p; } catch (e) { /* índice corrupto */ }
   const id = uid();
   const p = { active: id, users: [{ id, name: 'Yo', goal: '', notes: '', createdAt: Date.now() }] };
   try {
-    const legacy = localStorage.getItem(KEY); // datos de versiones sin usuarios
-    if (legacy) localStorage.setItem(dataKey(id), legacy);
-    localStorage.setItem(PKEY, JSON.stringify(p));
+    const legacy = kv.get(KEY); // datos de versiones sin usuarios
+    if (legacy) kv.set(dataKey(id), legacy);
+    kv.set(PKEY, JSON.stringify(p));
   } catch (e) { /* almacenamiento no disponible */ }
   return p;
 }
 let profiles = loadProfiles();
-const saveProfiles = () => { try { localStorage.setItem(PKEY, JSON.stringify(profiles)); } catch (e) { alert('No se pudo guardar: ' + e.message); } };
+const saveProfiles = () => kv.set(PKEY, JSON.stringify(profiles));
 const activeUser = () => profiles.users.find((u) => u.id === profiles.active) || profiles.users[0];
 function readUserData(id) {
-  try { const d = JSON.parse(localStorage.getItem(dataKey(id))); if (d && d.sessions) return d; } catch (e) { /* datos corruptos */ }
+  try { const d = JSON.parse(kv.get(dataKey(id))); if (d && d.sessions) return d; } catch (e) { /* datos corruptos */ }
   return null;
 }
 const initials = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
@@ -289,7 +289,7 @@ let saveTimer;
 function save(now = false) {
   clearTimeout(saveTimer);
   const id = profiles.active, data = db; // fija el destino: un cambio de usuario no puede desviar la escritura
-  const write = () => { try { localStorage.setItem(dataKey(id), JSON.stringify(data)); } catch (e) { alert('No se pudo guardar: ' + e.message); } };
+  const write = () => kv.set(dataKey(id), JSON.stringify(data));
   if (now) write(); else saveTimer = setTimeout(write, 250);
   if (window.cloudMarkDirty) cloudMarkDirty();
 }
@@ -372,6 +372,7 @@ function render() {
   app.innerHTML = bar + view(r.id);
   if (r.name === 'settings' && window.fillVideoStats) fillVideoStats();
   if (r.name === 'settings' && window.fillSnapList) fillSnapList();
+  if (r.name === 'settings' && window.fillStorageInfo) fillStorageInfo();
 }
 function rerender() { const y = scrollY; render(); scrollTo(0, y); }
 // Al cambiar de pantalla (también con «atrás») se cierra cualquier ventana abierta.
@@ -988,6 +989,7 @@ function viewCalendar() {
   const q = norm(ui.csearch).trim();
 
   let html = `<h1>Calendario</h1>
+    ${window.updateBannerHTML ? updateBannerHTML() : ''}
     ${window.staleBannerHTML ? staleBannerHTML() : ''}
     ${window.installReminderHTML ? installReminderHTML() : ''}
     ${window.deloadHTML ? deloadHTML(true) : ''}
@@ -1415,6 +1417,7 @@ function viewSettings() {
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
       <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
     </div>
+    ${window.versionSettingsHTML ? versionSettingsHTML() : ''}
     ${window.closeSettingsHTML ? closeSettingsHTML() : ''}
     ${window.weightsSettingsHTML ? weightsSettingsHTML() : ''}
     <h2>Avanzado</h2>
@@ -1820,8 +1823,8 @@ function restoreAllData(d, origin) {
   if (!confirm(`Restaurar la copia ${origin}: ${d.profiles.users.length} usuarios (${names}), ${n} sesiones.\nReemplaza TODOS los usuarios y datos de este dispositivo.\n\n(Antes se guarda una copia automática del estado actual.)`)) return false;
   if (window.takeSnapshot) takeSnapshot('Antes de restaurar');
   clearTimeout(saveTimer);
-  for (const u of profiles.users) localStorage.removeItem(dataKey(u.id));
-  for (const u of d.profiles.users) if (d.data[u.id]) localStorage.setItem(dataKey(u.id), JSON.stringify(d.data[u.id]));
+  for (const u of profiles.users) kv.remove(dataKey(u.id));
+  for (const u of d.profiles.users) if (d.data[u.id]) kv.set(dataKey(u.id), JSON.stringify(d.data[u.id]));
   profiles = { active: d.profiles.users.some((u) => u.id === d.profiles.active) ? d.profiles.active : d.profiles.users[0].id, users: d.profiles.users };
   if (Array.isArray(d.templates) && window.tplSaveAll) tplSaveAll(d.templates);
   saveProfiles(); db = load(); videoGc(); location.hash = '#/users'; rerender();
@@ -2079,7 +2082,7 @@ const actions = {
       fresh.settings = { ...db.settings };
     }
     if (extra.weight != null) fresh.bodyweights = [{ d: todayISO(), v: extra.weight }];
-    try { localStorage.setItem(dataKey(id), JSON.stringify(fresh)); } catch (e) { return alert('No se pudo crear: ' + e.message); }
+    kv.set(dataKey(id), JSON.stringify(fresh));
     profiles.users.push({ id, ...fields, createdAt: Date.now() });
     saveProfiles(); closeModal(); switchUser(id);
   },
@@ -2093,7 +2096,7 @@ const actions = {
     const wasActive = u.id === profiles.active;
     if (wasActive) clearTimeout(saveTimer);
     profiles.users = profiles.users.filter((x) => x.id !== u.id);
-    try { localStorage.removeItem(dataKey(u.id)); } catch (e) { /* nada */ }
+    kv.remove(dataKey(u.id));
     videoDeleteByUser(u.id);
     if (wasActive) {
       profiles.active = profiles.users[0].id; saveProfiles();

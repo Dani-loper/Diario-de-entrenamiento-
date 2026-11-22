@@ -13,8 +13,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
 
   // Datos de la versión anterior (sin usuarios)
   await p.goto('http://localhost:8123/');
-  await p.evaluate(() => {
-    localStorage.clear();
+  await p.evaluate(async () => {
+    await kv.clearAll();
     localStorage.setItem('diario-entreno.v1', JSON.stringify({ version: 1, exercises: [{ id: 'x1', name: 'Sentadilla trasera', cat: 'Pierna', mode: 'wr' }], equipment: [], settings: { rest: 90 },
       sessions: [{ id: 'old1', createdAt: '2026-11-01T10:00', date: '2026-11-01', startedAt: 1, endedAt: 2, title: 'Antigua', exercises: [] }] }));
   });
