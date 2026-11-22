@@ -47,3 +47,4 @@ npm test -- 13 18                    # solo las que empiezan por 13 y 18
 | 26-entrenador-atleta | Intercambio por archivo entre dos móviles: crear perfil enlazado, combinar sin perder datos, unificar ejercicios |
 | 27-mesociclos | Mesociclos: progresión de RIR y series, descarga, plan por músculo, sesión que toca desde el calendario |
 | 28-bienvenida | Ventana de bienvenida del primer arranque y datos del atleta en Usuarios |
+| 29-sesiones-abiertas | Aviso de sesiones olvidadas, cierre con la hora de la última serie, cierre automático |
