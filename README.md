@@ -43,7 +43,6 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
   - *Copias automáticas dentro de la app*: una al día y otra antes de restaurar, importar o borrar; se conservan las últimas 14 y se pueden restaurar o guardar. Sirven para deshacer errores, no protegen si se borran los datos del navegador o se pierde el móvil.
   - *Guardar copia en el móvil*: archivo con todos los usuarios mediante el menú de compartir (iPhone: «Guardar en Archivos») o descarga (Android: carpeta Descargas). Todas las exportaciones usan este mismo sistema.
   - *Aviso* en el calendario si hace más de 14 días que no se guarda una copia fuera de la app.
-- **Copia en Google Drive** (opcional; solo aparece si se configura un ID de cliente en `config.js`): copia de todos los usuarios en la carpeta «Diario de entrenamiento» del Drive del usuario, automática al finalizar cada sesión y tras los cambios mientras el acceso está vigente; restauración en otro dispositivo; detección de conflictos entre dispositivos. Permiso `drive.file`: la app solo ve sus propios archivos. Los vídeos no se suben.
 - **Fatiga**: aviso de caída de rendimiento entre series (1RM estimado ≥10% por debajo de la mejor serie del día) y recuento de series al fallo, con RIR 0 o RPE ≥ 9,5.
 - **Carga interna** de la sesión (sRPE × minutos, método de Foster).
 - **Ayuda ⓘ** junto a los términos técnicos (RPE, RIR, 1RM estimado, volumen, carga interna, error estándar, correlación…), que abre una explicación.
@@ -67,6 +66,10 @@ En local: `python3 -m http.server` y abre http://localhost:8000.
 
 Los datos se guardan solo en el navegador del dispositivo: **exporta copias de seguridad con regularidad** (Ajustes → Exportar todos los usuarios). No hay sincronización entre dispositivos: el usuario no puede apuntar desde su propio móvil.
 
+## Privacidad
+
+Los datos se guardan solo en el dispositivo (sin servidor, cuentas, publicidad ni analítica). Texto completo: [docs/privacidad.md](docs/privacidad.md) y en la app (Ajustes › Privacidad).
+
 ## Pruebas
 
 `npm test` ejecuta las pruebas de extremo a extremo (Playwright). Detalles en [tests/README.md](tests/README.md). GitHub las pasa en cada pull request.
@@ -77,17 +80,6 @@ Los datos se guardan solo en el navegador del dispositivo: **exporta copias de s
 - Foster et al. (2001): sRPE × duración como carga interna.
 - Tabla RTS (M. Tuchscherer, Reactive Training Systems): %1RM según reps + RIR. Celdas contrastadas: 1@10=100, 1@9,5=97,8, 1@9=95,5, 2@10=95,5, 3@10=92,2, 5@10=86,3, 5@8=81,1.
 - Índice de estrés: concepto de M. Tuchscherer; valores difundidos por PowerExplosive y Vitónica. No está validado en literatura revisada por pares.
-
-## Configurar la copia en Google Drive
-La copia en Drive necesita un ID de cliente OAuth de Google (gratuito). No es secreto: identifica la app ante Google.
-
-1. En [Google Cloud Console](https://console.cloud.google.com/) crea un proyecto.
-2. **APIs y servicios → Biblioteca**: activa **Google Drive API**.
-3. **Google Auth Platform / Pantalla de consentimiento**: tipo **Externo**; nombre de la app, correo de asistencia y, en *Acceso a datos*, el permiso `.../auth/drive.file` (no sensible).
-4. **Clientes → Crear cliente → Aplicación web**. En *Orígenes de JavaScript autorizados* añade la URL donde está publicada la app (p. ej. `https://usuario.github.io`; sin ruta ni barra final) y `http://localhost:8000` si pruebas en local.
-5. Copia el ID (`….apps.googleusercontent.com`) en `config.js` → `googleClientId`, y publica.
-
-**Estado de publicación:** mientras la app esté en *Prueba*, solo pueden usarla los usuarios de prueba que añadas (máximo 100), Google les muestra un aviso y su autorización caduca a los 7 días. Para uso real, pásala a *En producción*; con solo `drive.file` (no sensible) no hace falta la verificación de permisos sensibles.
 
 ## Dependencias incluidas
 - [jsPDF](https://github.com/parallax/jsPDF) 4.2.1 (MIT), en `vendor/`, cargado solo al generar un PDF. Licencia en `vendor/jspdf.LICENSE`.

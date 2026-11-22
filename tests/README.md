@@ -31,7 +31,6 @@ npm run lint                         # revisión estática del código
 | 06-usuarios | Usuarios: migración, crear, cambiar, borrar |
 | 07-informe | Informe de evolución y su PDF |
 | 08-video-y-compartir | Vídeo por serie y compartir con datos superpuestos |
-| 09-google-drive | Copia en Google Drive (simulada) |
 | 10-copias | Copias de seguridad locales y avisos |
 | 11-musculos | Músculos principal/secundarios, recuento fraccionado, figura |
 | 12-modo-y-descansos | Modo sencillo/avanzado y registro de descansos |

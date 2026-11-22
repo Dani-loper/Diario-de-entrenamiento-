@@ -57,5 +57,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.route('https://api.github.com/**', (r) => { asked = true; r.abort(); });
   await p.goto('http://localhost:8123/#/settings'); await p.waitForTimeout(300);
   assert(!asked && (await p.textContent('#app')).includes('Versión web'), 'en la web no consulta GitHub (siempre carga la última)');
+  // Privacidad: resumen en Ajustes y texto completo
+  await p.click('[data-action=privacy]');
+  assert((await p.textContent('#modal')).includes('Tus datos se guardan solo en este dispositivo') && (await p.textContent('#modal')).includes('api.github') === false, 'Ajustes › Privacidad: texto completo en una ventana');
   console.log('errors', errs); await b.close();
 })();

@@ -35,7 +35,6 @@ const ICONS = {
   image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-10 9"/>',
   pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
   file: '<path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/>',
-  cloud: '<path d="M7 19h10.5a4 4 0 0 0 .4-8A6 6 0 0 0 6.3 9.5 4.8 4.8 0 0 0 7 19z"/>',
   alert: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/>',
   save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V3z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
@@ -291,7 +290,6 @@ function save(now = false) {
   const id = profiles.active, data = db; // fija el destino: un cambio de usuario no puede desviar la escritura
   const write = () => kv.set(dataKey(id), JSON.stringify(data));
   if (now) write(); else saveTimer = setTimeout(write, 250);
-  if (window.cloudMarkDirty) cloudMarkDirty();
 }
 function switchUser(id) {
   if (!profiles.users.some((u) => u.id === id)) return;
@@ -1418,6 +1416,7 @@ function viewSettings() {
       <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
     </div>
     ${window.versionSettingsHTML ? versionSettingsHTML() : ''}
+    ${window.privacySettingsHTML ? privacySettingsHTML() : ''}
     ${window.closeSettingsHTML ? closeSettingsHTML() : ''}
     ${window.weightsSettingsHTML ? weightsSettingsHTML() : ''}
     <h2>Avanzado</h2>
@@ -1469,7 +1468,6 @@ function viewSettings() {
       <div class="muted small" style="margin:8px 0">Los vídeos se guardan dentro de la app y <b>no</b> se incluyen en la copia de seguridad. Para conservarlos, ábrelos desde la serie (⋯) y usa «Guardar en el móvil».</div>
       <button class="danger block" data-action="delete-videos">Borrar todos los vídeos de ${esc(activeUser().name)}</button>
     </div>
-    ${typeof cloudClientId === 'function' && cloudClientId() ? `<h2>Copia en Google Drive</h2>${cloudSettingsHTML()}` : ''}
     <h2>Copia de seguridad</h2>
     <div class="card">
       <div class="muted small" style="margin-bottom:8px">Tus datos se guardan solo en este dispositivo. Guarda una copia en los archivos del móvil con frecuencia y, de vez en cuando, pásala a un ordenador: si se borran los datos del navegador o pierdes el móvil, se pierde todo.</div>
@@ -1729,6 +1727,13 @@ function viewUsers() {
 
 /* ---------- Modal ---------- */
 const modal = $('#modal');
+// Aviso breve en la parte inferior (antes vivía en cloud.js).
+function toast(text) {
+  let t = $('#toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = text; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 3500);
+}
 function openModal(html) { $('#modal-body').innerHTML = html; if (!modal.open) modal.showModal(); }
 function closeModal() { if (modal.open) modal.close(); }
 modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
@@ -1815,7 +1820,7 @@ function newSession(fromId, date = ui.day || todayISO()) {
   db.sessions.push(s); save(true);
   location.hash = `#/session/${s.id}`;
 }
-// Restaura una copia con todos los usuarios (de un archivo o de Google Drive). Devuelve true si se restauró.
+// Restaura una copia con todos los usuarios (de un archivo o de una copia automática). Devuelve true si se restauró.
 function restoreAllData(d, origin) {
   if (d?.type !== 'diario-entreno-todos' || !d.profiles?.users?.length || !d.data) throw new Error('Copia de usuarios incompleta o con otro formato');
   const names = d.profiles.users.map((u) => u.name).join(', ');
@@ -1914,7 +1919,7 @@ const actions = {
     deleteVideos(setsWithVideo(s));
     db.sessions = db.sessions.filter((x) => x.id !== s.id); save(true); closeModal(); location.hash = '#/';
   },
-  'finish-session': () => { const s = currentSession(); s.endedAt = Date.now(); save(true); stopTimer(); rerender(); if (window.cloudOnFinish) cloudOnFinish(); },
+  'finish-session': () => { const s = currentSession(); s.endedAt = Date.now(); save(true); stopTimer(); rerender(); },
   'reopen-session': () => { const s = currentSession(); s.endedAt = null; save(true); rerender(); },
   'add-exercise': () => openPicker(),
   'pick-exercise': (el) => {
