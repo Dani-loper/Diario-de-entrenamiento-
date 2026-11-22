@@ -64,7 +64,7 @@ function importAthlete(payload) {
   const nt = mergeTemplates(payload.templates);
   if (!existing) {
     if (!confirm(`¿Crear el perfil «${p.name}» con ${inc.sessions.length} sesiones?`)) return;
-    localStorage.setItem(dataKey(p.id), JSON.stringify(inc));
+    kv.set(dataKey(p.id), JSON.stringify(inc));
     profiles.users.push({ id: p.id, name: p.name, goal: p.goal, notes: p.notes, createdAt: Date.now() });
     saveProfiles(); rerender();
     toast(`Perfil «${p.name}» creado${nt ? ` · ${nt} tablas` : ''}`);
@@ -73,7 +73,7 @@ function importAthlete(payload) {
   const local = existing.id === profiles.active ? db : readUserData(existing.id);
   const { data, stats } = mergeUserData(local, inc);
   if (!confirm(`Combinar con el perfil «${existing.name}» de este dispositivo:\n• ${stats.added} sesiones nuevas\n• ${stats.updated} sesiones actualizadas${stats.mesos ? `\n• ${stats.mesos} mesociclos` : ''}${nt ? `\n• ${nt} tablas` : ''}\nNo se borra nada. Se guarda antes una copia automática.`)) return;
-  if (existing.id === profiles.active) { db = normalize(data); save(true); } else localStorage.setItem(dataKey(existing.id), JSON.stringify(data));
+  if (existing.id === profiles.active) { db = normalize(data); save(true); } else kv.set(dataKey(existing.id), JSON.stringify(data));
   rerender();
   toast(`«${existing.name}» actualizado: ${stats.added} nuevas, ${stats.updated} actualizadas`);
 }

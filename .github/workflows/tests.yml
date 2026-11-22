@@ -13,6 +13,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
+      - name: Revisión del código (ESLint + nombres repetidos entre archivos)
+        run: npm run lint
       - run: npx playwright install --with-deps chromium
       - run: npm test
       - if: failure()
