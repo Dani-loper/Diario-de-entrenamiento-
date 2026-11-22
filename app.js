@@ -1688,6 +1688,7 @@ function viewUsers() {
       <div class="row">${avatar(u, 44)}
         <div class="spacer"><b>${esc(u.name)}</b> ${active ? '<span class="tag on">Activo</span>' : ''}
           ${u.goal ? `<div class="muted small">${ic('target')} ${esc(u.goal)}</div>` : ''}
+          ${window.profileLine && profileLine(u) ? `<div class="muted small">${esc(profileLine(u))}</div>` : ''}
           <div class="muted small">${sess.length} ${sess.length === 1 ? 'sesión' : 'sesiones'}${last ? ` · última: ${fmtDate(last)}` : ''}</div></div>
         <button class="icon ghost" data-action="user-form" data-id="${u.id}" aria-label="Editar ${esc(u.name)}">${ic('edit')}</button>
         ${profiles.users.length > 1 ? `<button class="icon ghost danger" data-action="user-delete" data-id="${u.id}" aria-label="Borrar ${esc(u.name)}">${ic('trash')}</button>` : ''}
@@ -2024,6 +2025,7 @@ const actions = {
     openModal(`<div class="row"><h3 class="spacer">${u ? 'Editar' : 'Nuevo'} usuario</h3><button class="ghost" data-action="close-modal" aria-label="Cerrar">✕</button></div>
       <div style="display:grid;gap:10px;margin-top:10px">
         <div><label>Nombre</label><input id="uf-name" value="${esc(u?.name)}" placeholder="p. ej. Laura G." autocomplete="off"></div>
+        ${window.profileFieldsHTML ? profileFieldsHTML(u || {}, { weight: !u }) : ''}
         <div><label>Objetivo (opcional)</label><input id="uf-goal" value="${esc(u?.goal)}" placeholder="p. ej. Competir en -63 kg, hipertrofia, recuperar rodilla…"></div>
         <div><label>Notas (opcional)</label><textarea id="uf-notes" placeholder="Lesiones, disponibilidad, material del que dispone…">${esc(u?.notes)}</textarea></div>
         ${u ? '' : `<label class="row" style="color:var(--text);font-size:.9rem;gap:8px"><input type="checkbox" id="uf-copy" checked style="width:auto;min-height:0">
@@ -2036,7 +2038,9 @@ const actions = {
     const name = $('#uf-name').value.trim();
     if (!name) return alert('Pon un nombre.');
     if (profiles.users.some((x) => norm(x.name) === norm(name) && x.id !== el.dataset.id)) return alert('Ya hay un usuario con ese nombre.');
-    const fields = { name, goal: $('#uf-goal').value.trim(), notes: $('#uf-notes').value.trim() };
+    let extra = { fields: {}, weight: null };
+    if (window.readProfileFields) { try { extra = readProfileFields(); } catch (e) { return alert(e.message); } }
+    const fields = { name, goal: $('#uf-goal').value.trim(), notes: $('#uf-notes').value.trim(), ...extra.fields };
     if (el.dataset.id) {
       Object.assign(profiles.users.find((x) => x.id === el.dataset.id), fields);
       saveProfiles(); closeModal(); rerender(); return;
@@ -2048,6 +2052,7 @@ const actions = {
       fresh.equipment = JSON.parse(JSON.stringify(db.equipment));
       fresh.settings = { ...db.settings };
     }
+    if (extra.weight != null) fresh.bodyweights = [{ d: todayISO(), v: extra.weight }];
     try { localStorage.setItem(dataKey(id), JSON.stringify(fresh)); } catch (e) { return alert('No se pudo crear: ' + e.message); }
     profiles.users.push({ id, ...fields, createdAt: Date.now() });
     saveProfiles(); closeModal(); switchUser(id);

@@ -12,7 +12,7 @@ npm test -- 13 18                    # solo las que empiezan por 13 y 18
 
 - `run.js` sirve la app en `http://localhost:8123`, ejecuta cada archivo de `e2e/` y resume el resultado.
   Una prueba falla si imprime `FAIL:`, si termina con error o si la página lanza un error de JavaScript.
-- `support/fixed-clock.js` arranca el reloj del navegador el **domingo 22/11/2026 a las 10:00** (y luego avanza con normalidad),
+- `support/fixed-clock.js` da por vista la ventana de bienvenida (salvo con `newContext({ welcome: true })`) y arranca el reloj del navegador el **domingo 22/11/2026 a las 10:00** (y luego avanza con normalidad),
   porque muchas comprobaciones usan fechas concretas. Se puede cambiar con `TEST_NOW=2027-01-15T10:00:00`.
 - Las capturas que hacen las pruebas se guardan en `tests/out/` (no se suben al repositorio).
 - GitHub las ejecuta en cada pull request (`.github/workflows/tests.yml`); si fallan, las capturas quedan como artefacto.
@@ -46,3 +46,4 @@ npm test -- 13 18                    # solo las que empiezan por 13 y 18
 | 25-aviso-descarga | Aviso de descarga: sin aviso al progresar, aviso por caída de rendimiento y por muchas semanas sin descargar |
 | 26-entrenador-atleta | Intercambio por archivo entre dos móviles: crear perfil enlazado, combinar sin perder datos, unificar ejercicios |
 | 27-mesociclos | Mesociclos: progresión de RIR y series, descarga, plan por músculo, sesión que toca desde el calendario |
+| 28-bienvenida | Ventana de bienvenida del primer arranque y datos del atleta en Usuarios |

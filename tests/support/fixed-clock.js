@@ -8,8 +8,11 @@ const launch = pw.chromium.launch.bind(pw.chromium);
 pw.chromium.launch = async (...args) => {
   const browser = await launch(...args);
   const newContext = browser.newContext.bind(browser);
-  browser.newContext = async (...a) => {
-    const ctx = await newContext(...a);
+  // La ventana de bienvenida (primer arranque) se da por vista salvo en las pruebas que la piden: newContext({ welcome: true }).
+  browser.newContext = async (opts = {}, ...rest) => {
+    const { welcome, ...o } = opts || {};
+    const ctx = await newContext(o, ...rest);
+    if (!welcome) await ctx.addInitScript(() => { try { localStorage.setItem('diario-entreno.bienvenida', '1'); } catch (e) { /* nada */ } });
     await ctx.clock.install({ time: new Date(FIXED) });
     await ctx.clock.resume();
     return ctx;
