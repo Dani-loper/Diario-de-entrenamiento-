@@ -764,7 +764,7 @@ const GLOSSARY = {
     <p>Series de trabajo (no calentamientos) terminadas <b>cerca del fallo</b>: con <b>RIR ≤ 4</b> por defecto (puedes cambiarlo a ≤ 3 en Ajustes). Son las que más cuentan como estímulo para ganar músculo (<i>hard sets</i>).</p>
     <p>La hipertrofia aumenta cuanto más cerca del fallo se termina la serie (Robinson et al., 2024), aunque las diferencias entre RIR 0 y 3 son pequeñas (Refalo et al., 2023). Por encima de 4-5 RIR el estímulo cae claramente.</p>
     <p>Recuento <b>fraccionado</b>: cada serie cuenta 1 para el músculo principal y 0,5 para cada secundario (Pelland et al., 2024).</p>
-    <p>La franja de <b>10-20 series por músculo y semana</b> es una referencia orientativa para hipertrofia en personas entrenadas (Schoenfeld et al., 2017; Baz-Valle et al., 2022). No es un mínimo ni un máximo: depende de tu nivel, tu recuperación y tu objetivo. Para fuerza basta con menos.</p>
+    <p>Cada músculo se compara con sus <b>referencias de volumen</b> (aproximadas a la tabla de Mike Israetel): mantenimiento, mínimo efectivo, rango adaptativo y máximo recuperable. Toca ⓘ «Referencias de Israetel» para ver qué significa cada una.</p>
     <p>Las series <b>sin RIR</b> se muestran aparte (más claras) y no suman, porque no se sabe lo cerca del fallo que estuvieron.</p>`],
   consistency: ['Constancia', `
     <p>Cuántas sesiones haces a la semana y durante cuántas semanas seguidas. La racha cuenta semanas (de lunes a domingo) con al menos una sesión; la semana en curso no la rompe.</p>
@@ -778,7 +778,7 @@ const GLOSSARY = {
   athlete_week: ['Semana del atleta', `
     <p>Periodo con el que se agrupan los datos semanales: series por músculo, constancia, análisis de carga, informes y calendario.</p>
     <p>Por defecto es la semana natural de <b>lunes a domingo</b>. Puedes cambiar el día en que empieza (p. ej. si tu semana de entrenamiento va de sábado a viernes).</p>
-    <p>Si tu programación usa <b>microciclos</b> de otra duración (p. ej. 8 o 10 días), elige la duración y la fecha en que empieza uno de ellos: la app repetirá el ciclo cada N días hacia delante y hacia atrás. La franja de 10-20 series se refiere a 7 días; con otra duración se ajusta en proporción.</p>`],
+    <p>Si tu programación usa <b>microciclos</b> de otra duración (p. ej. 8 o 10 días), elige la duración y la fecha en que empieza uno de ellos: la app repetirá el ciclo cada N días hacia delante y hacia atrás. Las referencias de volumen por músculo están pensadas para 7 días; con otra duración se ajustan en proporción.</p>`],
   same_weight: ['Con el mismo peso', `
     <p>Cuántas repeticiones podías hacer con un peso concreto en cada sesión: <b>repeticiones + RIR</b> (lo que hiciste más lo que te quedaba). Si sube con el tiempo, eres más fuerte con ese peso.</p>
     <p>Es más intuitivo que el 1RM estimado y no depende de ninguna tabla: «con 100 kg en agosto podía 6, hoy puedo 8». Sin RIR se cuentan solo las repeticiones hechas.</p>`],
@@ -790,6 +790,15 @@ const GLOSSARY = {
     <p>Calorías con las que tu peso se mantendría. Se calcula con un <b>balance energético</b>: calorías medias anotadas en los últimos 28 días, corregidas por la tendencia de tu peso en ese tiempo (≈ 7700 kcal por kg).</p>
     <p>Si comes 2400 kcal y pierdes 0,25 kg/semana (≈ 275 kcal/día de déficit), tu mantenimiento ronda las 2675 kcal.</p>
     <p>Es una estimación: el peso fluctúa por agua y glucógeno, y el error al anotar calorías se traslada al resultado (aunque si siempre anotas igual, la estimación sigue siendo útil para ajustar). Necesita al menos 14 días con calorías y 3 pesos repartidos en 2 semanas.</p>`],
+  landmarks: ['Referencias de volumen (Israetel)', `
+    <p>Series efectivas por músculo y semana según el modelo de <b>Mike Israetel</b> (Renaissance Periodization):</p>
+    <p><b>MV</b> · volumen de mantenimiento: conserva el músculo, no lo hace crecer.<br>
+    <b>MEV</b> · volumen mínimo efectivo: a partir de aquí hay crecimiento.<br>
+    <b>MAV</b> · volumen adaptativo máximo: el rango donde se suele progresar mejor.<br>
+    <b>MRV</b> · volumen máximo recuperable: por encima, la fatiga supera la recuperación y el rendimiento cae.</p>
+    <p>Colores: gris por debajo del MEV, verde claro entre MEV y MAV, verde en el MAV, naranja entre MAV y MRV, rojo por encima del MRV.</p>
+    <p>Los valores por defecto son <b>aproximados</b>: varían entre ediciones de sus guías y entre personas (más entrenadas, más volumen toleran). Lo habitual es empezar un mesociclo cerca del MEV e ir subiendo hacia el MRV. Puedes ajustarlos para cada atleta en Ajustes › Avanzado.</p>
+    <p>Aquí las series secundarias cuentan 0,5. Israetel no cuenta así exactamente (por ejemplo, da MEV 0 a glúteos porque las sentadillas y el peso muerto ya los trabajan), así que en músculos que trabajan mucho como secundarios el valor puede salir algo alto frente a su tabla.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -922,6 +931,7 @@ function viewCalendar() {
       ${sel !== today || ui.month !== today.slice(0, 7) ? '<button class="block ghost" data-action="go-today" style="margin-top:4px">Ir a hoy</button>' : ''}
     </div>
     <h2>${sel === today ? 'Hoy · ' : ''}${fmtDate(sel)}</h2>
+    ${window.dailyCardHTML ? dailyCardHTML(sel) : ''}
     <div class="grid2">
       <button class="primary" data-action="new-session">＋ Nueva sesión</button>
       <button data-action="repeat-session" ${db.sessions.length ? '' : 'disabled'}>${ic('refresh')} Repetir…</button>
@@ -930,7 +940,6 @@ function viewCalendar() {
     <div style="height:12px"></div>`;
   const daySessions = (byDay[sel] || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   html += daySessions.map(sessionCard).join('') || '<div class="muted" style="padding:8px 0 16px">Sin sesiones este día.</div>';
-  if (window.dailyCardHTML) html += dailyCardHTML(sel);
   const recent = sortedSessions().filter((s) => s.date !== sel).slice(0, 3);
   if (recent.length) html += `<h2>Últimas sesiones</h2>${recent.map(sessionCard).join('')}`;
   return html;
@@ -980,6 +989,7 @@ function viewSession(id) {
       ${isSimple() ? '' : `<div style="height:8px"></div>
       <label>RPE de la sesión (esfuerzo global 1-10) ${info('srpe')}</label>${scaleSelect('srpe', s.srpe, 1, 10)}`}
     </div>
+    ${window.dailyCardHTML ? dailyCardHTML(s.date) : ''}
     ${s.endedAt
       ? `<button class="block" data-action="reopen-session">Reabrir sesión (seguir cronometrando)</button>`
       : `<button class="primary block" data-action="finish-session">✓ Finalizar sesión</button>`}`;
@@ -1316,6 +1326,7 @@ function viewSettings() {
         : `Semana actual: <b>${fmtDate(weekStart(todayISO()))}</b> – <b>${fmtDate(weekEnd(weekStart(todayISO())))}</b>.`}
         Se usa en las series por músculo, la constancia, el análisis semanal y los informes${isCustomCycle() ? '' : ', y el calendario empieza ese día'}. Por defecto, de lunes a domingo.</div>
     </div>
+    ${window.landmarksSettingsHTML ? landmarksSettingsHTML() : ''}
     <h2>Series efectivas</h2>
     <div class="card">
       <label>Cuenta como serie efectiva ${info('hard_sets')}</label>

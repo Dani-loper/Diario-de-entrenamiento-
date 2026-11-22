@@ -32,28 +32,55 @@ function muscleSetsBetween(from, to) {
   return out;
 }
 
-// Franja de referencia por 7 días; con microciclos de otra duración se ajusta en proporción.
-const band = () => [10, 20].map((v) => Math.round(v * cycleLen() / 7));
+/* Referencias de volumen por músculo (series/semana), aproximadas a la tabla de Mike Israetel (Renaissance Periodization):
+ * MV mantenimiento · MEV mínimo efectivo · MAV rango adaptativo (mín.-máx.) · MRV máximo recuperable.
+ * Son orientativas (distintas ediciones publican cifras algo distintas) y se pueden editar por atleta en Ajustes › Avanzado.
+ * «Hombros» usa las cifras de deltoides lateral/posterior: el anterior ya trabaja en los empujes. */
+const LANDMARKS = {
+  pectoral: [4, 6, 12, 20, 22], espalda: [6, 10, 14, 22, 25], hombros: [0, 8, 16, 22, 26], biceps: [4, 8, 14, 20, 26],
+  triceps: [4, 6, 10, 14, 18], abdomen: [0, 0, 16, 20, 25], gluteos: [0, 0, 4, 12, 16], cuadriceps: [6, 8, 12, 18, 20],
+  femoral: [3, 4, 10, 16, 20], gemelos: [6, 8, 12, 16, 20],
+};
+const LM_KEYS = ['MV', 'MEV', 'MAV mín.', 'MAV máx.', 'MRV'];
+// Referencias del atleta, escaladas a la duración de su semana o microciclo.
+function landmarksOf(m, scaled = true) {
+  const v = db.settings.landmarks?.[m] || LANDMARKS[m], k = scaled ? cycleLen() / 7 : 1;
+  const [mv, mev, lo, hi, mrv] = v.map((x) => Math.round(x * k * 10) / 10);
+  return { mv, mev, lo, hi, mrv };
+}
+// Zona del volumen respecto a las referencias.
+const ZONES_VOL = {
+  under: ['Por debajo del mantenimiento', 'under'], maint: ['Mantenimiento (MV-MEV)', 'maint'], low: ['Crecimiento mínimo (MEV-MAV)', 'low'],
+  opt: ['Rango adaptativo (MAV)', 'opt'], high: ['Alto (MAV-MRV)', 'high'], over: ['Por encima del MRV', 'over'],
+};
+function volZone(v, L) {
+  if (v > L.mrv) return 'over';
+  if (v > L.hi) return 'high';
+  if (v >= L.lo) return 'opt';
+  if (v >= L.mev && L.mev > 0) return 'low';
+  if (v >= L.mv) return v === 0 && L.mev === 0 && L.lo > 0 ? 'maint' : L.mev > 0 ? 'maint' : 'low';
+  return 'under';
+}
 function muscleWeekHTML() {
-  const BAND = band(), len = cycleLen();
+  const len = cycleLen();
   const to = todayISO(), from = addDays(to, -(len - 1));
   const v = muscleSetsBetween(from, to);
-  const max = Math.max(BAND[1] * 1.25, ...MUSCLE_KEYS.map((m) => (v.hard[m] || 0) + (v.unknown[m] || 0)));
+  const max = Math.max(...MUSCLE_KEYS.map((m) => landmarksOf(m).mrv * 1.1), ...MUSCLE_KEYS.map((m) => (v.hard[m] || 0) + (v.unknown[m] || 0)));
   const pc = (n) => `${(n / max) * 100}%`;
   const unknownTotal = Object.values(v.unknown).reduce((a, b) => a + b, 0);
   const easyTotal = Object.values(v.easy).reduce((a, b) => a + b, 0);
   const sel = ui.pmuscle;
   let html = `<div class="card">
     <div class="row"><h3 class="spacer">Series efectivas por músculo ${info('hard_sets')}</h3></div>
-    <div class="muted small" style="margin:2px 0 10px">Últimos ${len} días (${shortDate(from)} – ${shortDate(to)}) · RIR ≤ ${hardRir()}<br>
-      <span class="lg-dot lo"></span>menos de ${BAND[0]} <span class="lg-dot ok"></span>${BAND[0]}-${BAND[1]} (franja) <span class="lg-dot hi"></span>más de ${BAND[1]}</div>
-    <div class="mbars" style="--b0:${pc(BAND[0])};--b1:${pc(BAND[1])}">`;
+    <div class="muted small" style="margin:2px 0 6px">Últimos ${len} días (${shortDate(from)} – ${shortDate(to)}) · RIR ≤ ${hardRir()} · referencias de Israetel ${info('landmarks')}</div>
+    <div class="vz-legend small">${Object.values(ZONES_VOL).filter(([, c]) => c !== 'under').map(([l, c]) => `<span><i class="vz ${c}"></i>${l}</span>`).join('')}</div>
+    <div class="mbars">`;
   for (const m of MUSCLE_KEYS) {
-    const h = v.hard[m] || 0, u = v.unknown[m] || 0, tot = h + u;
-    const st = h >= BAND[1] + 0.01 ? 'hi' : h >= BAND[0] ? 'ok' : 'lo';
-    html += `<button class="mbar ${sel === m ? 'on' : ''}" data-action="pmuscle" data-m="${m}" aria-label="${MUSCLES[m]}: ${fmt(h, 1)} series efectivas">
+    const h = v.hard[m] || 0, u = v.unknown[m] || 0, tot = h + u, L = landmarksOf(m), z = volZone(h, L);
+    html += `<button class="mbar ${sel === m ? 'on' : ''}" data-action="pmuscle" data-m="${m}" aria-label="${MUSCLES[m]}: ${fmt(h, 1)} series efectivas, ${ZONES_VOL[z][0]}">
       <span class="mb-l">${MUSCLES[m]}</span>
-      <span class="mb-t"><span class="mb-band"></span><span class="mb-h ${st}" style="width:${pc(h)}"></span><span class="mb-u" style="left:${pc(h)};width:${pc(u)}"></span></span>
+      <span class="mb-t"><span class="mb-seg low" style="left:${pc(L.mev)};width:${pc(L.lo - L.mev)}"></span><span class="mb-seg opt" style="left:${pc(L.lo)};width:${pc(L.hi - L.lo)}"></span><span class="mb-seg high" style="left:${pc(L.hi)};width:${pc(L.mrv - L.hi)}"></span><span class="mb-mrv" style="left:${pc(L.mrv)}"></span>
+        <span class="mb-h z-${z}" style="width:${pc(h)}"></span><span class="mb-u" style="left:${pc(h)};width:${pc(u)}"></span></span>
       <span class="mb-v">${tot ? fmt(h, 1) : '0'}${u ? `<small>+${fmt(u, 1)}</small>` : ''}</span></button>`;
   }
   html += `</div>`;
@@ -67,27 +94,29 @@ function muscleWeekHTML() {
 
 // Columnas semanales (lunes a domingo) de un músculo, 12 semanas.
 function muscleTrendHTML(m) {
-  const BAND = band(), weeks = lastWeeks(12);
+  const L = landmarksOf(m), weeks = lastWeeks(12);
   const vals = weeks.map((w) => { const r = muscleSetsBetween(w, weekEnd(w)); return { w, h: r.hard[m] || 0, u: r.unknown[m] || 0 }; });
-  const W = 340, H = 150, L = 26, B = 20, T = 8, R = 4;
-  const max = Math.max(BAND[1] + 4, ...vals.map((x) => x.h + x.u));
+  const W = 340, H = 150, X = 26, B = 20, T = 8, R = 4;
+  const max = Math.max(L.mrv + 2, ...vals.map((x) => x.h + x.u));
   const ticks = niceTicks(0, max, 3), top = ticks[ticks.length - 1];
-  const y = (v) => T + (1 - v / top) * (H - T - B), bw = (W - L - R) / vals.length;
+  const y = (v) => T + (1 - v / top) * (H - T - B), bw = (W - X - R) / vals.length;
   const done = vals.slice(0, -1).filter((x) => x.h + x.u > 0);
   const avg = done.length ? done.slice(-4).reduce((a, x) => a + x.h, 0) / Math.min(4, done.length) : 0;
   return `<div class="ptrend"><div class="row" style="margin-top:12px"><b class="spacer">${MUSCLES[m]} · por ${cycleWord()}</b>
       <button class="ghost small-btn" data-action="pmuscle" data-m="${m}" aria-label="Cerrar">✕</button></div>
     <svg class="chart wchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Series efectivas semanales de ${MUSCLES[m]}">
-      <rect class="band" x="${L}" width="${W - L - R}" y="${y(BAND[1])}" height="${y(BAND[0]) - y(BAND[1])}"/>
-      ${ticks.map((v) => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 4}" y="${y(v) + 3}" text-anchor="end">${v}</text>`).join('')}
+      <rect class="band" x="${X}" width="${W - X - R}" y="${y(L.hi)}" height="${y(L.lo) - y(L.hi)}"/>
+      ${ticks.map((v) => `<line class="grid" x1="${X}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${X - 4}" y="${y(v) + 3}" text-anchor="end">${v}</text>`).join('')}
+      ${L.mev ? `<line class="lm mev" x1="${X}" x2="${W - R}" y1="${y(L.mev)}" y2="${y(L.mev)}"/>` : ''}<line class="lm mrv" x1="${X}" x2="${W - R}" y1="${y(L.mrv)}" y2="${y(L.mrv)}"/>
+      <text class="lmt" x="${W - R - 2}" y="${y(L.mrv) - 3}" text-anchor="end">MRV ${fmt(L.mrv)}</text>${L.mev ? `<text class="lmt" x="${W - R - 2}" y="${y(L.mev) - 3}" text-anchor="end">MEV ${fmt(L.mev)}</text>` : ''}
       ${vals.map((x, i) => {
-        const cx = L + i * bw + bw * 0.15, wd = bw * 0.7, cur = i === vals.length - 1;
+        const cx = X + i * bw + bw * 0.15, wd = bw * 0.7, cur = i === vals.length - 1;
         return `<rect class="col ${cur ? 'cur' : ''}" x="${cx}" width="${wd}" y="${y(x.h)}" height="${y(0) - y(x.h)}" rx="2"/>
           ${x.u ? `<rect class="col-u" x="${cx}" width="${wd}" y="${y(x.h + x.u)}" height="${y(x.h) - y(x.h + x.u)}" rx="2"/>` : ''}`;
       }).join('')}
-      <text x="${L}" y="${H - 4}">${wkLabel(vals[0].w)}</text><text x="${W - R}" y="${H - 4}" text-anchor="end">${isCustomCycle() ? 'ciclo actual' : 'esta semana'}</text>
+      <text x="${X}" y="${H - 4}">${wkLabel(vals[0].w)}</text><text x="${W - R}" y="${H - 4}" text-anchor="end">${isCustomCycle() ? 'ciclo actual' : 'esta semana'}</text>
     </svg>
-    <div class="muted small">Media de ${isCustomCycle() ? 'los últimos 4 ciclos completos' : 'las últimas 4 semanas completas'}: <b>${fmt(avg, 1)}</b> series efectivas. ${isCustomCycle() ? 'El ciclo en curso aparece más claro porque aún no ha terminado.' : 'La semana en curso aparece más clara porque aún no ha terminado.'}</div></div>`;
+    <div class="muted small">Referencias: MV ${fmt(L.mv)} · MEV ${fmt(L.mev)} · MAV ${fmt(L.lo)}-${fmt(L.hi)} · MRV ${fmt(L.mrv)} series/${cycleWord()}.<br>Media de ${isCustomCycle() ? 'los últimos 4 ciclos completos' : 'las últimas 4 semanas completas'}: <b>${fmt(avg, 1)}</b> series efectivas (${ZONES_VOL[volZone(avg, L)][0].toLowerCase()}). ${isCustomCycle() ? 'El ciclo en curso aparece más claro porque aún no ha terminado.' : 'La semana en curso aparece más clara porque aún no ha terminado.'}</div></div>`;
 }
 
 /* ---------- Constancia ---------- */
@@ -226,7 +255,35 @@ function sameWeightHTML(def, hist) {
     <div class="muted small">Se muestran los pesos que has usado en al menos 2 sesiones; el número pequeño indica en cuántas.</div></div>`;
 }
 
+/* ---------- Editor de referencias (Ajustes › Avanzado) ---------- */
+function landmarksSettingsHTML() {
+  const custom = !!db.settings.landmarks && Object.keys(db.settings.landmarks).length;
+  return `<details class="card lm-edit" ${ui.lmOpen ? 'open' : ''}><summary><b>Volumen por músculo (referencias de Israetel)</b> ${info('landmarks')}
+      <div class="muted small">${custom ? 'Personalizadas para este atleta' : 'Valores aproximados por defecto'} · series efectivas por semana de 7 días</div></summary>
+    <div class="gt-wrap"><table class="gt lm-table"><tr><th>Músculo</th>${LM_KEYS.map((k) => `<th>${k}</th>`).join('')}</tr>
+    ${MUSCLE_KEYS.map((m) => { const v = db.settings.landmarks?.[m] || LANDMARKS[m]; return `<tr><td>${MUSCLES[m]}</td>${v.map((x, i) => `<td><input type="text" inputmode="numeric" data-lm="${m}:${i}" value="${x}" aria-label="${MUSCLES[m]} ${LM_KEYS[i]}"></td>`).join('')}</tr>`; }).join('')}
+    </table></div>
+    <div class="muted small" style="margin:6px 0 8px">Deben ir de menor a mayor (MV ≤ MEV ≤ MAV mín. ≤ MAV máx. ≤ MRV). Con microciclos de otra duración se escalan en proporción.</div>
+    ${custom ? '<button class="block ghost" data-action="lm-reset">Restablecer valores por defecto</button>' : ''}
+  </details>`;
+}
+document.addEventListener('change', (e) => {
+  const t = e.target; if (!t.dataset?.lm) return;
+  const [m, i] = t.dataset.lm.split(':'), v = num(t.value);
+  const cur = [...(db.settings.landmarks?.[m] || LANDMARKS[m])];
+  if (v == null || v < 0 || v > 60) { t.classList.add('bad'); toast('Escribe un número de series entre 0 y 60'); return; }
+  cur[+i] = v;
+  const ordered = cur.every((x, k) => !k || x >= cur[k - 1]);
+  t.classList.toggle('bad', !ordered);
+  if (!ordered) { toast('Las referencias deben ir de menor a mayor: MV ≤ MEV ≤ MAV ≤ MRV'); return; }
+  db.settings.landmarks = { ...(db.settings.landmarks || {}), [m]: cur };
+  if (cur.every((x, k) => x === LANDMARKS[m][k])) delete db.settings.landmarks[m];
+  save();
+});
+document.addEventListener('toggle', (e) => { if (e.target.classList?.contains('lm-edit')) ui.lmOpen = e.target.open; }, true);
+
 Object.assign(actions, {
+  'lm-reset': () => { if (!confirm('¿Volver a las referencias por defecto para este atleta?')) return; delete db.settings.landmarks; save(); rerender(); },
   pmuscle: (el) => { ui.pmuscle = ui.pmuscle === el.dataset.m ? null : el.dataset.m; rerender(); },
   'bw-add': () => {
     const last = bodyweightLog().pop();
@@ -239,5 +296,5 @@ Object.assign(actions, {
   'same-w': (el) => { ui.sameW = ui.sameW || {}; ui.sameW[el.dataset.id] = el.dataset.w; rerender(); },
   'chart-rel': () => { ui.chartRel = !ui.chartRel; ui.chartSel = null; rerender(); },
 });
-Object.assign(window, { sameWeightHTML, progressTopHTML, exerciseRowExtra, exercisesHeaderHTML, bodyweightAt, bodyweightLog });
+Object.assign(window, { landmarksSettingsHTML, sameWeightHTML, progressTopHTML, exerciseRowExtra, exercisesHeaderHTML, bodyweightAt, bodyweightLog });
 if (['exercises', 'exercise'].includes(route().name)) rerender();
