@@ -62,20 +62,14 @@ const FIELD = {
   dist: { h: 'Metros', step: '1' }, rpe: { h: 'RPE' }, rir: { h: 'RIR' },
 };
 const SET_TYPES = { E: 'Efectiva', C: 'Calentamiento', D: 'Drop set', F: 'Al fallo' };
-const DEFAULT_EXERCISES = [ // [nombre, modo]; músculos en DEFAULT_MUSCLES
-  ['Sentadilla trasera'], ['Sentadilla frontal'], ['Peso muerto'], ['Peso muerto rumano'], ['Prensa'], ['Zancadas'], ['Hip thrust'],
-  ['Curl femoral'], ['Extensión de cuádriceps'], ['Elevación de gemelos'], ['Press banca'], ['Press inclinado'], ['Press militar'], ['Fondos', 'bw'], ['Aperturas'],
-  ['Dominadas', 'bw'], ['Remo con barra'], ['Remo con mancuerna'], ['Jalón al pecho'], ['Face pull'], ['Elevaciones laterales'], ['Pájaros'],
-  ['Arrancada'], ['Dos tiempos'], ['Cargada de potencia'], ['Arrancada de potencia'], ['Jerk'], ['Tirón de arrancada'],
-  ['Plancha', 'time'], ['Rueda abdominal', 'bw'], ['Elevación de piernas', 'bw'], ['Curl de bíceps'], ['Extensión de tríceps'],
-  ['Carrera', 'dist'], ['Remo ergómetro', 'dist'], ['Bicicleta', 'dist'], ['Comba', 'time'],
-];
+const DEFAULT_EXERCISES = CATALOG.map((c) => [c.name, c.mode]); // catalog.js
 const DEFAULT_EQUIPMENT = ['Straps', 'Zapatillas de halterofilia', 'Cinturón', 'Rodilleras', 'Muñequeras', 'Coderas', 'Magnesio', 'Calleras', 'Cinturón de lastre', 'Bandas elásticas'];
 
 /* ---------- Músculos ----------
  * Cada ejercicio tiene un músculo principal (o ninguno, p. ej. cardio) y 0 o más secundarios.
- * Volumen por músculo con conteo fraccionado: cada serie efectiva cuenta 1 para el principal y 0,5 para
- * cada secundario (Pelland et al., 2024: el método que mejor predijo la hipertrofia). */
+ * Volumen por músculo con conteo fraccionado: cada serie efectiva cuenta 1 para el principal y una fracción para
+ * cada secundario: 0,5 por defecto (Pelland et al., 2024) o 0,25 / 0,75 según el ejercicio (def.sw).
+ * Criterios y fuentes: catalog.js y docs/volumen-por-musculo.md. */
 const MUSCLES = {
   pectoral: 'Pectoral', espalda: 'Espalda', delt_ant: 'Deltoides anterior', delt_lat: 'Deltoides lateral', delt_post: 'Deltoides posterior',
   biceps: 'Bíceps', triceps: 'Tríceps',
@@ -84,11 +78,13 @@ const MUSCLES = {
 const MUSCLE_KEYS = Object.keys(MUSCLES);
 const SECONDARY_WEIGHT = 0.5;
 const muscleLabel = (def) => def?.primary ? MUSCLES[def.primary] : 'Sin músculo';
+const secWeight = (def, m) => def?.sw?.[m] ?? SECONDARY_WEIGHT;
+const fracTxt = (w) => ({ 0.25: '¼', 0.5: '½', 0.75: '¾', 1: '1' }[w] || fmt(w, 2));
 const muscleDesc = (def) => def?.primary
-  ? `${MUSCLES[def.primary]}${def.secondary?.length ? ` · sec.: ${def.secondary.map((m) => MUSCLES[m]).join(', ')}` : ''}`
+  ? `${MUSCLES[def.primary]}${def.secondary?.length ? ` · sec.: ${def.secondary.map((m) => `${MUSCLES[m]} ${fracTxt(secWeight(def, m))}`).join(', ')}` : ''}`
   : 'Sin músculo asignado';
-// [[músculo, peso], …]: principal 1, cada secundario 0,5.
-const muscleShares = (def) => def?.primary ? [[def.primary, 1], ...(def.secondary || []).filter((m) => m !== def.primary).map((m) => [m, SECONDARY_WEIGHT])] : [];
+// [[músculo, peso], …]: principal 1; cada secundario, su peso (0,5 si no tiene).
+const muscleShares = (def) => def?.primary ? [[def.primary, 1], ...(def.secondary || []).filter((m) => m !== def.primary).map((m) => [m, secWeight(def, m)])] : [];
 function addShares(acc, def, v) { if (v) for (const [m, w] of muscleShares(def)) acc[m] = (acc[m] || 0) + v * w; }
 // Series efectivas (fraccionadas) o índice de estrés por músculo en una sesión.
 function sessionMuscles(s, mode = systemOf(s)) {
@@ -104,24 +100,11 @@ function sessionMuscles(s, mode = systemOf(s)) {
 }
 const muscleItems = (acc) => MUSCLE_KEYS.filter((m) => acc[m]).map((m) => ({ label: MUSCLES[m], v: Math.round(acc[m] * 10) / 10 })).sort((a, b) => b.v - a.v);
 
-// Ejercicios por defecto: [nombre, principal, secundarios, modo]
-const DEFAULT_MUSCLES = {
-  'Sentadilla trasera': ['cuadriceps', ['gluteos', 'espalda']], 'Sentadilla frontal': ['cuadriceps', ['gluteos', 'abdomen']],
-  'Peso muerto': ['gluteos', ['femoral', 'espalda', 'cuadriceps']], 'Peso muerto rumano': ['femoral', ['gluteos', 'espalda']],
-  'Prensa': ['cuadriceps', ['gluteos']], 'Zancadas': ['cuadriceps', ['gluteos', 'femoral']], 'Hip thrust': ['gluteos', ['femoral']],
-  'Curl femoral': ['femoral', ['gemelos']], 'Extensión de cuádriceps': ['cuadriceps', []], 'Elevación de gemelos': ['gemelos', []],
-  'Press banca': ['pectoral', ['triceps', 'delt_ant']], 'Press inclinado': ['pectoral', ['delt_ant', 'triceps']], 'Press militar': ['delt_ant', ['delt_lat', 'triceps']],
-  'Fondos': ['pectoral', ['triceps', 'delt_ant']], 'Aperturas': ['pectoral', ['delt_ant']],
-  'Dominadas': ['espalda', ['biceps']], 'Remo con barra': ['espalda', ['biceps', 'delt_post']], 'Remo con mancuerna': ['espalda', ['biceps', 'delt_post']],
-  'Jalón al pecho': ['espalda', ['biceps']], 'Face pull': ['delt_post', ['espalda']],
-  'Elevaciones laterales': ['delt_lat', []], 'Pájaros': ['delt_post', ['espalda']],
-  'Arrancada': ['cuadriceps', ['gluteos', 'espalda', 'delt_ant', 'femoral']], 'Dos tiempos': ['cuadriceps', ['gluteos', 'espalda', 'delt_ant', 'triceps']],
-  'Cargada de potencia': ['cuadriceps', ['gluteos', 'espalda', 'femoral']], 'Arrancada de potencia': ['cuadriceps', ['gluteos', 'espalda', 'delt_ant']],
-  'Jerk': ['delt_ant', ['triceps', 'cuadriceps']], 'Tirón de arrancada': ['espalda', ['gluteos', 'femoral', 'cuadriceps']],
-  'Plancha': ['abdomen', []], 'Rueda abdominal': ['abdomen', ['espalda']], 'Elevación de piernas': ['abdomen', []],
-  'Curl de bíceps': ['biceps', []], 'Extensión de tríceps': ['triceps', []],
-  'Carrera': [null, []], 'Remo ergómetro': [null, []], 'Bicicleta': [null, []], 'Comba': [null, []],
-};
+// Ejercicios por defecto: nombre → [principal, secundarios] (pesos en DEFAULT_SW). Ver catalog.js.
+const DEFAULT_MUSCLES = Object.fromEntries(CATALOG.map((c) => [c.name, [c.primary, Object.keys(c.sw)]]));
+const DEFAULT_SW = Object.fromEntries(CATALOG.map((c) => [c.name, { ...c.sw }]));
+const CATALOG_BY_NAME = Object.fromEntries(CATALOG.map((c) => [c.name.toLowerCase(), c]));
+const defFromCatalog = (c) => ({ id: uid(), name: c.name, mode: c.mode, primary: c.primary, secondary: Object.keys(c.sw), sw: { ...c.sw }, kit: c.kit, joint: c.joint });
 // Migración desde las categorías antiguas (Pierna, Empuje…). Los ejercicios propios quedan marcados para revisar.
 const OLD_CAT_MUSCLE = { 'Pierna': 'cuadriceps', 'Empuje': 'pectoral', 'Tirón': 'espalda', 'Brazos': 'biceps', 'Core': 'abdomen', 'Halterofilia': 'cuadriceps' };
 function migrateMuscles(d) {
@@ -130,7 +113,7 @@ function migrateMuscles(d) {
     if ('primary' in e) continue;
     migrated = true;
     const def = DEFAULT_MUSCLES[e.name];
-    if (def) { e.primary = def[0]; e.secondary = [...def[1]]; }
+    if (def) { e.primary = def[0]; e.secondary = [...def[1]]; e.sw = { ...DEFAULT_SW[e.name] }; }
     else { e.primary = OLD_CAT_MUSCLE[e.cat] || null; e.secondary = []; e.reviewMuscles = true; }
     delete e.cat;
   }
@@ -146,7 +129,7 @@ function migrateMuscles(d) {
 const deltFor = (name) => /lateral/i.test(name) ? 'delt_lat'
   : /face ?pull|p[aá]jaro|posterior|vuelo|remo|reverse|invertid|facepull/i.test(name) ? 'delt_post' : 'delt_ant';
 function migrateDelts(d) {
-  if (d.musclesV >= 2) return d;
+  if (d.musclesV >= 2) return migrateCatalog(d);
   const swap = (m, e) => {
     if (m !== 'hombros') return m;
     const def = DEFAULT_MUSCLES[e.name];
@@ -159,10 +142,30 @@ function migrateDelts(d) {
     e.secondary = [...new Set((e.secondary || []).map((m) => swap(m, e)))].filter((m) => m !== e.primary);
   }
   for (const n of ['Elevaciones laterales', 'Pájaros']) {
-    if (!(d.exercises || []).some((e) => e.name.trim().toLowerCase() === n.toLowerCase())) d.exercises.push({ id: uid(), name: n, mode: 'wr', primary: DEFAULT_MUSCLES[n][0], secondary: [...DEFAULT_MUSCLES[n][1]] });
+    if (!(d.exercises || []).some((e) => e.name.trim().toLowerCase() === n.toLowerCase())) d.exercises.push(defFromCatalog(CATALOG_BY_NAME[n.toLowerCase()]));
   }
   if (d.settings?.landmarks?.hombros) { d.settings.landmarks.delt_lat = d.settings.landmarks.hombros; delete d.settings.landmarks.hombros; }
   d.musclesV = 2;
+  return migrateCatalog(d);
+}
+/* Catálogo ampliado y pesos por secundario (v3). Los ejercicios base que el usuario no había cambiado reciben los
+ * músculos y pesos nuevos; los que cambió conservan sus músculos (sus secundarios siguen contando 0,5). Se añaden
+ * los ejercicios del catálogo que falten y a todos los del catálogo se les pone material y tipo si no lo tenían. */
+function migrateCatalog(d) {
+  if (d.musclesV >= 3) return d;
+  const same = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+  const have = new Set((d.exercises || []).map((e) => e.name.trim().toLowerCase()));
+  for (const e of d.exercises || []) {
+    const c = CATALOG_BY_NAME[e.name.trim().toLowerCase()]; if (!c) continue;
+    const old = LEGACY_MUSCLES_V2[c.name];
+    if (old && (e.primary ?? null) === old[0] && same(e.secondary || [], old[1]) && !e.sw) {
+      e.primary = c.primary; e.secondary = Object.keys(c.sw); e.sw = { ...c.sw };
+    }
+    if (!e.kit) e.kit = c.kit;
+    if (!e.joint) e.joint = c.joint;
+  }
+  for (const c of CATALOG) if (!have.has(c.name.toLowerCase())) d.exercises.push(defFromCatalog(c));
+  d.musclesV = 3;
   return d;
 }
 
@@ -226,8 +229,8 @@ function bodyMapHTML(vals, { steps = [2, 4, 6, 8], unit = 'series' } = {}) {
 /* ---------- Persistencia ---------- */
 function seed() {
   return {
-    version: 1, musclesV: 2,
-    exercises: DEFAULT_EXERCISES.map(([name, mode]) => ({ id: uid(), name, mode: mode || 'wr', primary: DEFAULT_MUSCLES[name][0], secondary: [...DEFAULT_MUSCLES[name][1]] })),
+    version: 1, musclesV: 3,
+    exercises: CATALOG.map(defFromCatalog),
     equipment: DEFAULT_EQUIPMENT.map((name) => ({ id: uid(), name })),
     sessions: [],
     settings: { rest: 120, dropWarn: 10, intensity: 'rpe', system: 'sets', level: 'simple' },
@@ -865,6 +868,13 @@ const GLOSSARY = {
     <p>Si olvidas pulsar «Finalizar sesión», la sesión sigue «en curso» y su duración no deja de crecer, lo que falsea tus estadísticas de duración.</p>
     <p>Cuando una sesión lleva el tiempo que elijas (2 horas por defecto) sin actividad (sin marcar ninguna serie), la app te pregunta si la cierras. Al cerrarla, la hora de fin es la de la <b>última serie marcada</b> (+2 min), no la del momento en que respondes. «Sigo entrenando» vuelve a preguntar pasado el mismo tiempo.</p>
     <p>En Ajustes › Sesiones abiertas puedes elegir que se cierren solas, sin preguntar. Siempre se pueden reabrir desde la sesión.</p>`],
+  sec_weights: ['Cuánto cuenta cada músculo', `
+    <p>Cada serie efectiva cuenta <b>1</b> para el músculo principal y una <b>fracción</b> para cada secundario:</p>
+    <p><b>¾</b> contribución alta (p. ej. glúteo en sentadilla profunda, prensa o zancadas; bíceps en dominadas supinas; tríceps en fondos).<br>
+    <b>½</b> contribución media: el valor general (bíceps en remos y jalones, tríceps y deltoides anterior en press de banca…).<br>
+    <b>¼</b> contribución baja (deltoides anterior en aperturas, erectores en sentadilla, cuádriceps en push press…).<br>
+    Sin marcar: sin crecimiento medible (p. ej. femoral en sentadilla y prensa, abdomen en los básicos).</p>
+    <p>Base: el metaanálisis de Pelland et al. (2024) encontró que contar los secundarios como 0,5 predice mejor el crecimiento que contarlos como 0 o como 1. Los ajustes por ejercicio salen de estudios que midieron el crecimiento real de cada músculo (resonancia o ecografía): la sentadilla no hizo crecer el femoral (Kubo 2019; Plotkin 2023) pero sí el glúteo casi como el hip thrust (Plotkin 2023); la prensa hizo crecer el glúteo un 15 % (frente a un 7 % el cuádriceps); el remo hizo crecer el bíceps la mitad que el curl (Mannarino 2021); el jalón, en principiantes, parecido al curl (Gentil 2015). Donde no hay estudios de crecimiento, el valor es una estimación por biomecánica. Son aproximaciones: puedes cambiar cada ejercicio en Editar ejercicio.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -1717,15 +1727,17 @@ modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); }
 function pickerHTML(q = '') {
   // Sin distinguir tildes ni mayúsculas («biceps» encuentra «Bíceps»).
   const ql = norm(q.trim());
-  const items = db.exercises.filter((e) => norm(e.name).includes(ql));
-  let list = '';
+  const kit = ui.pickKit || '';
+  const items = db.exercises.filter((e) => norm(e.name).includes(ql) && (!kit || e.kit === kit));
+  let list = `<div class="chips kit-chips">${[['', 'Todo'], ...Object.entries(KITS).filter(([k]) => db.exercises.some((e) => e.kit === k))].map(([k, v]) => `<button class="chip ${kit === k ? 'on' : ''}" data-action="pick-kit" data-k="${k}">${v}</button>`).join('')}</div>`;
   for (const key of [...MUSCLE_KEYS, null]) {
     const its = items.filter((e) => (e.primary || null) === key).sort((a, b) => a.name.localeCompare(b.name));
     if (!its.length) continue;
     list += `<div class="picker-cat">${key ? MUSCLES[key] : 'Sin músculo (cardio y otros)'}</div>` + its.map((e) => `<button data-action="pick-exercise" data-id="${e.id}">${esc(e.name)}</button>`).join('');
   }
   const exact = db.exercises.some((e) => norm(e.name) === ql);
-  return `${list || '<div class="muted">Sin resultados.</div>'}
+  if (!items.length) list += '<div class="muted">Sin resultados.</div>';
+  return `${list}
     ${ql && !exact ? `<div class="card" style="margin-top:10px"><b>Crear «${esc(q.trim())}»</b>
       <div class="grid2" style="margin-top:8px">
         <select id="new-ex-cat" aria-label="Músculo principal">${muscleOptions(null)}</select>
@@ -2006,6 +2018,7 @@ const actions = {
     ui.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; rerender();
   },
   'ss-toggle': (el) => { const s = currentSession(), ex = s.exercises[+el.dataset.i]; ex.ss = !ex.ss || undefined; if (!ex.ss) delete ex.ss; save(); rerender(); },
+  'pick-kit': (el) => { ui.pickKit = el.dataset.k; $('#picker-list').innerHTML = pickerHTML($('#picker-q')?.value || ''); },
   'show-all-ex': () => { ui.showAllEx = !ui.showAllEx; rerender(); },
   'go-today': () => { ui.day = todayISO(); ui.month = ui.day.slice(0, 7); rerender(); },
   'toggle-factor': (el) => {
@@ -2087,7 +2100,10 @@ const actions = {
     for (const u of profiles.users) data[u.id] = u.id === profiles.active ? db : readUserData(u.id);
     download(`diario-entreno-todos-${todayISO()}.json`, JSON.stringify({ type: 'diario-entreno-todos', version: 1, exportedAt: new Date().toISOString(), profiles, data }, null, 2), 'application/json');
   },
-  'ef-sec': (el) => el.classList.toggle('on'),
+  'ef-sec': (el) => {
+    const next = { 0: 0.5, 0.5: 0.75, 0.75: 0.25, 0.25: 0 }[+el.dataset.w || 0];
+    el.dataset.w = next; el.classList.toggle('on', !!next); el.querySelector('.secw').textContent = next ? ' ' + fracTxt(next) : '';
+  },
   'review-muscles': () => {
     const pending = db.exercises.filter((x) => x.reviewMuscles);
     if (pending.length) actions['exercise-form']({ dataset: { id: pending[0].id } });
@@ -2120,9 +2136,11 @@ const actions = {
       <div style="display:grid;gap:10px;margin-top:10px">
         <div><label>Nombre</label><input id="ef-name" value="${esc(e?.name)}" placeholder="p. ej. Sentadilla búlgara"></div>
         <div><label>Músculo principal ${info('muscle_volume')}</label><select id="ef-cat" data-action-change="ef-primary">${muscleOptions(e?.primary ?? (e ? null : 'pectoral'))}</select></div>
-        <div><label>Músculos secundarios (opcional, varios)</label>
-          <div class="chips" id="ef-sec">${MUSCLE_KEYS.map((m) => `<button class="chip ${e?.secondary?.includes(m) ? 'on' : ''} ${(e ? e.primary : 'pectoral') === m ? 'hidden' : ''}" data-action="ef-sec" data-m="${m}">${MUSCLES[m]}</button>`).join('')}</div>
-          <div class="muted small" style="margin-top:4px">Sin ninguno marcado = sin músculo secundario.</div></div>
+        <div><label>Músculos secundarios y cuánto cuentan ${info('sec_weights')}</label>
+          <div class="chips" id="ef-sec">${MUSCLE_KEYS.map((m) => { const w = e?.secondary?.includes(m) ? secWeight(e, m) : 0;
+            return `<button class="chip ${w ? 'on' : ''} ${(e ? e.primary : 'pectoral') === m ? 'hidden' : ''}" data-action="ef-sec" data-m="${m}" data-w="${w}">${MUSCLES[m]}<b class="secw">${w ? ' ' + fracTxt(w) : ''}</b></button>`; }).join('')}</div>
+          <div class="muted small" style="margin-top:4px">Toca para marcar y cambiar cuánto cuenta: ½ → ¾ → ¼ → quitar. Sin ninguno = sin secundarios.</div></div>
+        <div><label>Material</label><select id="ef-kit"><option value="">—</option>${Object.entries(KITS).map(([k, v]) => `<option value="${k}" ${e?.kit === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
         <div><label>Tipo ${info('joint')}</label><select id="ef-joint">${Object.entries(JOINT).map(([k, v]) => `<option value="${k}" ${jointOf(e || {}) === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
         <div><label>Cómo se registra</label><select id="ef-mode" ${used ? 'disabled' : ''}>${Object.entries(MODES).map(([k, m]) => `<option value="${k}" ${e?.mode === k ? 'selected' : ''}>${m.label}</option>`).join('')}</select>
           ${used ? '<div class="muted small">No se puede cambiar: ya tiene series registradas.</div>' : ''}</div>
@@ -2135,7 +2153,7 @@ const actions = {
     if (dup) return alert('Ya existe un ejercicio con ese nombre.');
     let e = el.dataset.id && exById(el.dataset.id);
     if (!e) { e = { id: uid() }; db.exercises.push(e); }
-    e.name = name; e.primary = $('#ef-cat').value || null; e.secondary = [...document.querySelectorAll('#ef-sec .chip.on:not(.hidden)')].map((x) => x.dataset.m); delete e.reviewMuscles; e.joint = $('#ef-joint').value; if (!$('#ef-mode').disabled) e.mode = $('#ef-mode').value;
+    e.name = name; e.primary = $('#ef-cat').value || null; const secs = [...document.querySelectorAll('#ef-sec .chip.on:not(.hidden)')]; e.secondary = secs.map((x) => x.dataset.m); e.sw = Object.fromEntries(secs.map((x) => [x.dataset.m, +x.dataset.w])); e.kit = $('#ef-kit').value || undefined; delete e.reviewMuscles; e.joint = $('#ef-joint').value; if (!$('#ef-mode').disabled) e.mode = $('#ef-mode').value;
     save(); closeModal(); location.hash = `#/exercise/${e.id}`; rerender();
   },
   'filter-eq': (el) => { ui.filterEq = el.dataset.eq; rerender(); },

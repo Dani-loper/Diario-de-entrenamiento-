@@ -30,7 +30,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.fill('#uf-goal', 'Competir en -63 kg');
   await p.click('[data-action=user-save]');
   let st = await p.evaluate(() => ({ active: activeUser().name, n: db.sessions.length, ex: db.exercises.map((e) => e.name).join(), hash: location.hash }));
-  assert(st.active === 'Laura García' && st.n === 0 && st.ex === 'Sentadilla trasera,Elevación de gemelos,Elevaciones laterales,Pájaros', 'crea a Laura, la activa, sin sesiones y con el catálogo copiado: ' + st.ex);
+  assert(st.active === 'Laura García' && st.n === 0 && st.ex.startsWith('Sentadilla trasera,Elevación de gemelos,') && st.ex.split(',').length > 100, 'crea a Laura, la activa, sin sesiones y con el catálogo copiado: ' + st.ex);
   assert((await p.textContent('.userchip')).includes('Laura'), 'la barra muestra a Laura');
 
   // Sesión de Laura

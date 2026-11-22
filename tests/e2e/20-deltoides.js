@@ -32,7 +32,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   assert(m['Face pull'][0] === 'delt_post' && m['Remo con barra'][1] === 'biceps+delt_post', 'Face pull y remo → deltoides posterior');
   assert(m['Elevación lateral en polea'].join() === 'delt_lat,,true', 'propio «Elevación lateral…» → lateral, marcado para revisar');
   assert(m['Press Arnold'][0] === 'delt_ant' && m['Vuelos invertidos'][0] === 'delt_post', 'propios por nombre: Arnold → anterior, vuelos invertidos → posterior');
-  assert(await p.evaluate(() => ['Elevaciones laterales', 'Pájaros'].every((n) => db.exercises.some((e) => e.name === n)) && db.musclesV === 2), 'se añaden «Elevaciones laterales» y «Pájaros»');
+  assert(await p.evaluate(() => ['Elevaciones laterales', 'Pájaros'].every((n) => db.exercises.some((e) => e.name === n)) && db.musclesV === 3), 'se añaden «Elevaciones laterales» y «Pájaros»');
   assert(JSON.stringify(await p.evaluate(() => db.settings.landmarks)) === '{"delt_lat":[0,6,14,20,24]}', 'referencias personalizadas de hombros → deltoides lateral');
   await p.reload();
   assert(await p.evaluate(() => db.exercises.filter((e) => e.name === 'Pájaros').length) === 1, 'la migración no se repite al recargar');
@@ -50,6 +50,6 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.evaluate(() => { const s = currentSession(); loadTemplateInto(s, tplList()[0]); save(true); });
   assert(await p.evaluate(() => db.exercises.find((e) => e.name === 'Press tras nuca')?.primary) === 'delt_ant', 'tabla antigua: «Press tras nuca» se crea con deltoides anterior');
   // Usuario nuevo: catálogo ya dividido
-  assert(await p.evaluate(() => { const d = seed(); return d.musclesV === 2 && !d.exercises.some((e) => e.primary === 'hombros' || e.secondary.includes('hombros')); }), 'usuario nuevo: sin «hombros»');
+  assert(await p.evaluate(() => { const d = seed(); return d.musclesV === 3 && !d.exercises.some((e) => e.primary === 'hombros' || e.secondary.includes('hombros')); }), 'usuario nuevo: sin «hombros»');
   console.log('errors', errs); await b.close();
 })();

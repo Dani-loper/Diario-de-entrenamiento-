@@ -33,7 +33,8 @@ function exerciseFromTemplate(te) {
   if (!def) {
     // Tablas guardadas antes de dividir «Hombros» en tres deltoides.
     const fix = (m) => m === 'hombros' ? (DEFAULT_MUSCLES[te.name] ? [DEFAULT_MUSCLES[te.name][0], ...DEFAULT_MUSCLES[te.name][1]].find((x) => String(x).startsWith('delt_')) : null) || deltFor(te.name) : m;
-    def = { id: uid(), name: te.name, mode: te.mode || 'wr', primary: fix(te.primary ?? null), secondary: [...new Set((te.secondary || []).map(fix))] };
+    const cat = CATALOG_BY_NAME[norm(te.name)] || CATALOG_BY_NAME[te.name.toLowerCase()];
+    def = cat && !te.primary ? defFromCatalog(cat) : { id: uid(), name: te.name, mode: te.mode || 'wr', primary: fix(te.primary ?? null), secondary: [...new Set((te.secondary || []).map(fix))], ...(te.sw ? { sw: { ...te.sw } } : {}), ...(te.kit ? { kit: te.kit } : {}) };
     db.exercises.push(def);
   }
   return def;
@@ -128,7 +129,7 @@ function templateFromSession(s, name) {
     exercises: s.exercises.map((e) => {
       const def = exById(e.exerciseId) || { name: '?', mode: 'wr' };
       return {
-        name: def.name, mode: def.mode || 'wr', primary: def.primary ?? null, secondary: [...(def.secondary || [])],
+        name: def.name, mode: def.mode || 'wr', primary: def.primary ?? null, secondary: [...(def.secondary || [])], ...(def.sw ? { sw: { ...def.sw } } : {}), ...(def.kit ? { kit: def.kit } : {}),
         rest: e.restTarget ?? def.rest ?? null, note: e.tplNote || '', ...(e.ss ? { ss: true } : {}),
         sets: e.sets.map((x) => ({
           type: x.type === 'C' ? 'C' : 'E',
@@ -201,7 +202,7 @@ actions['pick-exercise'] = (el) => {
   if (!tgt) return _pickExercise(el);
   ui.pickerTarget = null; closeModal();
   const def = exById(el.dataset.id); if (!def) return;
-  tplUpdate(tgt.tpl, (t) => t.exercises.push({ name: def.name, mode: def.mode || 'wr', primary: def.primary ?? null, secondary: [...(def.secondary || [])],
+  tplUpdate(tgt.tpl, (t) => t.exercises.push({ name: def.name, mode: def.mode || 'wr', primary: def.primary ?? null, secondary: [...(def.secondary || [])], ...(def.sw ? { sw: { ...def.sw } } : {}),
     rest: def.rest ?? null, note: '', sets: def.mode === 'wr' || def.mode === 'bw' ? [1, 2, 3].map(() => ({ type: 'E', reps: '8-12', rir: 2, pct: null })) : [{ type: 'E', reps: '', rir: null, pct: null }] }));
   rerender();
 };
