@@ -1,6 +1,6 @@
 'use strict';
 /* Mesociclos: una secuencia de días (cada día es una tabla) que se repite N semanas con progresión, más una descarga.
- * - Semana k (0…N−1) de acumulación: RIR objetivo de rirStart a rirEnd en línea recta (redondeado a 0,5) y,
+ * - Semana k (0…N−1) de acumulación: RIR objetivo de rirStart a rirEnd en línea recta (redondeado a entero) y,
  *   según la opción, una serie más por ejercicio cada semana o cada dos (copia de la última serie efectiva).
  * - Semana de descarga (k = N): la mitad de series efectivas, RIR 4 y el 90 % del %1RM de la primera semana.
  * - El peso de cada serie lo calcula la tabla con el 1RM estimado del atleta (o el % explícito si la tabla lo trae).
@@ -17,7 +17,8 @@ const isDeloadWeek = (m, k) => m.deload && k === m.weeks;
 function weekRir(m, k) {
   if (isDeloadWeek(m, k)) return 4;
   const r = m.weeks > 1 ? m.rirStart - (m.rirStart - m.rirEnd) * k / (m.weeks - 1) : m.rirStart;
-  return Math.round(r * 2) / 2;
+  // RIR entero: estimarlo tiene ~1 repetición de error (Halperin et al., 2022); medio punto sería falsa precisión.
+  return Math.round(r);
 }
 const extraSets = (m, k) => (isDeloadWeek(m, k) ? 0 : m.setsMode === 'step1' ? k : m.setsMode === 'step2' ? Math.floor(k / 2) : 0);
 const weekLabel = (m, k) => (isDeloadWeek(m, k) ? 'Descarga' : `Semana ${k + 1}`);
@@ -97,8 +98,8 @@ function viewMeso(id) {
       <div class="grid2">
         <div><label>Empieza el</label><input type="date" data-meso="${m.id}:start" value="${esc(m.start)}"></div>
         <div><label>Semanas de carga</label><select data-meso="${m.id}:weeks">${[2, 3, 4, 5, 6].map((n) => `<option value="${n}" ${m.weeks === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-        <div><label>RIR al empezar</label><select data-meso="${m.id}:rirStart">${[4, 3.5, 3, 2.5, 2].map((n) => `<option value="${n}" ${m.rirStart === n ? 'selected' : ''}>${fmt(n)}</option>`).join('')}</select></div>
-        <div><label>RIR al terminar</label><select data-meso="${m.id}:rirEnd">${[3, 2, 1.5, 1, 0.5, 0].map((n) => `<option value="${n}" ${m.rirEnd === n ? 'selected' : ''}>${fmt(n)}</option>`).join('')}</select></div>
+        <div><label>RIR al empezar</label><select data-meso="${m.id}:rirStart">${[...new Set([4, 3, 2, m.rirStart])].map((n) => `<option value="${n}" ${m.rirStart === n ? 'selected' : ''}>${fmt(n)}</option>`).join('')}</select></div>
+        <div><label>RIR al terminar</label><select data-meso="${m.id}:rirEnd">${[...new Set([3, 2, 1, 0, m.rirEnd])].map((n) => `<option value="${n}" ${m.rirEnd === n ? 'selected' : ''}>${fmt(n)}</option>`).join('')}</select></div>
       </div>
       <label style="margin-top:10px">Series</label><select data-meso="${m.id}:setsMode">${Object.entries(SETS_MODES).map(([k, v]) => `<option value="${k}" ${m.setsMode === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
       <label class="row" style="margin-top:10px;color:var(--text);font-size:.9rem"><input type="checkbox" data-meso="${m.id}:deload" ${m.deload ? 'checked' : ''} style="width:auto;min-height:0"> Semana de descarga al final ${info('deload')}</label>

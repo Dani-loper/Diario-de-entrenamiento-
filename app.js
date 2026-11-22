@@ -864,7 +864,7 @@ const GLOSSARY = {
     <p><b>Combinar</b> no borra nada: se añaden las sesiones nuevas y las del archivo sustituyen a las que tienen el mismo identificador. Lo que se borra en un móvil no se borra en el otro. Los ajustes de cada dispositivo se conservan. Antes de combinar se guarda una copia automática. Los vídeos no viajan.</p>`],
   meso: ['Mesociclo', `
     <p>Un bloque de varias semanas que repite tus <b>tablas</b> (cada día del mesociclo es una tabla) con progresión, y termina con una <b>descarga</b>.</p>
-    <p><b>RIR:</b> baja en línea recta desde el RIR inicial hasta el final (p. ej. 3 → 1 en 4 semanas: 3 · 2,5 · 1,5 · 1). Como el peso se calcula con tu 1RM estimado y el RIR, al bajar el RIR sube el peso.</p>
+    <p><b>RIR:</b> baja en línea recta desde el RIR inicial hasta el final en números enteros (p. ej. 3 → 1 en 4 semanas: 3 · 2 · 2 · 1; estimar el RIR tiene alrededor de 1 repetición de error, así que los medios puntos no aportan). Como el peso se calcula con tu 1RM estimado y el RIR, al bajar el RIR sube el peso.</p>
     <p><b>Series:</b> opcionalmente, una serie más por ejercicio cada semana o cada dos, para ir del MEV hacia el MRV, como propone Israetel.</p>
     <p><b>Descarga:</b> la mitad de series, RIR 4 y el 90 % de la carga de la primera semana.</p>
     <p>Si una tabla trae un %1RM explícito, ese % se respeta y el RIR queda como guía. La tabla «Plan semana a semana» muestra cuántas series por músculo planificas cada semana, coloreadas con tus referencias de volumen. Las semanas siguen tu «semana del atleta» (Ajustes › Avanzado).</p>`],
@@ -1178,6 +1178,8 @@ function rpeSelect(val, i, j) {
 function rirSelect(val, i, j) {
   let o = `<option value="">–</option>`;
   for (let r = 0; r <= 6; r++) o += `<option value="${r}" ${val === r ? 'selected' : ''}>${r === 6 ? '6+' : r}</option>`;
+  // El RIR se anota en enteros; un valor con medio punto (datos antiguos o deducido de un RPE) se muestra igualmente.
+  if (val != null && val !== '' && !Number.isInteger(+val)) o += `<option value="${val}" selected>${String(val).replace('.', ',')}</option>`;
   return `<select data-set="${i}:${j}:rir" aria-label="RIR">${o}</select>`;
 }
 

@@ -30,7 +30,9 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   // Progresión: RIR por semana y series
   const plan = await p.evaluate(() => { const m = db.mesos[0]; return [0, 1, 2, 3, 4].map((k) => { const t = mesoTemplate(m, k, 0), e = t.exercises[0];
     return `${weekRir(m, k)}:${e.sets.filter((x) => x.type !== 'C').length}:${e.sets.filter((x) => x.type === 'C').length}:${e.sets.at(-1).rir}:${e.sets.at(-1).pct ?? ''}`; }).join(' '); });
-  assert(plan === '3:3:1:3: 2.5:4:1:2.5: 1.5:5:1:1.5: 1:6:1:1: 4:2:1:4:70.7', 'semanas: RIR 3 · 2,5 · 1,5 · 1 con 3-6 series; descarga: 2 series, RIR 4, 90 % de 78,6 % (5 @ RIR 3) = 70,7 %: ' + plan);
+  assert(plan === '3:3:1:3: 2:4:1:2: 2:5:1:2: 1:6:1:1: 4:2:1:4:70.7', 'semanas: RIR entero 3 · 2 · 2 · 1 con 3-6 series; descarga: 2 series, RIR 4, 90 % de 78,6 % (5 @ RIR 3) = 70,7 %: ' + plan);
+  // Un RIR con medio punto (p. ej. de un mesociclo antiguo) se muestra en el selector en vez de quedar vacío
+  assert(await p.evaluate(() => /<option value="2.5" selected>2,5<\/option>/.test(rirSelect(2.5, 0, 0)) && !/2,5/.test(rirSelect(2, 0, 0))), 'el selector de RIR muestra «2,5» si el dato lo trae');
   // Plan por músculo: pectoral 3 series (S1) → 6 (S4) → 2 (descarga); en Tríceps 0,5 por serie de banca
   const pec = await p.$$eval('.meso-plan tr', (r) => r.find((x) => x.cells[0].textContent === 'Pectoral') && [...r.find((x) => x.cells[0].textContent === 'Pectoral').cells].slice(1).map((c) => c.textContent).join(' '));
   assert(pec === '3 4 5 6 2', 'plan semana a semana del pectoral: 3 4 5 6 2: ' + pec);
