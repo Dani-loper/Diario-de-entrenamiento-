@@ -861,6 +861,10 @@ const GLOSSARY = {
     <p><b>Series:</b> opcionalmente, una serie más por ejercicio cada semana o cada dos, para ir del MEV hacia el MRV, como propone Israetel.</p>
     <p><b>Descarga:</b> la mitad de series, RIR 4 y el 90 % de la carga de la primera semana.</p>
     <p>Si una tabla trae un %1RM explícito, ese % se respeta y el RIR queda como guía. La tabla «Plan semana a semana» muestra cuántas series por músculo planificas cada semana, coloreadas con tus referencias de volumen. Las semanas siguen tu «semana del atleta» (Ajustes › Avanzado).</p>`],
+  autoclose: ['Sesiones abiertas', `
+    <p>Si olvidas pulsar «Finalizar sesión», la sesión sigue «en curso» y su duración no deja de crecer, lo que falsea tus estadísticas de duración.</p>
+    <p>Cuando una sesión lleva el tiempo que elijas (2 horas por defecto) sin actividad (sin marcar ninguna serie), la app te pregunta si la cierras. Al cerrarla, la hora de fin es la de la <b>última serie marcada</b> (+2 min), no la del momento en que respondes. «Sigo entrenando» vuelve a preguntar pasado el mismo tiempo.</p>
+    <p>En Ajustes › Sesiones abiertas puedes elegir que se cierren solas, sin preguntar. Siempre se pueden reabrir desde la sesión.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -970,6 +974,7 @@ function viewCalendar() {
   const q = norm(ui.csearch).trim();
 
   let html = `<h1>Calendario</h1>
+    ${window.staleBannerHTML ? staleBannerHTML() : ''}
     ${window.installReminderHTML ? installReminderHTML() : ''}
     ${window.deloadHTML ? deloadHTML(true) : ''}
     ${window.backupReminderHTML ? backupReminderHTML() : ''}
@@ -1020,6 +1025,7 @@ function viewSession(id) {
   const preOpen = ui.preOpen[s.id] ?? (!s.exercises.length || false);
   let html = `<div class="row"><a class="btn ghost" href="#/">‹ Calendario</a><span class="spacer"></span>
       <button class="ghost" data-action="session-menu" data-id="${s.id}">⋯</button></div>
+    ${window.staleBannerHTML ? staleBannerHTML(s.id) : ''}
     <input data-s="title" value="${esc(s.title)}" placeholder="Nombre de la sesión (p. ej. Pierna A)" style="font-size:1.2rem;font-weight:700;margin:6px 0 10px">
     <div class="grid2" style="margin-bottom:12px">
       <div><label>Fecha</label><input type="date" data-s="date" value="${esc(s.date)}"></div>
@@ -1393,6 +1399,7 @@ function viewSettings() {
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
       <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
     </div>
+    ${window.closeSettingsHTML ? closeSettingsHTML() : ''}
     ${window.weightsSettingsHTML ? weightsSettingsHTML() : ''}
     <h2>Avanzado</h2>
     <div class="card">
