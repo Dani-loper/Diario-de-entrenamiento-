@@ -89,7 +89,8 @@ function viewTemplates() {
 function viewTemplate(id) {
   const t = tplGet(id);
   if (!t) return `<div class="empty">Tabla no encontrada. <a href="#/templates">Volver</a></div>`;
-  const rirOpts = (v) => `<option value="">–</option>` + [0, 1, 2, 3, 4, 5].map((r) => `<option value="${r}" ${v === r ? 'selected' : ''}>${r}</option>`).join('');
+  const rirOpts = (v) => `<option value="">–</option>` + [0, 1, 2, 3, 4, 5].map((r) => `<option value="${r}" ${v === r ? 'selected' : ''}>${r}</option>`).join('')
+    + (v != null && !Number.isInteger(v) ? `<option value="${v}" selected>${String(v).replace('.', ',')}</option>` : '');
   let html = `<div class="row"><a class="btn ghost" href="#/templates">‹ Tablas</a><span class="spacer"></span>
       <button class="ghost" data-action="tpl-menu" data-id="${t.id}" aria-label="Más opciones">⋯</button></div>
     <input data-tpl-name="${t.id}" value="${esc(t.name)}" placeholder="Nombre de la tabla (p. ej. Pierna A)" style="font-size:1.2rem;font-weight:700;margin:6px 0 10px">`;
