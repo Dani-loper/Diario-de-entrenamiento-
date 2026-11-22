@@ -329,7 +329,7 @@ function render() {
   document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active',
     a.dataset.tab === (['session', 'templates', 'template'].includes(r.name) ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis', 'report'].includes(r.name) ? 'exercises' : r.name)));
   const app = $('#app');
-  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
+  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, records: () => (window.viewRecords ? viewRecords() : ''), templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
   const u = activeUser();
   const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
   app.innerHTML = bar + view(r.id);
@@ -731,6 +731,13 @@ const GLOSSARY = {
     <p>Porcentaje del 1RM estimado del atleta con el que se calcula el peso. Usa el mejor 1RM estimado de los últimos 120 días (si no hay, el histórico).</p>
     <p>Si lo dejas vacío, se deduce de las <b>repeticiones mínimas + RIR</b> con la tabla RTS (p. ej. 8 reps @ RIR 2 ≈ 74%), y se marca con *.</p>
     <p>Sin historial del ejercicio no hay 1RM estimado: el peso queda vacío para que lo escribas.</p>`],
+  e1rm_trend: ['Evolución del 1RM estimado', `
+    <p>Cada punto es la <b>mejor serie de esa sesión</b> convertida a 1RM estimado con la tabla RTS (peso ÷ %1RM según reps y RIR). La línea discontinua es tu <b>récord vigente</b>; los puntos grandes, sesiones en las que lo batiste.</p>
+    <p>Es una estimación: sube y baja de una sesión a otra por la fatiga, el sueño o un RIR mal calibrado. Fíjate en la <b>tendencia de varias semanas</b>, no en un punto suelto. Las series de 1 a 5 repeticiones estiman mejor el 1RM que las de 10 a 12.</p>
+    <p>Sin RIR ni RPE se asume que la serie fue al fallo, lo que da una estimación conservadora.</p>`],
+  rm_real: ['Máximos por repeticiones (RM)', `
+    <p>El mayor peso que has movido con cada número de repeticiones: tu <b>3RM</b> es lo máximo que has levantado 3 veces.</p>
+    <p>Solo se muestran los <b>máximos reales</b>: si has movido 100 kg × 5, un 100 kg × 3 no aparece como 3RM porque ya lo superaste con más repeticiones.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -1179,7 +1186,7 @@ function viewExercise(id) {
     </div></div>`;
 
   const pts = hist.map((h) => ({ d: h.sess.date, v: entryStats(h.entry).best })).filter((p) => p.v).reverse();
-  if (pts.length >= 2) html += `<h2>${m.label} por sesión</h2><div class="card">${chart(pts)}</div>`;
+  if (pts.length >= 2) html += `<h2>Evolución · ${m.label} ${def.mode === 'wr' ? info('e1rm_trend') : ''}</h2><div class="card">${window.progressChartHTML ? progressChartHTML(def, hist) : chart(pts)}</div>`;
 
   if (best && def.mode === 'wr') {
     html += `<h2>Tabla de cargas (1RM est. ${fmt(best.v)} kg) ${info('load_table')}</h2><div class="card"><div class="stats">

@@ -382,3 +382,35 @@ button.icon .ic { width: 20px; height: 20px; }
 button.info:hover, button.info:focus-visible { color: var(--accent); opacity: 1; }
 
 input.bad { outline: 2px solid var(--danger); }
+
+/* Gráfica de evolución */
+.small-seg { margin: 0; }
+.small-seg button { min-height: 32px; font-size: .8rem; padding: 4px 10px; }
+.pchart { margin-top: 6px; touch-action: manipulation; }
+.pchart .grid { stroke: var(--line); stroke-dasharray: 2 3; }
+.pchart .ln { stroke-width: 2; }
+.pchart .run { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: .8; }
+.pchart .pt { fill: var(--card); stroke: var(--accent); stroke-width: 2; }
+.pchart .pr-pt { fill: var(--warn); stroke: var(--warn); }
+.pchart .pt.sel { stroke: var(--text); stroke-width: 3; }
+.pchart .hit { fill: transparent; cursor: pointer; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid var(--accent); }
+.chart-legend i.lg-run { border-top: 2px dashed var(--muted); }
+.chart-legend i.lg-pr { width: 9px; height: 9px; border: 0; border-radius: 50%; background: var(--warn); }
+.chart-detail { display: block; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--card2); color: inherit; text-decoration: none; font-size: .85rem; line-height: 1.45; }
+b.up { color: var(--accent); } b.down { color: var(--danger); }
+/* Salón de la fama */
+.hof .title { color: inherit; text-decoration: none; }
+.hof-main { margin-top: 6px; align-items: flex-start; }
+.hof-val { font-size: 1.6rem; font-weight: 800; letter-spacing: -.01em; }
+.vid-btn { background: var(--accent); color: var(--accent-ink); border-color: transparent; border-radius: 50%; min-width: 44px; }
+.hof-rms { margin-top: 8px; }
+.hof-rms summary { cursor: pointer; padding: 6px 0; }
+.hof-rms .vid-btn { min-width: 36px; min-height: 36px; padding: 6px; }
+.hof-rms td { vertical-align: middle; }
+.small-seg button { white-space: nowrap; }
+.pchart .pt.thin { opacity: 0; }
+.pchart .pt.thin.sel { opacity: 1; }
+.hof .title { font-weight: 700; font-size: 1.05rem; }
