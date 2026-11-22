@@ -842,6 +842,13 @@ const GLOSSARY = {
     <p>Dos o más ejercicios que se hacen <b>alternando</b>: una serie de cada uno, sin descanso entre ellos, y el descanso al terminar la vuelta.</p>
     <p>Al marcar ✓ una serie de un ejercicio que no es el último del grupo, no arranca el cronómetro: toca pasar al siguiente. Tras el último, arranca con el descanso más largo del grupo.</p>
     <p>Se crean con «Superserie con el siguiente», entre las tarjetas de dos ejercicios. Cada ejercicio se sigue contando por separado en volumen, récords y análisis.</p>`],
+  deload: ['Descarga', `
+    <p>Una <b>descarga</b> es una semana con menos carga para disipar la fatiga acumulada y volver a progresar. Lo habitual: misma frecuencia, la mitad de series y más lejos del fallo (RIR 4-5). Muchos entrenadores la programan cada 4-6 semanas (Bell et al., 2023, encuesta a entrenadores de fuerza) o al final de cada mesociclo.</p>
+    <p>La app avisa cuando ve señales de fatiga (es una ayuda, no un diagnóstico):</p>
+    <p>• <b>Rendimiento</b>: en las sesiones de los últimos 14 días, tu 1RM estimado está de media un 3 % o más por debajo de tu mejor marca del mes anterior (con al menos 3 sesiones).<br>
+    • <b>Caídas entre series</b> mayores que tu umbral en 2 o más sesiones recientes.<br>
+    • <b>Semanas seguidas sin una semana suave</b> (una semana suave tiene menos del 70 % de las series de una semana normal tuya).</p>
+    <p>Avisa si cae el rendimiento, o si llevas 5 semanas o más sin descargar y además hay caídas entre series. A partir de 8 semanas sin descargar, el aviso es más suave. El rendimiento también baja por dormir poco, estrés o enfermedad: míralo junto a cómo te encuentras.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -952,6 +959,7 @@ function viewCalendar() {
 
   let html = `<h1>Calendario</h1>
     ${window.installReminderHTML ? installReminderHTML() : ''}
+    ${window.deloadHTML ? deloadHTML(true) : ''}
     ${window.backupReminderHTML ? backupReminderHTML() : ''}
     <input type="search" data-action-input="csearch" placeholder="Buscar: ejercicio, nota, material, sensación…" value="${esc(ui.csearch)}">
     <div style="height:12px"></div>`;

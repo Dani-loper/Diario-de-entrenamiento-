@@ -500,3 +500,5 @@ i.vz.opt { background: var(--accent); } i.vz.high { background: var(--warn); } i
 .ss-link.on .ss-btn { border-style: solid; border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .ss-card { border-left: 4px solid var(--accent); }
 .ss-tag { font-size: .74rem; font-weight: 700; color: var(--accent); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+.deload-mini { display: block; text-decoration: none; color: inherit; }
+.deload ul li { margin: 2px 0; }
