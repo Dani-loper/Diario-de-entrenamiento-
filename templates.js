@@ -65,7 +65,7 @@ function tplChooserHTML(mode) {
     ${list.length ? `<div class="picker-list">${list.map((t) => `<button data-action="tpl-use" data-id="${t.id}" data-mode="${mode}">
         <span class="spacer" style="text-align:left"><b>${esc(t.name)}</b><br><small class="muted">${tplSummary(t)}</small></span></button>`).join('')}</div>`
       : '<p class="muted">Todavía no hay tablas. Crea una o guarda una sesión como tabla desde su menú ⋯.</p>'}
-    <a class="btn block" href="#/templates">📋 Gestionar tablas</a>`;
+    <a class="btn block" href="#/templates">${ic('list')} Gestionar tablas</a>`;
 }
 const tplSummary = (t) => `${t.exercises.length} ejercicio${t.exercises.length === 1 ? '' : 's'} · ${t.exercises.reduce((a, e) => a + e.sets.filter((x) => x.type !== 'C').length, 0)} series efectivas`;
 
@@ -93,9 +93,9 @@ function viewTemplate(id) {
     const unit = te.mode === 'time' ? 'Seg' : te.mode === 'dist' ? 'Metros' : 'Reps';
     html += `<div class="card">
       <div class="ex-head"><h3>${esc(te.name)}</h3>
-        <button class="icon ghost" data-action="tpl-move" data-id="${t.id}" data-ei="${ei}" data-d="-1" aria-label="Subir" ${ei === 0 ? 'disabled' : ''}>↑</button>
-        <button class="icon ghost" data-action="tpl-move" data-id="${t.id}" data-ei="${ei}" data-d="1" aria-label="Bajar" ${ei === t.exercises.length - 1 ? 'disabled' : ''}>↓</button>
-        <button class="icon ghost danger" data-action="tpl-del-ex" data-id="${t.id}" data-ei="${ei}" aria-label="Quitar ejercicio">🗑</button></div>
+        <button class="icon ghost" data-action="tpl-move" data-id="${t.id}" data-ei="${ei}" data-d="-1" aria-label="Subir" ${ei === 0 ? 'disabled' : ''}>${ic('up')}</button>
+        <button class="icon ghost" data-action="tpl-move" data-id="${t.id}" data-ei="${ei}" data-d="1" aria-label="Bajar" ${ei === t.exercises.length - 1 ? 'disabled' : ''}>${ic('down')}</button>
+        <button class="icon ghost danger" data-action="tpl-del-ex" data-id="${t.id}" data-ei="${ei}" aria-label="Quitar ejercicio">${ic('trash')}</button></div>
       <div class="muted small">${esc(muscleDesc(te))}</div>
       <table class="sets tpl-sets"><thead><tr><th>Tipo</th><th>${unit}</th>${te.mode === 'wr' || te.mode === 'bw' ? `<th>RIR ${info('rir')}</th>` : ''}${te.mode === 'wr' ? `<th>%1RM ${info('tpl_pct')}</th>` : ''}<th></th></tr></thead><tbody>
       ${te.sets.map((ts, si) => `<tr>
@@ -114,7 +114,7 @@ function viewTemplate(id) {
   });
   html += `<button class="block" data-action="tpl-add-ex" data-id="${t.id}">＋ Añadir ejercicio</button>
     <div class="muted small" style="margin:8px 0">Repeticiones: número (5) o rango (8-12). %1RM vacío = automático a partir de reps + RIR (tabla RTS). Sin RIR ni %, el peso queda vacío.</div>
-    <button class="primary block" data-action="tpl-start" data-id="${t.id}" ${t.exercises.length ? '' : 'disabled'}>▶ Empezar una sesión con esta tabla</button>`;
+    <button class="primary block" data-action="tpl-start" data-id="${t.id}" ${t.exercises.length ? '' : 'disabled'}>${ic('play')} Empezar una sesión con esta tabla</button>`;
   return html;
 }
 

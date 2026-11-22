@@ -330,8 +330,8 @@ function showShareResult(blob, filename, title, preview = '') {
     ${preview}
     <div class="muted small" style="margin:8px 0">${esc(filename)} · ${fmt(blob.size / 1048576, 1)} MB</div>
     <div style="display:grid;gap:8px">
-      ${canShare ? '<button class="primary" data-action="share-file">📤 Compartir o guardar</button>' : ''}
-      <a class="btn ${canShare ? '' : 'primary'}" href="${url}" download="${esc(filename)}">⬇ Descargar</a>
+      ${canShare ? `<button class="primary" data-action="share-file">${ic('share')} Compartir o guardar</button>` : ''}
+      <a class="btn ${canShare ? '' : 'primary'}" href="${url}" download="${esc(filename)}">${ic('download')} Descargar</a>
     </div>`);
 }
 async function shareFile() {

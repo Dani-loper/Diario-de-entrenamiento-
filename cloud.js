@@ -139,13 +139,13 @@ async function cloudBackup({ force = false, quiet = false } = {}) {
     cloud.dirty = false; cloudSave();
     cloudStatus('');
     if (!quiet) toast('✓ Copia guardada en Google Drive');
-    else toast('☁ Copia guardada en Drive');
+    else toast('Copia guardada en Drive');
     return true;
   } catch (e) {
     if (!e.cancel) { cloud.st.error = e.message; cloudSave(); }
     cloudStatus('');
     if (!quiet && !e.cancel) alert(e.message);
-    if (quiet && !e.auth) toast('⚠ ' + e.message);
+    if (quiet && !e.auth) toast(e.message);
     return false;
   } finally { cloud.busy = false; refreshCloudUI(); }
 }
@@ -181,7 +181,7 @@ async function cloudOnFinish() {
   try {
     if (!tokenValid()) { await loadGIS(); await requestToken(false); }
     await cloudBackup({ quiet: true });
-  } catch (e) { cloud.st.error = 'Copia automática pendiente: ' + e.message; cloudSave(); toast('⚠ Copia en Drive pendiente: toca «Copiar ahora» en Ajustes'); refreshCloudUI(); }
+  } catch (e) { cloud.st.error = 'Copia automática pendiente: ' + e.message; cloudSave(); toast('Copia en Drive pendiente: toca «Copiar ahora» en Ajustes'); refreshCloudUI(); }
 }
 
 /* ---------- Interfaz ---------- */
@@ -206,17 +206,17 @@ function cloudSettingsHTML() {
     body = `<div class="muted small">Guarda automáticamente una copia de <b>todos los usuarios</b> en tu Google Drive, en la carpeta «${DRIVE_FOLDER}». La app solo puede ver los archivos que ella misma crea, no el resto de tu Drive. Los vídeos no se suben.</div>
       <button class="primary block" style="margin-top:10px" data-action="cloud-connect">Conectar con Google Drive</button>`;
   } else {
-    const st = s.conflict ? `<div class="mismatch" style="margin:8px 0">⚠ La copia de Drive es de ${new Date(s.conflict).toLocaleString('es-ES')} y no coincide con la última que subió este dispositivo (¿otro móvil?). Elige: restaurarla aquí o sustituirla.</div>
-        <div class="grid2"><button data-action="cloud-restore">⬇ Restaurar la de Drive</button><button class="danger" data-action="cloud-force">⬆ Sustituir con esta</button></div>`
+    const st = s.conflict ? `<div class="mismatch" style="margin:8px 0">${ic('alert')} La copia de Drive es de ${new Date(s.conflict).toLocaleString('es-ES')} y no coincide con la última que subió este dispositivo (¿otro móvil?). Elige: restaurarla aquí o sustituirla.</div>
+        <div class="grid2"><button data-action="cloud-restore">${ic('download')} Restaurar la de Drive</button><button class="danger" data-action="cloud-force">${ic('upload')} Sustituir con esta</button></div>`
       : s.error ? `<div class="mismatch" style="margin:8px 0">${esc(s.error)}</div>` : '';
-    body = `<div class="row"><span style="font-size:1.4rem">☁</span><div class="spacer"><b>${esc(s.email || 'Cuenta de Google')}</b>
+    body = `<div class="row"><span class="lead-ic">${ic('cloud')}</span><div class="spacer"><b>${esc(s.email || 'Cuenta de Google')}</b>
         <div class="muted small">Última copia: ${ago(s.lastBackup)}${s.lastSize ? ` · ${fmt(s.lastSize / 1024, 0)} KB` : ''}${tokenValid() ? ' · conectado' : ''}</div></div></div>
       ${st}
       <label class="row" style="color:var(--text);font-size:.9rem;gap:8px;margin:10px 0"><input type="checkbox" data-action="cloud-auto" ${s.auto !== false ? 'checked' : ''} style="width:auto;min-height:0">
         Copia automática al finalizar cada sesión y tras los cambios</label>
       ${s.conflict ? '' : `<div class="grid2">
-        <button class="primary" data-action="cloud-backup" ${cloud.busy ? 'disabled' : ''}>⬆ Copiar ahora</button>
-        <button data-action="cloud-restore" ${cloud.busy ? 'disabled' : ''}>⬇ Restaurar desde Drive</button>
+        <button class="primary" data-action="cloud-backup" ${cloud.busy ? 'disabled' : ''}>${ic('upload')} Copiar ahora</button>
+        <button data-action="cloud-restore" ${cloud.busy ? 'disabled' : ''}>${ic('download')} Restaurar desde Drive</button>
       </div>`}
       <button class="ghost block" style="margin-top:6px" data-action="cloud-disconnect">Desconectar</button>`;
   }
