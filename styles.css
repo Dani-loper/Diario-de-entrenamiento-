@@ -455,3 +455,12 @@ b.up { color: var(--accent); } b.down { color: var(--danger); }
 button.fav { font-size: 1.3rem; color: var(--muted); }
 button.fav.on, .fav-mark { color: var(--warn); }
 .chip .cnt { opacity: .65; font-size: .75em; margin-left: 2px; }
+/* Datos del día */
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.grid3 > div { display: flex; flex-direction: column; }
+.grid3 label { flex: 1; display: flex; align-items: flex-end; }
+.daily summary { cursor: pointer; list-style: none; }
+.daily summary::-webkit-details-marker { display: none; }
+.daily[open] summary { margin-bottom: 2px; }
+.tdee { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--card2); }
+.tdee-v { font-size: 1.35rem; font-weight: 800; }
