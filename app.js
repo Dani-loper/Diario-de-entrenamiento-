@@ -492,17 +492,24 @@ function viewFactors() {
   html += `</div>`;
 
   // Escalas numéricas
+  // Datos diarios del día ANTERIOR a la sesión (los del mismo día incluyen la propia sesión o se anotan después).
+  const prevDay = (s) => window.dailyOf ? dailyOf(isoFromNum(dayNum(s.date) - 1)) : null;
+  const kcalAll = Object.values(db.daily || {}).map((d) => d.kcal).filter((v) => v != null), kcalMean = kcalAll.length ? mean(kcalAll) : null;
   const scales = [
-    ['Horas de sueño', 'sleep', [['< 6 h', (v) => v < 6], ['6 – 7,5 h', (v) => v >= 6 && v < 7.5], ['≥ 7,5 h', (v) => v >= 7.5]]],
-    ['Energía al empezar', 'readiness', [['Baja (1-2)', (v) => v <= 2], ['Media (3)', (v) => v === 3], ['Alta (4-5)', (v) => v >= 4]]],
-    ['Estrés', 'stress', [['Bajo (1-2)', (v) => v <= 2], ['Medio (3)', (v) => v === 3], ['Alto (4-5)', (v) => v >= 4]]],
+    ['Horas de sueño', (s) => s.sleep, [['< 6 h', (v) => v < 6], ['6 – 7,5 h', (v) => v >= 6 && v < 7.5], ['≥ 7,5 h', (v) => v >= 7.5]]],
+    ['Energía al empezar', (s) => s.readiness, [['Baja (1-2)', (v) => v <= 2], ['Media (3)', (v) => v === 3], ['Alta (4-5)', (v) => v >= 4]]],
+    ['Estrés', (s) => s.stress, [['Bajo (1-2)', (v) => v <= 2], ['Medio (3)', (v) => v === 3], ['Alto (4-5)', (v) => v >= 4]]],
+    ['Pasos del día anterior', (s) => prevDay(s)?.steps, [['< 5.000', (v) => v < 5000], ['5.000 – 10.000', (v) => v >= 5000 && v < 10000], ['≥ 10.000', (v) => v >= 10000]]],
+    ['Calorías del día anterior (frente a tu media)', (s) => kcalMean && prevDay(s)?.kcal != null ? prevDay(s).kcal / kcalMean * 100 : null,
+      [['Menos del 90 %', (v) => v < 90], ['90 – 110 %', (v) => v >= 90 && v <= 110], ['Más del 110 %', (v) => v > 110]]],
   ];
-  for (const [title, key, buckets] of scales) {
-    const withVal = sess.filter((s) => s[key] != null);
+  for (const [title, get, buckets] of scales) {
+    const withVal = sess.filter((s) => get(s) != null);
+    if (!withVal.length && /día anterior/.test(title)) continue; // sin datos diarios: no se muestra
     html += `<h2>${title}</h2><div class="card">`;
     if (withVal.length < 3) { html += `<div class="muted small">Registrado en ${withVal.length} sesiones analizables; hacen falta más.</div></div>`; continue; }
     for (const [label, test] of buckets) {
-      const v = withVal.filter((s) => test(s[key])).map((s) => rel[s.id]);
+      const v = withVal.filter((s) => test(get(s))).map((s) => rel[s.id]);
       const m = mean(v), s2 = sd(v);
       html += `<div class="arow"><div><b>${label}</b><div class="muted small">n = ${v.length}</div></div>
         ${divBar(m)}<div class="aval"><b>${pct(m)}</b>${s2 != null && v.length >= 3 ? `<small class="muted">±${fmt(2 * s2 / Math.sqrt(v.length), 1)}</small>` : ''}</div></div>`;
@@ -775,6 +782,14 @@ const GLOSSARY = {
   same_weight: ['Con el mismo peso', `
     <p>Cuántas repeticiones podías hacer con un peso concreto en cada sesión: <b>repeticiones + RIR</b> (lo que hiciste más lo que te quedaba). Si sube con el tiempo, eres más fuerte con ese peso.</p>
     <p>Es más intuitivo que el 1RM estimado y no depende de ninguna tabla: «con 100 kg en agosto podía 6, hoy puedo 8». Sin RIR se cuentan solo las repeticiones hechas.</p>`],
+  daily: ['Datos del día', `
+    <p>Datos opcionales de cada día, entrenes o no: <b>pasos</b>, <b>calorías consumidas</b> y <b>peso corporal</b>. Se anotan en el calendario, en la tarjeta «Datos del día».</p>
+    <p>Se usan en Progreso (medias por semana y mantenimiento estimado), en el análisis de factores (pasos y calorías del <b>día anterior</b> frente a tu rendimiento) y en el informe.</p>
+    <p>Las medias se calculan solo con los días anotados: un día sin dato no cuenta como 0. Las calorías anotadas suelen quedarse cortas frente a lo que se come de verdad; lo importante es anotarlas siempre igual.</p>`],
+  tdee: ['Mantenimiento estimado', `
+    <p>Calorías con las que tu peso se mantendría. Se calcula con un <b>balance energético</b>: calorías medias anotadas en los últimos 28 días, corregidas por la tendencia de tu peso en ese tiempo (≈ 7700 kcal por kg).</p>
+    <p>Si comes 2400 kcal y pierdes 0,25 kg/semana (≈ 275 kcal/día de déficit), tu mantenimiento ronda las 2675 kcal.</p>
+    <p>Es una estimación: el peso fluctúa por agua y glucógeno, y el error al anotar calorías se traslada al resultado (aunque si siempre anotas igual, la estimación sigue siendo útil para ajustar). Necesita al menos 14 días con calorías y 3 pesos repartidos en 2 semanas.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -915,6 +930,7 @@ function viewCalendar() {
     <div style="height:12px"></div>`;
   const daySessions = (byDay[sel] || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   html += daySessions.map(sessionCard).join('') || '<div class="muted" style="padding:8px 0 16px">Sin sesiones este día.</div>';
+  if (window.dailyCardHTML) html += dailyCardHTML(sel);
   const recent = sortedSessions().filter((s) => s.date !== sel).slice(0, 3);
   if (recent.length) html += `<h2>Últimas sesiones</h2>${recent.map(sessionCard).join('')}`;
   return html;
@@ -1372,15 +1388,19 @@ function periodRange(months) {
 const inRange = (sess, a, b) => sess.date >= a && sess.date <= b;
 const fmtLong = (iso) => new Date(iso + 'T12:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
+// Indicadores de bienestar y actividad de un periodo: [etiqueta, valores, unidad, decimales].
+const wellbeingKpis = (cur) => [['Sueño medio', cur.sleep, ' h'], ['Energía media (1-5)', cur.readiness, ''], ['Estrés medio (1-5)', cur.stress, ''],
+  ['Pasos al día', cur.steps || [], '', 0], ['Calorías al día', cur.kcal || [], ' kcal', 0]].filter(([, v]) => v.length);
 function periodStats(a, b) {
   const list = db.sessions.filter((s) => inRange(s, a, b)).sort((x, y) => sortKey(x).localeCompare(sortKey(y)));
-  const out = { sessions: list, n: list.length, sets: 0, volume: 0, si: 0, durations: [], srpe: [], prs: 0, setsCat: {}, pcts: [], bw: [], sleep: [], readiness: [], stress: [], factors: {} };
+  const out = { sessions: list, n: list.length, sets: 0, volume: 0, si: 0, durations: [], srpe: [], prs: 0, setsCat: {}, pcts: [], bw: [], sleep: [], readiness: [], stress: [], factors: {}, steps: [], kcal: [] };
+  for (const [d, v] of Object.entries(db.daily || {})) if (d >= a && d <= b) { if (v.steps != null) out.steps.push(v.steps); if (v.kcal != null) out.kcal.push(v.kcal); }
   for (const s of list) {
     out.volume += sessionVolume(s);
     out.si += sessionSI(s).total;
     if (s.endedAt && s.startedAt && s.endedAt > s.startedAt) out.durations.push((s.endedAt - s.startedAt) / 60000);
     if (s.srpe) out.srpe.push(s.srpe);
-    if (s.bodyweight) out.bw.push({ d: s.date, v: s.bodyweight });
+    if (s.bodyweight && !window.bodyweightLog) out.bw.push({ d: s.date, v: s.bodyweight });
     for (const k of ['sleep', 'readiness', 'stress']) if (s[k] != null) out[k].push(s[k]);
     for (const f of s.factors || []) out.factors[f] = (out.factors[f] || 0) + 1;
     for (const e of s.exercises) {
@@ -1394,6 +1414,7 @@ function periodStats(a, b) {
       if (best && prevBest && best > prevBest) out.prs++;
     }
   }
+  if (window.bodyweightLog) out.bw = bodyweightLog().filter((r) => r.d >= a && r.d <= b); // sesiones + anotados en Progreso o en el día
   return out;
 }
 
@@ -1534,11 +1555,11 @@ function viewReport() {
   </div></section>`;
 
   // Bienestar
-  const wb = [['Sueño medio', cur.sleep, ' h'], ['Energía media (1-5)', cur.readiness, ''], ['Estrés medio (1-5)', cur.stress, '']].filter(([, v]) => v.length);
+  const wb = wellbeingKpis(cur);
   const topF = Object.entries(cur.factors).sort((x, y) => y[1] - x[1]).slice(0, 5);
   if (wb.length || cur.bw.length >= 2 || topF.length) {
-    html += `<section class="rsec"><h2>Bienestar y composición</h2><div class="r-grid">
-      ${wb.length || topF.length ? `<div class="rcard"><div class="kpis">${wb.map(([l, v, u2]) => kpi(fmt(mean(v), 1) + u2, `${l} (n=${v.length})`)).join('')}</div>
+    html += `<section class="rsec"><h2>Bienestar, actividad y composición</h2><div class="r-grid">
+      ${wb.length || topF.length ? `<div class="rcard"><div class="kpis">${wb.map(([l, v, u2, dec]) => kpi(fmt(mean(v), dec ?? 1) + u2, `${l} (n=${v.length})`)).join('')}</div>
         ${topF.length ? `<div class="muted small" style="margin-top:6px">Factores más marcados: ${topF.map(([f, n]) => `${esc(f)} (${n})`).join(', ')}</div>` : ''}</div>` : ''}
       ${cur.bw.length >= 2 ? `<div class="rcard"><b>Peso corporal (kg)</b>${chart(cur.bw, 'Peso corporal')}</div>` : ''}
     </div></section>`;

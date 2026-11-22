@@ -35,7 +35,7 @@ function reportDataFor(months) {
     catItems: muscleItems(cur.setsCat),
     muscleWeekly: Object.fromEntries(Object.entries(cur.setsCat).map(([m, v]) => [m, v / weeks])),
     zoneItems: cur.pcts.length ? ZONES.map(([label, t]) => ({ label, v: cur.pcts.filter(t).length })) : [],
-    wb: [['Sueño medio', cur.sleep, ' h'], ['Energía media (1-5)', cur.readiness, ''], ['Estrés medio (1-5)', cur.stress, '']].filter(([, v]) => v.length),
+    wb: wellbeingKpis(cur),
     topF: Object.entries(cur.factors).sort((x, y) => y[1] - x[1]).slice(0, 5),
   };
 }
@@ -235,8 +235,8 @@ async function buildReportPDF(months) {
 
   // Bienestar
   if (D.wb.length || cur.bw.length >= 2 || D.topF.length) {
-    section('Bienestar y composición', 24);
-    if (D.wb.length) kpiGrid(D.wb.map(([l, v, un]) => ({ v: fmt(mean(v), 1) + un, l: `${l} (n=${v.length})` })), 3);
+    section('Bienestar, actividad y composición', 24);
+    if (D.wb.length) kpiGrid(D.wb.map(([l, v, un, dec]) => ({ v: fmt(mean(v), dec ?? 1) + un, l: `${l} (n=${v.length})` })), 3);
     if (D.topF.length) { txt(`Factores más marcados: ${D.topF.map(([f, n]) => `${f} (${n})`).join(', ')}`, M, y + 2, { size: 8, color: C.muted, maxW: CW }); y += 6; }
     if (cur.bw.length >= 2) { ensure(54); card(M, y, CW, 50); txt('Peso corporal (kg)', M + 4, y + 7, { size: 9.5, bold: true }); chartPDF(M + 3, y + 10, CW - 7, 36, cur.bw); y += 54; }
   }

@@ -180,7 +180,7 @@ function exerciseRowExtra(e) {
   return `${sparkHTML(t.pts)}<b class="chg ${cls}">${c > 0 ? '+' : ''}${fmt(c, 1)}%</b>`;
 }
 function progressTopHTML() {
-  return muscleWeekHTML() + consistencyHTML() + bodyweightHTML();
+  return muscleWeekHTML() + consistencyHTML() + bodyweightHTML() + (window.activityHTML ? activityHTML() : '');
 }
 function exercisesHeaderHTML() {
   const r = ui.erange || '1y';
