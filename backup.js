@@ -99,7 +99,7 @@ function backupStatusHTML() {
 /* iPhone/iPad: Safari borra los datos de una web tras 7 días sin abrirla (ITP), salvo si está instalada en la
  * pantalla de inicio. Se avisa solo en iOS cuando la app no se ejecuta instalada. */
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const isInstalled = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+const isInstalled = () => IS_NATIVE || navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
 function installReminderHTML() {
   if (!isIOS() || isInstalled() || localBk.installDismissed) return '';
   return `<div class="card reminder">

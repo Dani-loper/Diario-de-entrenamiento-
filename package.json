@@ -1,11 +1,20 @@
 {
   "name": "diario-de-entrenamiento",
   "private": true,
-  "description": "PWA para registrar sesiones de entrenamiento. Sin compilación: los archivos se sirven tal cual.",
+  "description": "Diario de entrenamiento: PWA (GitHub Pages) y app Android (Capacitor).",
   "scripts": {
-    "test": "node tests/run.js"
+    "test": "node tests/run.js",
+    "build:web": "node scripts/build-web.js",
+    "android:sync": "node scripts/build-web.js && npx cap sync android"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.6.2",
     "playwright": "1.63.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/share": "8.0.3"
   }
 }

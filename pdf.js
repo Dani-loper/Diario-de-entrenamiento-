@@ -325,16 +325,23 @@ function showShareResult(blob, filename, title, preview = '') {
   const url = URL.createObjectURL(blob);
   ui.modalUrls = [...(ui.modalUrls || []), url];
   ui.shareFile = file;
-  const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+  // En la app Android se comparte con la hoja nativa (no hay descargas en el visor web).
+  const canShare = IS_NATIVE || !!(navigator.canShare && navigator.canShare({ files: [file] }));
   openModal(`<div class="row"><h3 class="spacer">${esc(title)}</h3><button class="ghost" data-action="close-modal" aria-label="Cerrar">✕</button></div>
     ${preview}
     <div class="muted small" style="margin:8px 0">${esc(filename)} · ${fmt(blob.size / 1048576, 1)} MB</div>
     <div style="display:grid;gap:8px">
       ${canShare ? `<button class="primary" data-action="share-file">${ic('share')} Compartir o guardar</button>` : ''}
-      <a class="btn ${canShare ? '' : 'primary'}" href="${url}" download="${esc(filename)}">${ic('download')} Descargar</a>
+      ${IS_NATIVE ? '<div class="muted small">En la hoja de compartir elige «Guardar en Archivos» o «Drive» para conservarlo, o envíalo por WhatsApp o correo.</div>'
+        : `<a class="btn ${canShare ? '' : 'primary'}" href="${url}" download="${esc(filename)}">${ic('download')} Descargar</a>`}
     </div>`);
 }
 async function shareFile() {
-  try { await navigator.share({ files: [ui.shareFile], title: ui.shareFile.name }); if (window.markExported) markExported(); }
-  catch (e) { if (e.name !== 'AbortError') alert('No se pudo compartir: ' + e.message + '\nUsa «Descargar».'); }
+  try {
+    if (IS_NATIVE) await nativeShareFile(ui.shareFile); else await navigator.share({ files: [ui.shareFile], title: ui.shareFile.name });
+    if (window.markExported) markExported();
+  } catch (e) {
+    if (e.name === 'AbortError' || /cancel/i.test(e.message || '')) return;
+    alert('No se pudo compartir: ' + e.message + (IS_NATIVE ? '' : '\nUsa «Descargar».'));
+  }
 }
