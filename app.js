@@ -936,6 +936,7 @@ function viewCalendar() {
   const q = norm(ui.csearch).trim();
 
   let html = `<h1>Calendario</h1>
+    ${window.installReminderHTML ? installReminderHTML() : ''}
     ${window.backupReminderHTML ? backupReminderHTML() : ''}
     <input type="search" data-action-input="csearch" placeholder="Buscar: ejercicio, nota, material, sensación…" value="${esc(ui.csearch)}">
     <div style="height:12px"></div>`;

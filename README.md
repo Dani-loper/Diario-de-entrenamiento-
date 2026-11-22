@@ -57,6 +57,10 @@ En local: `python3 -m http.server` y abre http://localhost:8000.
 
 Los datos se guardan solo en el navegador del dispositivo: **exporta copias de seguridad con regularidad** (Ajustes → Exportar todos los usuarios). No hay sincronización entre dispositivos: el usuario no puede apuntar desde su propio móvil.
 
+## Pruebas
+
+`npm test` ejecuta las pruebas de extremo a extremo (Playwright). Detalles en [tests/README.md](tests/README.md). GitHub las pasa en cada pull request.
+
 ## Base científica
 - Zourdos et al. (2016): escala RPE basada en repeticiones en reserva (RPE ≈ 10 − RIR).
 - Precisión del RIR: mejor cerca del fallo y con pocas repeticiones; se suele infraestimar lejos del fallo (Helms, Zourdos y colaboradores).
