@@ -42,6 +42,9 @@ const ICONS = {
   hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/>',
 };
 const ic = (name, cls = '') => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+// Valor de un campo numérico editable con coma decimal (102,5). Son campos de texto con teclado decimal:
+// los type="number" muestran el punto según el idioma del navegador y en algunos iPhone descartan «102,5».
+const decIn = (v) => v == null ? '' : String(v).replace('.', ',');
 const fmtDur = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
 const fmtSec = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -883,16 +886,16 @@ function viewSession(id) {
   let html = `<div class="row"><a class="btn ghost" href="#/">‹ Calendario</a><span class="spacer"></span>
       <button class="ghost" data-action="session-menu" data-id="${s.id}">⋯</button></div>
     <input data-s="title" value="${esc(s.title)}" placeholder="Nombre de la sesión (p. ej. Pierna A)" style="font-size:1.2rem;font-weight:700;margin:6px 0 10px">
-    <div class="grid2">
+    <div class="grid2" style="margin-bottom:12px">
       <div><label>Fecha</label><input type="date" data-s="date" value="${esc(s.date)}"></div>
       <div><label>${s.endedAt ? 'Duración' : 'En curso'}</label><div class="pill">${fmtDur(dur)} · <b id="vol">${fmt(sessionVolume(s), 0)} kg</b></div></div>
     </div>
-    ${isSimple() ? '' : `<div class="row" style="margin-top:10px"><button class="chip" data-action="cycle-system">Cuantificación: <b>${SYSTEMS[systemOf(s)]}</b> ⇄</button>${info('system')}</div>`}
+    ${isSimple() ? '' : `<div class="row"><button class="chip" data-action="cycle-system">Cuantificación: <b>${SYSTEMS[systemOf(s)]}</b> ⇄</button>${info('system')}</div>`}
     ${isSimple() ? '' : `<details class="card pre" id="pre" ${preOpen ? 'open' : ''} style="margin-top:12px">
       <summary><b>Antes de empezar</b> <span class="muted small">opcional${preFilled && !preOpen ? ' · ✓ registrado' : ''}</span></summary>
       <div class="grid2" style="margin-top:10px">
-        <div><label>Peso corporal (kg)</label><input type="number" inputmode="decimal" step="0.1" data-s="bodyweight" value="${s.bodyweight ?? ''}"></div>
-        <div><label>Horas de sueño</label><input type="number" inputmode="decimal" step="0.5" data-s="sleep" value="${s.sleep ?? ''}"></div>
+        <div><label>Peso corporal (kg)</label><input type="text" inputmode="decimal" autocomplete="off" data-s="bodyweight" value="${decIn(s.bodyweight)}"></div>
+        <div><label>Horas de sueño</label><input type="text" inputmode="decimal" autocomplete="off" data-s="sleep" value="${decIn(s.sleep)}"></div>
         <div><label>Energía (1 baja – 5 alta) ${info('readiness')}</label>${scaleSelect('readiness', s.readiness, 1, 5)}</div>
         <div><label>Estrés (1 bajo – 5 alto)</label>${scaleSelect('stress', s.stress, 1, 5)}</div>
       </div>
@@ -1048,7 +1051,7 @@ function exerciseCard(s, ex, i) {
     rows += `<tr class="${set.done ? 'done' : ''}">
       <td><button class="settype ${set.type}${set.videoId ? ' has-video' : ''}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
       ${fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>` : f === 'rir' ? `<td>${rirSelect(set.rir, i, j)}</td>`
-        : `<td><input type="number" inputmode="decimal" step="${FIELD[f].step}" data-set="${i}:${j}:${f}" value="${set[f] ?? ''}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${simple ? '' : f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${set.type === 'C' ? '' : pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
+        : `<td><input type="text" inputmode="${FIELD[f].step === '1' ? 'numeric' : 'decimal'}" autocomplete="off" enterkeyhint="next" data-set="${i}:${j}:${f}" value="${decIn(set[f])}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${simple ? '' : f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${set.type === 'C' ? '' : pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
       <td><button class="icon ghost" data-action="set-menu" data-i="${i}" data-j="${j}" aria-label="Opciones de la serie ${j + 1}: vídeo, compartir, borrar">⋯</button></td>
     </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
@@ -2132,6 +2135,11 @@ document.addEventListener('change', (e) => {
     set.rest = sec; t.value = fmtSec(sec); t.classList.remove('bad'); save();
     if (ui.rest && ui.rest.sid === s.id && ui.rest.i === i && ui.rest.j === j) { ui.rest = null; stopTimer(); }
     return;
+  }
+  if ((t.dataset.set || ['bodyweight', 'sleep'].includes(t.dataset.s)) && t.tagName === 'INPUT') {
+    const v = num(t.value), bad = t.value.trim() !== '' && !/^[+-]?\d*([.,]\d*)?$/.test(t.value.trim());
+    t.classList.toggle('bad', bad);
+    if (bad) toast('Escribe un número, p. ej. 102,5'); else t.value = decIn(v);
   }
   if (t.dataset.s === 'date' || (t.dataset.set && t.tagName === 'SELECT')) rerender();
   else if (t.dataset.set) { const s = currentSession(); const v = $('#vol'); if (s && v) v.textContent = `${fmt(sessionVolume(s), 0)} kg`; }
