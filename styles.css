@@ -451,3 +451,7 @@ b.up { color: var(--accent); } b.down { color: var(--danger); }
 .stats3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .lg-dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin: 0 3px 0 6px; vertical-align: 0; background: var(--muted); }
 .lg-dot:first-child { margin-left: 0; } .lg-dot.ok { background: var(--accent); } .lg-dot.hi { background: var(--warn); }
+/* Favoritos */
+button.fav { font-size: 1.3rem; color: var(--muted); }
+button.fav.on, .fav-mark { color: var(--warn); }
+.chip .cnt { opacity: .65; font-size: .75em; margin-left: 2px; }

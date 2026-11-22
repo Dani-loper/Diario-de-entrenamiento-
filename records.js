@@ -35,9 +35,9 @@ function markRecords(pts) {
   return pts;
 }
 // Valores «redondos» para las líneas guía del eje Y.
-function niceTicks(min, max, n = 4) {
+function niceTicks(min, max, n = 4, minStep = 0) {
   const span = max - min || Math.abs(max) || 1, raw = span / n, mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((s) => s >= raw);
+  const step = Math.max(minStep, [1, 2, 2.5, 5, 10].map((k) => k * mag).find((s) => s >= raw));
   const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step, out = [];
   for (let v = lo; v <= hi + step / 2; v += step) out.push(+v.toFixed(6));
   return out;
@@ -82,7 +82,7 @@ function progressChartHTML(def, hist) {
       ${canRel ? `<div class="seg small-seg"><button class="${ui.chartRel ? '' : 'on'}" data-action="${ui.chartRel ? 'chart-rel' : 'noop'}">kg</button><button class="${ui.chartRel ? 'on' : ''}" data-action="${ui.chartRel ? 'noop' : 'chart-rel'}">× peso corp.</button></div>` : ''}</div>
     ${canRel && ui.chartRel && !rel ? '<div class="mismatch small" style="margin-bottom:6px">Faltan registros de peso corporal cerca de estas sesiones (±30 días). Anótalo en Progreso o en «Antes de empezar».</div>' : ''}
     <div class="muted small">En el periodo: <b class="${ch > 0 ? 'up' : ch < 0 ? 'down' : ''}">${ch > 0 ? '+' : ''}${fmtV(ch, m)} (${chp > 0 ? '+' : ''}${fmt(chp, 1)}%)</b> · ${pts.length} sesiones · ${pts.filter((p) => p.pr).length} récords</div>
-    <svg class="chart pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de ${esc(m.label)} de ${esc(def.name)}">
+    <svg class="chart pchart evo" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de ${esc(m.label)} de ${esc(def.name)}">
       ${ticks.map((v) => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text x="${L - 4}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${lab(v)}</text>`).join('')}
       <text x="${L}" y="${H - 6}">${shortDate(first.d, yr)}</text>
       ${mid ? `<text x="${x(mid).toFixed(1)}" y="${H - 6}" text-anchor="middle">${shortDate(mid.d, yr)}</text>` : ''}
@@ -125,26 +125,32 @@ function hofEntries() {
     const rec = pts.reduce((a, p) => (p.v > a.v ? p : a));
     out.push({ def, rec, hist, sessions: hist.length, rms: def.mode === 'wr' ? repMaxes(hist) : [] });
   }
-  return out.sort((a, b) => b.sessions - a.sessions || a.def.name.localeCompare(b.def.name));
+  return out.sort((a, b) => (b.def.fav ? 1 : 0) - (a.def.fav ? 1 : 0) || b.sessions - a.sessions || a.def.name.localeCompare(b.def.name));
 }
+// Estrella de favorito (por usuario: vive en su catálogo de ejercicios).
+const favBtn = (def) => `<button class="icon ghost fav ${def.fav ? 'on' : ''}" data-action="fav-toggle" data-id="${def.id}" aria-pressed="${!!def.fav}" aria-label="${def.fav ? 'Quitar de favoritos' : 'Marcar como favorito'}">${def.fav ? '★' : '☆'}</button>`;
 const vidBtn = (p) => p.set.videoId
   ? `<button class="icon vid-btn" data-action="hof-video" data-sid="${p.sid}" data-ei="${p.ei}" data-j="${p.j}" aria-label="Ver vídeo">${ic('play')}</button>` : '';
 
 function viewRecords() {
   const list = hofEntries();
-  const onlyVid = ui.hofVideo;
+  // Filtros combinables: favoritos y con vídeo.
+  const f = ui.hof || (ui.hof = { fav: false, video: false });
   let html = `<h1>Salón de la fama</h1>`;
   if (!list.length) return html + '<div class="empty">Aún no hay récords. Registra series y aparecerán aquí tus mejores levantamientos.</div>';
-  const withVid = list.filter((e) => e.rec.set.videoId || e.rms.some((r) => r.set.videoId)).length;
+  const hasVid = (e) => e.rec.set.videoId || e.rms.some((r) => r.set.videoId);
+  const nFav = list.filter((e) => e.def.fav).length, nVid = list.filter(hasVid).length;
   html += `<div class="chips" style="margin-bottom:10px">
-      <button class="chip ${onlyVid ? '' : 'on'}" data-action="hof-filter" data-v="0">Todos (${list.length})</button>
-      <button class="chip ${onlyVid ? 'on' : ''}" data-action="hof-filter" data-v="1">${ic('video')} Con vídeo (${withVid})</button></div>`;
-  const shown = onlyVid ? list.filter((e) => e.rec.set.videoId || e.rms.some((r) => r.set.videoId)) : list;
-  if (!shown.length) html += '<div class="empty">Ningún récord tiene vídeo todavía. Desde el menú ⋯ de una serie puedes grabarlo o adjuntarlo.</div>';
+      <button class="chip ${!f.fav && !f.video ? 'on' : ''}" data-action="hof-filter" data-v="all">Todos (${list.length})</button>
+      <button class="chip ${f.fav ? 'on' : ''}" data-action="hof-filter" data-v="fav">★ Favoritos (${nFav})</button>
+      <button class="chip ${f.video ? 'on' : ''}" data-action="hof-filter" data-v="video">${ic('video')} Con vídeo (${nVid})</button></div>`;
+  const shown = list.filter((e) => (!f.fav || e.def.fav) && (!f.video || hasVid(e)));
+  if (!shown.length) html += `<div class="empty">${f.fav && !nFav ? 'Aún no tienes ejercicios favoritos. Márcalos con ☆ aquí o en la ficha del ejercicio.'
+    : f.video && !nVid ? 'Ningún récord tiene vídeo todavía. Desde el menú ⋯ de una serie puedes grabarlo o adjuntarlo.' : 'Ningún ejercicio cumple los filtros.'}</div>`;
   for (const e of shown) {
     const m = METRIC[e.def.mode] || METRIC.wr;
     html += `<div class="card hof">
-      <div class="row"><a class="spacer title" href="#/exercise/${e.def.id}">${esc(e.def.name)}</a><span class="muted small">${e.sessions} ses.</span></div>
+      <div class="row"><a class="spacer title" href="#/exercise/${e.def.id}">${esc(e.def.name)}</a><span class="muted small">${e.sessions} ses.</span>${favBtn(e.def)}</div>
       <div class="row hof-main">
         <div class="spacer"><div class="hof-val">${fmtM(e.rec.v, m)}</div>
           <div class="muted small">${esc(m.label)} · ${esc(setsText(e.rec.entry, [e.rec.set]))} · <a href="#/session/${e.rec.sid}">${fmtDate(e.rec.d)}</a></div></div>
@@ -183,13 +189,18 @@ Object.assign(actions, {
   'chart-pt': (el) => {
     ui.chartSel = +el.dataset.k;
     const def = exById(ui.chartDef), p = ui.chartPts?.[ui.chartSel]; if (!def || !p) return;
-    document.querySelectorAll('.pchart .pt').forEach((c, i) => c.classList.toggle('sel', i === ui.chartSel));
+    document.querySelectorAll('.evo .pt').forEach((c, i) => c.classList.toggle('sel', i === ui.chartSel));
     $('#chart-detail').innerHTML = chartDetailHTML(def, p, ui.chartM);
   },
   noop: () => {},
-  'hof-filter': (el) => { ui.hofVideo = el.dataset.v === '1'; rerender(); },
+  'hof-filter': (el) => {
+    const f = ui.hof || (ui.hof = { fav: false, video: false }), v = el.dataset.v;
+    if (v === 'all') { f.fav = false; f.video = false; } else f[v] = !f[v];
+    rerender();
+  },
+  'fav-toggle': (el) => { const d = exById(el.dataset.id); if (!d) return; d.fav = !d.fav; save(); rerender(); },
   'hof-video': (el) => playSetVideo(el.dataset.sid, +el.dataset.ei, +el.dataset.j),
 });
-window.viewRecords = viewRecords;
+window.viewRecords = viewRecords; window.favBtn = favBtn;
 window.progressChartHTML = progressChartHTML;
 if (['records', 'exercise'].includes(route().name)) rerender();
