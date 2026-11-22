@@ -339,3 +339,33 @@ body.timer-on .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
   background: color-mix(in srgb, var(--accent) 10%, var(--card2)); border-left: 3px solid var(--accent); }
 .tpl-sets input, .tpl-sets select { min-height: 40px; }
 .tpl-sets input.bad, .tpl-sets select.bad, [data-tpl].bad { outline: 2px solid var(--danger); }
+
+/* Tabla de series: columnas de datos del mismo ancho y alineadas arriba
+   (el %1RM bajo el peso no debe desplazar el resto de la fila). */
+.sets { table-layout: fixed; }
+.sets td { vertical-align: top; }
+.sets th { vertical-align: bottom; overflow: hidden; text-overflow: ellipsis; }
+.sets th:first-child { width: 44px; }
+.sets th:last-child { width: 32px; }
+.sets:not(.tpl-sets) th:nth-last-child(2) { width: 46px; }
+.sets tr:not(.rest-row) td input, .sets td select { min-width: 0 !important; width: 100%; height: 44px; min-height: 44px; padding-left: 2px; padding-right: 2px; }
+.sets .rest-field { white-space: nowrap; }
+.sets .check { min-width: 0; width: 100%; }
+.sets td:last-child > button.icon { min-width: 0; width: 100%; }
+.sets tr.rest-row td, .sets tr td[colspan] { vertical-align: middle; }
+/* Sin flecha en los desplegables de la tabla: en móviles estrechos (iPhone SE) la flecha tapaba el valor */
+.sets td select { -webkit-appearance: none; appearance: none; background-image: none; text-align: center; text-align-last: center; }
+.sets:not(.tpl-sets) th:nth-last-child(2) { width: 42px; }
+.sets th:last-child { width: 26px; }
+@media (max-width: 380px) {
+  .sets tr:not(.rest-row) td input, .sets td select { font-size: 15px; }
+  .sets td { padding-left: 1px; padding-right: 1px; }
+}
+@media (max-width: 340px) {
+  main { padding-left: 8px; padding-right: 8px; }
+  .card { padding: 10px 8px; }
+  .sets tr:not(.rest-row) td input, .sets td select { font-size: 14px; padding-left: 0; padding-right: 0; }
+  .sets th:first-child { width: 34px; }
+  .sets:not(.tpl-sets) th:nth-last-child(2) { width: 36px; }
+  .sets th { font-size: .66rem; }
+}
