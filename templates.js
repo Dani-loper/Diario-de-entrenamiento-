@@ -76,6 +76,7 @@ function viewTemplates() {
   const list = tplList().sort((a, b) => a.name.localeCompare(b.name));
   return `<div class="row"><a class="btn ghost" href="#/">‹ Calendario</a></div>
     <div class="row"><h1 class="spacer">Tablas ${info('templates')}</h1><button class="primary" data-action="tpl-new">＋ Nueva</button></div>
+    ${window.mesoListHTML ? mesoListHTML() : ''}
     <div class="card muted small">Plantillas de sesión compartidas por todos los usuarios de este dispositivo. Al cargarlas, el peso se calcula con el 1RM estimado de cada atleta.</div>
     ${list.length ? list.map((t) => `<a class="card list-item" href="#/template/${t.id}">
       <div class="row"><b class="spacer">${esc(t.name)}</b><span class="muted small">${tplSummary(t)}</span></div>

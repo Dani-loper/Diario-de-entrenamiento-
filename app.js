@@ -357,9 +357,9 @@ function route() {
 function render() {
   const r = route();
   document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active',
-    a.dataset.tab === (['session', 'templates', 'template'].includes(r.name) ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis', 'report'].includes(r.name) ? 'exercises' : r.name)));
+    a.dataset.tab === (['session', 'templates', 'template', 'meso'].includes(r.name) ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis', 'report'].includes(r.name) ? 'exercises' : r.name)));
   const app = $('#app');
-  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, records: () => (window.viewRecords ? viewRecords() : ''), templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
+  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, records: () => (window.viewRecords ? viewRecords() : ''), meso: (id) => (window.viewMeso ? viewMeso(id) : ''), templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
   const u = activeUser();
   const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
   app.innerHTML = bar + view(r.id);
@@ -855,6 +855,12 @@ const GLOSSARY = {
     <b>2.</b> El entrenador lo abre en <b>Usuarios › Importar datos de un atleta</b>. La primera vez se crea el perfil del atleta (no lo crees a mano: así ambos quedan enlazados). Las siguientes veces se combina con él.<br>
     <b>3.</b> El entrenador puede preparar tablas o un mesociclo en ese perfil y pulsar <b>«Enviar datos»</b>; el atleta lo importa igual.</p>
     <p><b>Combinar</b> no borra nada: se añaden las sesiones nuevas y las del archivo sustituyen a las que tienen el mismo identificador. Lo que se borra en un móvil no se borra en el otro. Los ajustes de cada dispositivo se conservan. Antes de combinar se guarda una copia automática. Los vídeos no viajan.</p>`],
+  meso: ['Mesociclo', `
+    <p>Un bloque de varias semanas que repite tus <b>tablas</b> (cada día del mesociclo es una tabla) con progresión, y termina con una <b>descarga</b>.</p>
+    <p><b>RIR:</b> baja en línea recta desde el RIR inicial hasta el final (p. ej. 3 → 1 en 4 semanas: 3 · 2,5 · 1,5 · 1). Como el peso se calcula con tu 1RM estimado y el RIR, al bajar el RIR sube el peso.</p>
+    <p><b>Series:</b> opcionalmente, una serie más por ejercicio cada semana o cada dos, para ir del MEV hacia el MRV, como propone Israetel.</p>
+    <p><b>Descarga:</b> la mitad de series, RIR 4 y el 90 % de la carga de la primera semana.</p>
+    <p>Si una tabla trae un %1RM explícito, ese % se respeta y el RIR queda como guía. La tabla «Plan semana a semana» muestra cuántas series por músculo planificas cada semana, coloreadas con tus referencias de volumen. Las semanas siguen tu «semana del atleta» (Ajustes › Avanzado).</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -990,6 +996,7 @@ function viewCalendar() {
     </div>
     <h2>${sel === today ? 'Hoy · ' : ''}${fmtDate(sel)}</h2>
     ${window.dailyCardHTML ? dailyCardHTML(sel) : ''}
+    ${window.mesoCardHTML ? mesoCardHTML(sel) : ''}
     <div class="grid2">
       <button class="primary" data-action="new-session">＋ Nueva sesión</button>
       <button data-action="repeat-session" ${db.sessions.length ? '' : 'disabled'}>${ic('refresh')} Repetir…</button>
