@@ -849,6 +849,12 @@ const GLOSSARY = {
     • <b>Caídas entre series</b> mayores que tu umbral en 2 o más sesiones recientes.<br>
     • <b>Semanas seguidas sin una semana suave</b> (una semana suave tiene menos del 70 % de las series de una semana normal tuya).</p>
     <p>Avisa si cae el rendimiento, o si llevas 5 semanas o más sin descargar y además hay caídas entre series. A partir de 8 semanas sin descargar, el aviso es más suave. El rendimiento también baja por dormir poco, estrés o enfermedad: míralo junto a cómo te encuentras.</p>`],
+  athlete_share: ['Entrenador y atleta', `
+    <p>Sin servidor ni cuentas: los datos viajan en un <b>archivo</b> que se envía por WhatsApp, correo o AirDrop.</p>
+    <p><b>1.</b> El atleta pulsa <b>«Enviar mis datos al entrenador»</b> (Ajustes › Copia de seguridad).<br>
+    <b>2.</b> El entrenador lo abre en <b>Usuarios › Importar datos de un atleta</b>. La primera vez se crea el perfil del atleta (no lo crees a mano: así ambos quedan enlazados). Las siguientes veces se combina con él.<br>
+    <b>3.</b> El entrenador puede preparar tablas o un mesociclo en ese perfil y pulsar <b>«Enviar datos»</b>; el atleta lo importa igual.</p>
+    <p><b>Combinar</b> no borra nada: se añaden las sesiones nuevas y las del archivo sustituyen a las que tienen el mismo identificador. Lo que se borra en un móvil no se borra en el otro. Los ajustes de cada dispositivo se conservan. Antes de combinar se guarda una copia automática. Los vídeos no viajan.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -1444,6 +1450,7 @@ function viewSettings() {
         <button class="danger" data-action="wipe">Borrar sus datos</button>
       </div>
       <div class="muted small" style="margin-top:6px">«Importar JSON» acepta una copia de un usuario (sustituye al activo) o una copia de todos (sustituye a todos).</div>
+      <button class="block" style="margin-top:8px" data-action="athlete-export">${ic('share')} Enviar mis datos al entrenador ${info('athlete_share')}</button>
       <input type="file" id="import-file" accept="application/json,.json" class="hidden">
     </div>
     <h2>Copias automáticas</h2>
@@ -1662,7 +1669,9 @@ function viewUsers() {
   const list = [...profiles.users].sort((a, b) => (b.id === profiles.active) - (a.id === profiles.active) || a.name.localeCompare(b.name));
   let html = `<div class="row"><h1 class="spacer">Usuarios</h1><button class="primary" data-action="user-form">＋ Nuevo</button></div>
     <div class="card muted small">Cada usuario tiene sus propias sesiones, ejercicios, material y ajustes. Los perfiles se guardan <b>solo en este dispositivo</b>:
-      exporta la copia de todos con regularidad en Ajustes.</div>`;
+      exporta la copia de todos con regularidad en Ajustes.</div>
+    <button class="block" style="margin-bottom:12px" data-action="athlete-import">${ic('upload')} Importar datos de un atleta ${info('athlete_share')}</button>
+    <input type="file" id="athlete-file" accept="application/json,.json" class="hidden">`;
   for (const u of list) {
     const d = u.id === profiles.active ? db : readUserData(u.id);
     const sess = d ? d.sessions : [];
@@ -1677,7 +1686,8 @@ function viewUsers() {
         ${profiles.users.length > 1 ? `<button class="icon ghost danger" data-action="user-delete" data-id="${u.id}" aria-label="Borrar ${esc(u.name)}">${ic('trash')}</button>` : ''}
       </div>
       ${u.notes ? `<div class="muted small" style="margin-top:6px">${ic('note')} ${esc(u.notes)}</div>` : ''}
-      ${active ? '' : `<button class="block" style="margin-top:10px" data-action="user-switch" data-id="${u.id}">Cambiar a ${esc(u.name)}</button>`}
+      <div class="grid2" style="margin-top:10px">${active ? '<span></span>' : `<button data-action="user-switch" data-id="${u.id}">Cambiar a ${esc(u.name)}</button>`}
+        <button data-action="athlete-export" data-id="${u.id}">${ic('share')} Enviar datos</button></div>
     </div>`;
   }
   return html;
