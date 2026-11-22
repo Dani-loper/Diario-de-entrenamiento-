@@ -738,6 +738,21 @@ const GLOSSARY = {
   rm_real: ['Máximos por repeticiones (RM)', `
     <p>El mayor peso que has movido con cada número de repeticiones: tu <b>3RM</b> es lo máximo que has levantado 3 veces.</p>
     <p>Solo se muestran los <b>máximos reales</b>: si has movido 100 kg × 5, un 100 kg × 3 no aparece como 3RM porque ya lo superaste con más repeticiones.</p>`],
+  hard_sets: ['Series efectivas', `
+    <p>Series de trabajo (no calentamientos) terminadas <b>cerca del fallo</b>: con <b>RIR ≤ 4</b> por defecto (puedes cambiarlo a ≤ 3 en Ajustes). Son las que más cuentan como estímulo para ganar músculo (<i>hard sets</i>).</p>
+    <p>La hipertrofia aumenta cuanto más cerca del fallo se termina la serie (Robinson et al., 2024), aunque las diferencias entre RIR 0 y 3 son pequeñas (Refalo et al., 2023). Por encima de 4-5 RIR el estímulo cae claramente.</p>
+    <p>Recuento <b>fraccionado</b>: cada serie cuenta 1 para el músculo principal y 0,5 para cada secundario (Pelland et al., 2024).</p>
+    <p>La franja de <b>10-20 series por músculo y semana</b> es una referencia orientativa para hipertrofia en personas entrenadas (Schoenfeld et al., 2017; Baz-Valle et al., 2022). No es un mínimo ni un máximo: depende de tu nivel, tu recuperación y tu objetivo. Para fuerza basta con menos.</p>
+    <p>Las series <b>sin RIR</b> se muestran aparte (más claras) y no suman, porque no se sabe lo cerca del fallo que estuvieron.</p>`],
+  consistency: ['Constancia', `
+    <p>Cuántas sesiones haces a la semana y durante cuántas semanas seguidas. La racha cuenta semanas (de lunes a domingo) con al menos una sesión; la semana en curso no la rompe.</p>
+    <p>Mantener la frecuencia durante meses influye más en el progreso que cualquier detalle de la programación.</p>`],
+  relative: ['Fuerza relativa', `
+    <p><b>1RM estimado ÷ peso corporal</b>. Si tu 1RM sube 5 kg pero tu peso corporal también, en relación con tu peso no has mejorado. Útil si buscas perder grasa manteniendo la fuerza o compites por categorías de peso.</p>
+    <p>Para cada sesión se usa el peso corporal registrado más cercano (como mucho 30 días antes o después). Puedes anotarlo en Progreso o en «Antes de empezar» de cada sesión.</p>`],
+  ex_change: ['Cambio en el periodo', `
+    <p>Compara la media de tus <b>3 primeras sesiones</b> del periodo con la media de las <b>3 últimas</b> (con menos de 6 sesiones, la primera con la última). Usar medias evita que un día bueno o malo distorsione el resultado.</p>
+    <p>La métrica es la de cada ejercicio: 1RM estimado, repeticiones, tiempo o distancia.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -1126,6 +1141,7 @@ function viewExercises() {
   const counts = {};
   for (const s of db.sessions) for (const e of s.exercises) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
   let html = `<div class="row"><h1 class="spacer">Progreso</h1><button data-action="exercise-form">＋ Nuevo ejercicio</button></div>
+    ${window.progressTopHTML ? progressTopHTML() : ''}
     ${isSimple() ? '' : `<a class="card list-item" href="#/analysis" style="display:flex;align-items:center;gap:10px">
       <span class="lead-ic">${ic('pulse')}</span><span class="spacer"><b>Análisis</b>
       <div class="muted small">Factores y rendimiento · índice de estrés semanal · intensidad relativa</div></span><span>›</span></a>`}
@@ -1135,6 +1151,7 @@ function viewExercises() {
     ${db.exercises.some((x) => x.reviewMuscles) ? `<div class="card reminder"><b>${ic('alert')} Revisa los músculos de ${db.exercises.filter((x) => x.reviewMuscles).length} ejercicio(s) propio(s)</b>
       <div class="muted small" style="margin:4px 0 8px">Se les asignó un músculo principal a partir de la categoría antigua y no tienen secundarios.</div>
       <button class="primary block" data-action="review-muscles">Revisar</button></div>` : ''}
+    ${window.exercisesHeaderHTML ? exercisesHeaderHTML() : ''}
     <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">
     <div style="height:12px"></div>`;
   const items = db.exercises.filter((e) => norm(e.name).includes(q))
@@ -1144,6 +1161,7 @@ function viewExercises() {
     const best = maxOf(historyFor(e.id).map((x) => entryStats(x.entry).best));
     html += `<a class="card list-item" href="#/exercise/${e.id}" style="padding:12px 14px">
       <div class="row"><span class="title">${esc(e.name)}</span><span class="spacer"></span>
+      ${counts[e.id] && window.exerciseRowExtra ? exerciseRowExtra(e) : ''}
       <span class="muted small">${counts[e.id] ? `${counts[e.id]} ses.${best ? ` · ${m.label} ${fmtM(best, m)}` : ''}` : esc(muscleLabel(e))}</span></div></a>`;
   }
   return html;
@@ -1238,6 +1256,12 @@ function viewSettings() {
       <label>Descanso por defecto entre series (segundos)</label>
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
       <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
+    </div>
+    <h2>Series efectivas</h2>
+    <div class="card">
+      <label>Cuenta como serie efectiva ${info('hard_sets')}</label>
+      <select data-setting="hardRir">${[[4, 'RIR 4 o menos (recomendado)'], [3, 'RIR 3 o menos (más estricto)']].map(([v, l]) => `<option value="${v}" ${(db.settings.hardRir ?? 4) === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <div class="muted small" style="margin-top:6px">Se usa en Progreso para contar las series semanales por músculo.</div>
     </div>
     ${isSimple() ? '' : `<h2>Intensidad y fatiga</h2>
     <div class="card">

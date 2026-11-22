@@ -5,6 +5,9 @@
  * - Salón de la fama: por ejercicio, el récord de su métrica (1RM est., reps, tiempo o distancia) y los
  *   máximos por repeticiones (RM reales), con acceso al vídeo de la serie cuando lo tiene. */
 
+// Fuerza relativa: 1RM estimado ÷ peso corporal.
+const REL_METRIC = { label: '1RM est. ÷ peso corporal', unit: '× PC', fmt: (v) => `${fmt(v, 2)} × PC` };
+const fmtV = (v, m) => m.fmt ? m.fmt(v) : fmtM(v, m);
 const RANGES = { '3m': ['3 M', 91], '6m': ['6 M', 182], '1y': ['1 año', 365], all: ['Todo', null] };
 const dayMs = 864e5;
 const isoMs = (iso) => new Date(iso + 'T12:00').getTime();
@@ -41,15 +44,22 @@ function niceTicks(min, max, n = 4) {
 }
 
 function progressChartHTML(def, hist) {
-  const m = METRIC[def.mode] || METRIC.wr;
-  const all = markRecords(bestSetsByDate(def, hist));
+  const canRel = def.mode === 'wr' && window.bodyweightAt;
+  let raw = bestSetsByDate(def, hist), rel = false;
+  if (canRel && ui.chartRel) {
+    const log = bodyweightLog();
+    const relPts = raw.map((p) => { const bw = bodyweightAt(p.d, log); return bw ? { ...p, abs: p.v, bw, v: p.v / bw } : null; }).filter(Boolean);
+    if (relPts.length >= 2) { raw = relPts; rel = true; }
+  }
+  const m = rel ? REL_METRIC : METRIC[def.mode] || METRIC.wr;
+  const all = markRecords(raw);
   if (all.length < 2) return '';
   const r = ui.erange || '1y', days = RANGES[r][1];
   const last = isoMs(all[all.length - 1].d);
   let pts = days ? all.filter((p) => isoMs(p.d) >= last - days * dayMs) : all;
   if (pts.length < 2) pts = all.slice(-2);
   if (ui.chartDef !== def.id) ui.chartSel = null;
-  ui.chartPts = pts; ui.chartDef = def.id;
+  ui.chartPts = pts; ui.chartDef = def.id; ui.chartM = m;
 
   const W = 340, H = 190, L = 34, R = 10, T = 10, B = 24;
   const t0 = isoMs(pts[0].d), t1 = isoMs(pts[pts.length - 1].d), tspan = t1 - t0 || 1;
@@ -61,15 +71,17 @@ function progressChartHTML(def, hist) {
   const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
   // Récord vigente: escalón (solo sube cuando hay un récord).
   const step = pts.map((p, i) => i ? `H${x(p).toFixed(1)}V${y(p.run).toFixed(1)}` : `M${x(p).toFixed(1)},${y(p.run).toFixed(1)}`).join('');
-  const lab = (v) => def.mode === 'time' ? fmtSec(v) : fmt(v, v >= 100 ? 0 : 1);
+  const lab = (v) => rel ? fmt(v, 2) : def.mode === 'time' ? fmtSec(v) : fmt(v, v >= 100 ? 0 : 1);
   const mid = pts.length > 4 ? pts[Math.floor(pts.length / 2)] : null;
   const yr = tspan > 300 * dayMs, dense = pts.length > 30; // muchas sesiones: solo se dibujan los récords y el seleccionado
 
   const first = pts[0], lastP = pts[pts.length - 1], ch = lastP.v - first.v, chp = (lastP.v / first.v - 1) * 100;
   const sel = ui.chartSel != null && pts[ui.chartSel] ? ui.chartSel : pts.length - 1;
   return `<div class="row wrap" style="justify-content:space-between;gap:6px;margin-bottom:6px">
-      <div class="seg small-seg">${Object.entries(RANGES).map(([k, [l]]) => `<button class="${k === r ? 'on' : ''}" data-action="erange" data-r="${k}">${l}</button>`).join('')}</div></div>
-    <div class="muted small">En el periodo: <b class="${ch > 0 ? 'up' : ch < 0 ? 'down' : ''}">${ch > 0 ? '+' : ''}${fmtM(ch, m)} (${chp > 0 ? '+' : ''}${fmt(chp, 1)}%)</b> · ${pts.length} sesiones · ${pts.filter((p) => p.pr).length} récords</div>
+      <div class="seg small-seg">${Object.entries(RANGES).map(([k, [l]]) => `<button class="${k === r ? 'on' : ''}" data-action="erange" data-r="${k}">${l}</button>`).join('')}</div>
+      ${canRel ? `<div class="seg small-seg"><button class="${ui.chartRel ? '' : 'on'}" data-action="${ui.chartRel ? 'chart-rel' : 'noop'}">kg</button><button class="${ui.chartRel ? 'on' : ''}" data-action="${ui.chartRel ? 'noop' : 'chart-rel'}">× peso corp.</button></div>` : ''}</div>
+    ${canRel && ui.chartRel && !rel ? '<div class="mismatch small" style="margin-bottom:6px">Faltan registros de peso corporal cerca de estas sesiones (±30 días). Anótalo en Progreso o en «Antes de empezar».</div>' : ''}
+    <div class="muted small">En el periodo: <b class="${ch > 0 ? 'up' : ch < 0 ? 'down' : ''}">${ch > 0 ? '+' : ''}${fmtV(ch, m)} (${chp > 0 ? '+' : ''}${fmt(chp, 1)}%)</b> · ${pts.length} sesiones · ${pts.filter((p) => p.pr).length} récords</div>
     <svg class="chart pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de ${esc(m.label)} de ${esc(def.name)}">
       ${ticks.map((v) => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text x="${L - 4}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${lab(v)}</text>`).join('')}
       <text x="${L}" y="${H - 6}">${shortDate(first.d, yr)}</text>
@@ -81,14 +93,13 @@ function progressChartHTML(def, hist) {
       ${pts.map((p, i) => `<circle class="hit" data-action="chart-pt" data-k="${i}" cx="${x(p).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="13"/>`).join('')}
     </svg>
     <div class="chart-legend muted small"><span><i class="lg-ln"></i>mejor serie de la sesión</span><span><i class="lg-run"></i>récord vigente</span><span><i class="lg-pr"></i>récord nuevo</span></div>
-    <div id="chart-detail">${chartDetailHTML(def, pts[sel])}</div>`;
+    <div id="chart-detail">${chartDetailHTML(def, pts[sel], m)}</div>`;
 }
-function chartDetailHTML(def, p) {
+function chartDetailHTML(def, p, m = METRIC[def.mode] || METRIC.wr) {
   if (!p) return '';
-  const m = METRIC[def.mode] || METRIC.wr;
   return `<a class="chart-detail" href="#/session/${p.sid}">
     <b>${fmtDate(p.d)}</b>${p.pr ? ' <span class="pr">★ récord</span>' : ''}${p.set.videoId ? ` ${ic('video')}` : ''}<br>
-    ${esc(m.label)}: <b>${fmtM(p.v, m)}</b> · ${esc(setsText(p.entry, [p.set]))}<span class="spacer"></span> ›</a>`;
+    ${esc(m.label)}: <b>${fmtV(p.v, m)}</b>${p.bw ? ` (${fmt(p.abs)} kg ÷ ${fmt(p.bw)} kg)` : ''} · ${esc(setsText(p.entry, [p.set]))}<span class="spacer"></span> ›</a>`;
 }
 
 /* ---------- Salón de la fama ---------- */
@@ -173,8 +184,9 @@ Object.assign(actions, {
     ui.chartSel = +el.dataset.k;
     const def = exById(ui.chartDef), p = ui.chartPts?.[ui.chartSel]; if (!def || !p) return;
     document.querySelectorAll('.pchart .pt').forEach((c, i) => c.classList.toggle('sel', i === ui.chartSel));
-    $('#chart-detail').innerHTML = chartDetailHTML(def, p);
+    $('#chart-detail').innerHTML = chartDetailHTML(def, p, ui.chartM);
   },
+  noop: () => {},
   'hof-filter': (el) => { ui.hofVideo = el.dataset.v === '1'; rerender(); },
   'hof-video': (el) => playSetVideo(el.dataset.sid, +el.dataset.ei, +el.dataset.j),
 });

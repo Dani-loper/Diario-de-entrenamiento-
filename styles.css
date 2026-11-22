@@ -414,3 +414,40 @@ b.up { color: var(--accent); } b.down { color: var(--danger); }
 .pchart .pt.thin { opacity: 0; }
 .pchart .pt.thin.sel { opacity: 1; }
 .hof .title { font-weight: 700; font-size: 1.05rem; }
+/* Progreso: series efectivas por músculo */
+.mbars { display: grid; gap: 2px; }
+.mbar { display: grid; grid-template-columns: 86px 1fr 52px; align-items: center; gap: 8px; width: 100%; min-height: 32px;
+  padding: 3px 4px; border: 0; border-radius: 8px; background: transparent; font-size: .82rem; text-align: left; }
+.mbar.on { background: var(--card2); }
+.mb-l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mb-t { position: relative; height: 12px; border-radius: 6px; background: var(--card2); overflow: hidden; }
+.mbar.on .mb-t { background: var(--card); }
+.mb-band { position: absolute; top: 0; bottom: 0; left: var(--b0); width: calc(var(--b1) - var(--b0));
+  background: color-mix(in srgb, var(--accent) 16%, transparent); border-left: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  border-right: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent); }
+.mb-h { position: absolute; left: 0; top: 2px; bottom: 2px; border-radius: 4px; background: var(--muted); }
+.mb-h.ok { background: var(--accent); }
+.mb-h.hi { background: var(--warn); }
+.mb-u, .mb-key { position: absolute; top: 2px; bottom: 2px; border-radius: 4px;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--muted) 55%, transparent) 0 3px, transparent 3px 6px); }
+.mb-key { position: static; display: inline-block; width: 14px; height: 9px; vertical-align: middle; }
+.mb-v { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mb-v small { font-weight: 400; color: var(--muted); margin-left: 2px; }
+.wchart .band { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
+.wchart .grid { stroke: var(--line); stroke-dasharray: 2 3; }
+.wchart .col { fill: var(--accent); }
+.wchart .col.cur { opacity: .45; }
+.wchart .col-u { fill: var(--muted); opacity: .35; }
+/* Constancia */
+.heat { width: 100%; height: auto; display: block; }
+.heat rect { fill: var(--card2); }
+.heat rect.on { fill: var(--accent); }
+.heat text { fill: var(--muted); font-size: 8px; }
+/* Resumen de ejercicios */
+.spark { width: 64px; height: 22px; flex: none; margin-right: 6px; }
+.spark path { fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.chg { font-size: .8rem; margin-right: 8px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.chg.up { color: var(--accent); } .chg.down { color: var(--danger); }
+.stats3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.lg-dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin: 0 3px 0 6px; vertical-align: 0; background: var(--muted); }
+.lg-dot:first-child { margin-left: 0; } .lg-dot.ok { background: var(--accent); } .lg-dot.hi { background: var(--warn); }
