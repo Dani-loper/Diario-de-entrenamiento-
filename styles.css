@@ -77,7 +77,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 4p
 .sets select { min-width: 58px; }
 .sets input, .sets select { padding: 8px 4px; text-align: center; min-height: 42px; }
 .sets input::-webkit-outer-spin-button, .sets input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.sets tr.done td input, .sets tr.done td select { background: color-mix(in srgb, var(--accent) 18%, var(--card2)); }
+.sets tr.done td input, .sets tr.done td select { background: color-mix(in srgb, var(--accent) 7%, var(--card2)); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
 .settype { min-width: 38px; min-height: 42px; padding: 4px; font-weight: 700; font-size: .85rem; }
 .settype.C { color: var(--warn); }
 .settype.D { color: #9f8cff; }
@@ -180,7 +180,7 @@ h3.sub { font-size: .85rem; color: var(--muted); font-weight: 600; margin: 14px 
 
 /* Ayuda ⓘ */
 button.info { position: relative; display: inline-flex; width: 18px; height: 18px; min-height: 0; min-width: 0; padding: 0; margin-left: 3px;
-  border-radius: 50%; font: italic 700 11px/1 Georgia, serif; color: var(--accent); background: transparent; border: 1.5px solid currentColor;
+  border-radius: 50%; font: italic 700 11px/1 Georgia, serif; color: var(--muted); background: transparent; border: 1.5px solid currentColor; opacity: .75;
   vertical-align: middle; text-transform: none; letter-spacing: 0; }
 button.info::after { content: ''; position: absolute; inset: -12px; }
 .gloss { margin-top: 8px; }
@@ -369,3 +369,14 @@ body.timer-on .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
   .sets:not(.tpl-sets) th:nth-last-child(2) { width: 36px; }
   .sets th { font-size: .66rem; }
 }
+
+/* Iconos de línea */
+.ic { width: 1.15em; height: 1.15em; vertical-align: -.2em; flex: none; fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+button.icon .ic { width: 20px; height: 20px; }
+.tabbar a .ic { display: block; margin: 0 auto 2px; width: 24px; height: 24px; }
+.lead-ic { display: inline-flex; color: var(--accent); }
+.lead-ic .ic { width: 26px; height: 26px; }
+.prev .ic, .target .ic, .muted .ic { width: 1em; height: 1em; vertical-align: -.12em; opacity: .85; }
+/* La ⓘ es ayuda secundaria: gris, y verde solo al tocarla */
+button.info:hover, button.info:focus-visible { color: var(--accent); opacity: 1; }

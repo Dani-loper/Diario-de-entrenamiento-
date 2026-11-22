@@ -189,10 +189,10 @@ function setMenuHTML(sess, i, j) {
     ${set.videoId ? `<div id="vid-slot" class="vid-slot"><div class="muted small">Cargando vídeo…</div></div>` : ''}
     <div style="display:grid;gap:8px">
       ${set.videoId
-        ? `<div class="grid2"><button data-action="video-pick" data-i="${i}" data-j="${j}">🔁 Cambiar vídeo</button><button data-action="video-save" data-i="${i}" data-j="${j}">💾 Guardar en el móvil</button></div>
-           <button class="danger" data-action="video-del" data-i="${i}" data-j="${j}">🗑 Borrar vídeo</button>`
-        : `<button data-action="video-pick" data-i="${i}" data-j="${j}">🎥 Grabar o elegir vídeo</button>`}
-      <button class="primary" data-action="share-set" data-i="${i}" data-j="${j}">📤 Compartir serie</button>
+        ? `<div class="grid2"><button data-action="video-pick" data-i="${i}" data-j="${j}">${ic('refresh')} Cambiar vídeo</button><button data-action="video-save" data-i="${i}" data-j="${j}">${ic('save')} Guardar en el móvil</button></div>
+           <button class="danger" data-action="video-del" data-i="${i}" data-j="${j}">${ic('trash')} Borrar vídeo</button>`
+        : `<button data-action="video-pick" data-i="${i}" data-j="${j}">${ic('video')} Grabar o elegir vídeo</button>`}
+      <button class="primary" data-action="share-set" data-i="${i}" data-j="${j}">${ic('share')} Compartir serie</button>
       <button class="danger" data-action="del-set" data-i="${i}" data-j="${j}">Borrar serie</button>
     </div>
     <div class="muted small" style="margin-top:10px">Los vídeos se guardan dentro de la app en este dispositivo y no se incluyen en la copia de seguridad. Usa «Guardar en el móvil» para conservarlos en Fotos o Archivos.</div>`;
@@ -239,8 +239,8 @@ function youtubeHTML(def) {
   const ref = def.refUrl && safeUrl(def.refUrl);
   return `<div class="row"><h3 class="spacer">Técnica · ${esc(def.name)}</h3><button class="ghost" data-action="close-modal" aria-label="Cerrar">✕</button></div>
     <div style="display:grid;gap:8px;margin-top:10px">
-      ${ref ? `<a class="btn primary" href="${esc(ref)}" target="_blank" rel="noopener noreferrer">▶ Ver vídeo de referencia</a>` : ''}
-      <a class="btn ${ref ? '' : 'primary'}" href="https://www.youtube.com/results?search_query=${encodeURIComponent(q)}" target="_blank" rel="noopener noreferrer">🔎 Buscar «${esc(q)}» en YouTube</a>
+      ${ref ? `<a class="btn primary" href="${esc(ref)}" target="_blank" rel="noopener noreferrer">${ic('play')} Ver vídeo de referencia</a>` : ''}
+      <a class="btn ${ref ? '' : 'primary'}" href="https://www.youtube.com/results?search_query=${encodeURIComponent(q)}" target="_blank" rel="noopener noreferrer">${ic('search')} Buscar «${esc(q)}» en YouTube</a>
     </div>
     <h3 class="sub">Vídeo de referencia para este ejercicio</h3>
     <div class="muted small" style="margin-bottom:6px">Pega el enlace del tutorial que quieras usar siempre (de YouTube o de cualquier web https). La calidad de los tutoriales varía mucho: elige uno de confianza.</div>

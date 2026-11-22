@@ -83,9 +83,9 @@ function saveBackupFile(d = backupData(), label = '') {
   ui.pendingExport = true;
   showShareResult(blob, `diario-entreno-copia-${todayISO()}${label}.json`, 'Copia de seguridad lista',
     `<div class="muted small">${d.profiles.users.length} usuario${d.profiles.users.length === 1 ? '' : 's'} · ${countSessions(d)} sesiones. Los vídeos no se incluyen.</div>
-     <div class="hint">📱 <b>iPhone:</b> «Compartir o guardar» → <b>Guardar en Archivos</b> → «En mi iPhone».<br>
-     🤖 <b>Android:</b> «Descargar» (queda en la carpeta <b>Descargas</b>).<br>
-     💻 De vez en cuando, pásala también a un ordenador o envíatela por correo: si pierdes el móvil, la copia se pierde con él.</div>`);
+     <div class="hint"><b>iPhone:</b> «Compartir o guardar» → <b>Guardar en Archivos</b> → «En mi iPhone».<br>
+     <b>Android:</b> «Descargar» (queda en la carpeta <b>Descargas</b>).<br>
+     De vez en cuando, pásala también a un ordenador o envíatela por correo: si pierdes el móvil, la copia se pierde con él.</div>`);
 }
 
 /* ---------- Interfaz ---------- */
@@ -102,7 +102,7 @@ function backupReminderHTML() {
   if (total < 3 || (d != null && d <= REMIND_DAYS)) return '';
   if (localBk.snoozeUntil && Date.now() < localBk.snoozeUntil) return '';
   return `<div class="card reminder">
-    <div><b>💾 Guarda una copia de seguridad</b></div>
+    <div><b>${ic('save')} Guarda una copia de seguridad</b></div>
     <div class="muted small" style="margin:4px 0 10px">${d == null ? 'Aún no has guardado ninguna copia fuera de la app.' : `Tu última copia fuera de la app es de hace ${d} días.`}
       Si se borran los datos del navegador o pierdes el móvil, se pierde todo lo registrado.</div>
     <div class="grid2"><button class="primary" data-action="export-all">Guardar copia</button><button class="ghost" data-action="snooze-backup">Más tarde</button></div>
@@ -115,7 +115,7 @@ async function fillSnapList() {
     el.innerHTML = list.length ? list.map((s) => `<div class="snap">
         <div class="spacer"><b>${new Date(s.createdAt).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</b> <span class="tag">${esc(s.reason)}</span>
           <div class="muted small">${s.users.length} usuario${s.users.length === 1 ? '' : 's'} · ${s.sessions} sesiones · ${fmt(s.size / 1024, 0)} KB</div></div>
-        <button class="icon ghost" data-action="snap-save" data-id="${s.id}" aria-label="Guardar esta copia en el móvil">💾</button>
+        <button class="icon ghost" data-action="snap-save" data-id="${s.id}" aria-label="Guardar esta copia en el móvil">${ic('save')}</button>
         <button class="small-btn" data-action="snap-restore" data-id="${s.id}">Restaurar</button>
       </div>`).join('') : '<div class="muted small">Todavía no hay copias automáticas. Se crea una al día en cuanto haya sesiones.</div>';
   } catch (e) { el.innerHTML = '<div class="muted small">Este navegador no permite copias automáticas (IndexedDB no disponible).</div>'; }

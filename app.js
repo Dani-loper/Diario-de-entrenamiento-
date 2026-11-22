@@ -9,6 +9,39 @@ const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.g
 const num = (v) => { if (v === '' || v == null) return null; const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
 const fmt = (n, d = 1) => n == null ? '–' : (Math.round(n * 10 ** d) / 10 ** d).toLocaleString('es-ES');
 const fmtDate = (iso) => new Date(iso + 'T12:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+/* Iconos de línea propios (24×24, trazo de 2 px, color del texto). Sustituyen a los emojis de la interfaz,
+   que se ven distintos en cada sistema. */
+const ICONS = {
+  calendar: '<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/>',
+  chart: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/>',
+  settings: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+  list: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 2.5h6v3H9zM9 11h6M9 15h4"/>',
+  timer: '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M10 2.5h4"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  note: '<path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h5"/>',
+  pin: '<path d="M12 16v6M8 3h8l-1 6 3 4H6l3-4z"/>',
+  play: '<path d="M7 4.5v15l12-7.5z"/>',
+  video: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>',
+  share: '<path d="M12 15V3M7 8l5-5 5 5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/>',
+  download: '<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',
+  upload: '<path d="M12 15V3M7 8l5-5 5 5M4 20h16"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+  refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.5L3 9M3 4v5h5M4 13a8 8 0 0 0 14.5 4.5L21 15M21 20v-5h-5"/>',
+  printer: '<path d="M6 9V3h12v6M6 18H3.5v-8h17v8H18"/><path d="M6 14h12v7H6z"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-10 9"/>',
+  pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  file: '<path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/>',
+  cloud: '<path d="M7 19h10.5a4 4 0 0 0 .4-8A6 6 0 0 0 6.3 9.5 4.8 4.8 0 0 0 7 19z"/>',
+  alert: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/>',
+  save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V3z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+  hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/>',
+};
+const ic = (name, cls = '') => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
 const fmtDur = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
 const fmtSec = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -687,7 +720,7 @@ const GLOSSARY = {
   readiness: ['Energía al empezar (readiness)', `<p>Cómo de preparado te sientes antes de entrenar, de 1 (muy bajo) a 5 (muy alto). Es subjetivo, pero en el análisis de factores se cruza con tu rendimiento real para ver si te sirve como predictor.</p>`],
   templates: ['Tablas de ejercicios', `
     <p>Plantillas de sesión: ejercicios con sus series y lo que hay que hacer en cada una (repeticiones o rango, RIR y %1RM), más un descanso objetivo e indicaciones.</p>
-    <p>Al cargarlas en una sesión, <b>los campos se rellenan</b> con lo prescrito y el peso se calcula con el <b>1RM estimado del atleta</b> (redondeado a 2,5 kg). Cada ejercicio muestra su objetivo 🎯 para comparar.</p>
+    <p>Al cargarlas en una sesión, <b>los campos se rellenan</b> con lo prescrito y el peso se calcula con el <b>1RM estimado del atleta</b> (redondeado a 2,5 kg). Cada ejercicio muestra su objetivo para comparar.</p>
     <p>Las series cargadas son <b>planificadas</b>: no cuentan en volumen, récords ni informes hasta que las marcas con ✓, para que lo planificado no se confunda con lo hecho. Corrige lo que cambie antes de marcarlas.</p>
     <p>El descanso de la tabla es el objetivo del cronómetro; el campo de descanso lo rellenas tú.</p>
     <p>Las tablas son <b>comunes a todos los usuarios</b> del dispositivo y entran en la copia de seguridad.</p>`],
@@ -700,9 +733,9 @@ const GLOSSARY = {
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
     <p>Es un ajuste de cada usuario y <b>no borra datos</b>: al volver a avanzado reaparece todo lo registrado.</p>`],
   rest: ['Descanso entre series', `
-    <p>Tiempo entre el final de una serie y el inicio de la siguiente. Se guarda en el campo <b>«⏱ Descanso»</b> que hay debajo de cada serie, en <b>m:ss</b> (2:30) o en segundos (150).</p>
+    <p>Tiempo entre el final de una serie y el inicio de la siguiente. Se guarda en el campo <b>«Descanso»</b> que hay debajo de cada serie, en <b>m:ss</b> (2:30) o en segundos (150).</p>
     <ul><li><b>A mano:</b> escribe el valor en el campo.</li>
-    <li><b>Con el cronómetro:</b> al marcar la serie como hecha (✓) arranca; pulsa <b>«⏹ Parar»</b> al empezar la siguiente y el campo se rellena con el tiempo transcurrido. <b>✕</b> lo descarta sin escribir nada.</li></ul>
+    <li><b>Con el cronómetro:</b> al marcar la serie como hecha (✓) arranca; pulsa <b>«Parar»</b> al empezar la siguiente y el campo se rellena con el tiempo transcurrido. <b>✕</b> lo descarta sin escribir nada.</li></ul>
     <p>En ambos casos puedes modificarlo cuando quieras. La app no calcula descansos por su cuenta.</p>
     <p>Orientativo: en fuerza con cargas altas suelen recomendarse 2-5 min; en hipertrofia, descansos de al menos 1,5-2 min tienden a dar mejores resultados que los muy cortos.</p>`],
   muscle_volume: ['Volumen por músculo', `
@@ -772,7 +805,7 @@ function sessionCard(s) {
     <div class="stats">
       <div class="stat"><b>${sets}</b><span>series</span></div>
       <div class="stat"><b>${fmt(sessionVolume(s) / 1000, 2)} t</b><span>volumen</span></div>
-      ${s.endedAt ? `<div class="stat"><b>${fmtDur(s.endedAt - s.startedAt)}</b><span>duración</span></div>` : '<div class="stat"><b>⏳</b><span>en curso</span></div>'}
+      ${s.endedAt ? `<div class="stat"><b>${fmtDur(s.endedAt - s.startedAt)}</b><span>duración</span></div>` : `<div class="stat"><b>${ic('hourglass')}</b><span>en curso</span></div>`}
       ${s.srpe ? `<div class="stat"><b>${s.srpe}</b><span>RPE sesión</span></div>` : ''}
       ${s.bodyweight ? `<div class="stat"><b>${fmt(s.bodyweight)} kg</b><span>peso</span></div>` : ''}
     </div>
@@ -828,9 +861,9 @@ function viewCalendar() {
     <h2>${sel === today ? 'Hoy · ' : ''}${fmtDate(sel)}</h2>
     <div class="grid2">
       <button class="primary" data-action="new-session">＋ Nueva sesión</button>
-      <button data-action="repeat-session" ${db.sessions.length ? '' : 'disabled'}>↻ Repetir…</button>
+      <button data-action="repeat-session" ${db.sessions.length ? '' : 'disabled'}>${ic('refresh')} Repetir…</button>
     </div>
-    <button class="block" style="margin-top:8px" data-action="tpl-choose" data-mode="new">📋 Nueva sesión desde una tabla</button>
+    <button class="block" style="margin-top:8px" data-action="tpl-choose" data-mode="new">${ic('list')} Nueva sesión desde una tabla</button>
     <div style="height:12px"></div>`;
   const daySessions = (byDay[sel] || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   html += daySessions.map(sessionCard).join('') || '<div class="muted" style="padding:8px 0 16px">Sin sesiones este día.</div>';
@@ -875,7 +908,7 @@ function viewSession(id) {
 
   s.exercises.forEach((ex, i) => { html += exerciseCard(s, ex, i); });
 
-  html += `<div class="grid2"><button data-action="add-exercise">＋ Añadir ejercicio</button><button data-action="tpl-choose" data-mode="add">📋 Desde tabla</button></div>
+  html += `<div class="grid2"><button data-action="add-exercise">＋ Añadir ejercicio</button><button data-action="tpl-choose" data-mode="add">${ic('list')} Desde tabla</button></div>
     ${s.exercises.length ? sessionSummary(s) : ''}
     <div class="card" style="margin-top:12px">
       <label>Notas finales de la sesión</label>
@@ -1022,7 +1055,7 @@ function exerciseCard(s, ex, i) {
     const restRow = restRowHTML(ex, i, j, fields.length + 3); // serie + campos + ✓ + ⋯
     if (simple) { rows += restRow; return; }
     const drop = setDrop(ex.sets, j);
-    if (drop != null && drop >= db.settings.dropWarn) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="fatigue">⚠ Rendimiento −${fmt(drop, 0)}% frente a tu mejor serie de hoy: posible fatiga acumulada ${info('drop')}</td></tr>`;
+    if (drop != null && drop >= db.settings.dropWarn) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="fatigue">${ic('alert')} Rendimiento −${fmt(drop, 0)}% frente a tu mejor serie de hoy: posible fatiga acumulada ${info('drop')}</td></tr>`;
     const mis = rpeRirMismatch(set);
     if (mis != null) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="mismatch">RPE ${fmt(set.rpe)} y RIR ${fmt(set.rir)} no cuadran (RPE ${fmt(set.rpe)} ≈ RIR ${fmt(10 - set.rpe)}): ${mis > 0 ? 'más esfuerzo global que cercanía al fallo' : 'más cerca del fallo de lo que sentiste'} ${info('intensity')}</td></tr>`;
     rows += restRow; // el descanso va después de los avisos de la serie
@@ -1036,10 +1069,10 @@ function exerciseCard(s, ex, i) {
   return `<div class="card" data-ex="${i}">
     <div class="ex-head">
       <h3><a href="#/exercise/${ex.exerciseId}" style="color:inherit;text-decoration:none">${esc(def.name)}</a></h3>
-      ${simple ? '' : `<button class="icon ghost ${chartOpen ? 'active' : ''}" data-action="toggle-chart" data-i="${i}" aria-label="Gráfica y datos">📈</button>`}
-      <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="-1" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>↑</button>
-      <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="1" aria-label="Bajar" ${i === s.exercises.length - 1 ? 'disabled' : ''}>↓</button>
-      <button class="icon ghost danger" data-action="del-ex" data-i="${i}" aria-label="Quitar ejercicio">🗑</button>
+      ${simple ? '' : `<button class="icon ghost ${chartOpen ? 'active' : ''}" data-action="toggle-chart" data-i="${i}" aria-label="Gráfica y datos">${ic('chart')}</button>`}
+      <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="-1" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>${ic('up')}</button>
+      <button class="icon ghost" data-action="move-ex" data-i="${i}" data-d="1" aria-label="Bajar" ${i === s.exercises.length - 1 ? 'disabled' : ''}>${ic('down')}</button>
+      <button class="icon ghost danger" data-action="del-ex" data-i="${i}" aria-label="Quitar ejercicio">${ic('trash')}</button>
     </div>
     ${simple ? '' : `<div class="exstats">
       <div><b>${fmtM(st.best, m)}</b> ${delta(st.best, pst?.best)}<span>${m.label} hoy ${st.mode === 'wr' ? info('e1rm') : ''}</span></div>
@@ -1048,7 +1081,7 @@ function exerciseCard(s, ex, i) {
       <div><b>${fmtM(prevBest, m)}</b><span>récord previo</span></div>
     </div>`}
     ${prev ? `<div class="prev">Anterior (${fmtDate(prev.sess.date)}): ${esc(setsText(prev.entry, prev.entry.sets))}${prev.entry.equipment.length ? ' · ' + esc(prev.entry.equipment.map((x) => eqById(x)?.name).filter(Boolean).join(', ')) : ''}</div>
-      ${prev.entry.notes ? `<div class="prev">📝 ${esc(prev.entry.notes)}</div>` : ''}` : '<div class="prev">Primera vez que registras este ejercicio.</div>'}
+      ${prev.entry.notes ? `<div class="prev">${ic('note')} ${esc(prev.entry.notes)}</div>` : ''}` : '<div class="prev">Primera vez que registras este ejercicio.</div>'}
     ${ex.tplName ? targetLineHTML(ex, def) : ''}
     ${chartOpen && !simple ? `<div class="insight">
       ${lastPts.length >= 2 ? `<div class="muted small">${m.label} por sesión (últimas ${lastPts.length})</div>${chart(lastPts)}` : '<div class="muted small">La gráfica aparece a partir de 2 sesiones con datos.</div>'}
@@ -1063,8 +1096,8 @@ function exerciseCard(s, ex, i) {
     <div class="chips" style="margin-top:8px">
       ${simple ? '' : (open ? db.equipment : eqSel).map((e) => `<button class="chip ${ex.equipment.includes(e.id) ? 'on' : ''}" data-action="toggle-eq" data-i="${i}" data-eq="${e.id}">${esc(e.name)}</button>`).join('')}
       ${simple ? '' : `<button class="chip" data-action="open-eq" data-i="${i}">${open ? 'Listo' : '＋ Material'}</button>`}
-      ${simple || open ? '' : `<button class="chip" data-action="rest-target" data-id="${def.id}" title="Descanso objetivo de este ejercicio">⏱ ${fmtSec(ex.restTarget ?? restTarget(def))}${ex.restTarget != null ? ' (tabla)' : def.rest != null ? '' : ' (general)'}</button>`}
-      ${open ? '' : `<button class="chip" data-action="yt" data-id="${def.id}">▶ Técnica${def.refUrl ? ' ★' : ''}</button>`}
+      ${simple || open ? '' : `<button class="chip" data-action="rest-target" data-id="${def.id}" title="Descanso objetivo de este ejercicio">${ic('timer')} ${fmtSec(ex.restTarget ?? restTarget(def))}${ex.restTarget != null ? ' (tabla)' : def.rest != null ? '' : ' (general)'}</button>`}
+      ${open ? '' : `<button class="chip" data-action="yt" data-id="${def.id}">${ic('play')} Técnica${def.refUrl ? ' ★' : ''}</button>`}
     </div>
     ${simple ? '' : `<div class="row" style="margin-top:8px"><button class="chip" data-action="cycle-intensity" data-i="${i}">Intensidad: <b>${INTENSITY[intensityOf(def)]}</b> ⇄</button>${info('intensity')}</div>`}
     <table class="sets">
@@ -1084,12 +1117,12 @@ function viewExercises() {
   for (const s of db.sessions) for (const e of s.exercises) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
   let html = `<div class="row"><h1 class="spacer">Progreso</h1><button data-action="exercise-form">＋ Nuevo ejercicio</button></div>
     ${isSimple() ? '' : `<a class="card list-item" href="#/analysis" style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:1.4rem">🔬</span><span class="spacer"><b>Análisis</b>
+      <span class="lead-ic">${ic('pulse')}</span><span class="spacer"><b>Análisis</b>
       <div class="muted small">Factores y rendimiento · índice de estrés semanal · intensidad relativa</div></span><span>›</span></a>`}
     <a class="card list-item" href="#/report" style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:1.4rem">📄</span><span class="spacer"><b>Informe de evolución (PDF)</b>
+      <span class="lead-ic">${ic('file')}</span><span class="spacer"><b>Informe de evolución (PDF)</b>
       <div class="muted small">1, 3, 6 o 12 meses · evolución por ejercicio, carga, reparto y bienestar</div></span><span>›</span></a>
-    ${db.exercises.some((x) => x.reviewMuscles) ? `<div class="card reminder"><b>⚠ Revisa los músculos de ${db.exercises.filter((x) => x.reviewMuscles).length} ejercicio(s) propio(s)</b>
+    ${db.exercises.some((x) => x.reviewMuscles) ? `<div class="card reminder"><b>${ic('alert')} Revisa los músculos de ${db.exercises.filter((x) => x.reviewMuscles).length} ejercicio(s) propio(s)</b>
       <div class="muted small" style="margin:4px 0 8px">Se les asignó un músculo principal a partir de la categoría antigua y no tienen secundarios.</div>
       <button class="primary block" data-action="review-muscles">Revisar</button></div>` : ''}
     <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">
@@ -1124,8 +1157,8 @@ function viewExercise(id) {
   }
 
   let html = `<div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a><span class="spacer"></span>
-      <button class="ghost" data-action="yt" data-id="${def.id}">▶ Técnica</button>
-      <button class="ghost" data-action="exercise-form" data-id="${def.id}">✎ Editar</button></div>
+      <button class="ghost" data-action="yt" data-id="${def.id}">${ic('play')} Técnica</button>
+      <button class="ghost" data-action="exercise-form" data-id="${def.id}">${ic('edit')} Editar</button></div>
     <h1>${esc(def.name)}</h1>
     <div class="muted small">${esc(muscleDesc(def))} · ${esc(MODES[def.mode]?.label)}</div>`;
   if (usedEq.length) {
@@ -1159,7 +1192,7 @@ function viewExercise(id) {
       <div class="row"><b>${fmtDate(h.sess.date)}</b><span class="spacer"></span>${st.best ? `<span class="muted small">${m.label} ${fmtM(st.best, m)}</span>` : ''}</div>
       <div>${esc(setsText(h.entry, h.entry.sets))}</div>
       ${h.entry.equipment.length ? `<div>${h.entry.equipment.map((x) => eqById(x)).filter(Boolean).map((e) => `<span class="tag">${esc(e.name)}</span>`).join('')}</div>` : ''}
-      ${h.entry.notes ? `<div class="muted small" style="margin-top:4px">📝 ${esc(h.entry.notes)}</div>` : ''}
+      ${h.entry.notes ? `<div class="muted small" style="margin-top:4px">${ic('note')} ${esc(h.entry.notes)}</div>` : ''}
     </a>`;
   }
   return html;
@@ -1194,7 +1227,7 @@ function viewSettings() {
     <div class="card">
       <label>Descanso por defecto entre series (segundos)</label>
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
-      <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «⏱ Descanso» bajo cada serie, o pulsa <b>«⏹ Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (⏱ en la tarjeta del ejercicio).'}</div>
+      <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
     </div>
     ${isSimple() ? '' : `<h2>Intensidad y fatiga</h2>
     <div class="card">
@@ -1229,12 +1262,12 @@ function viewSettings() {
     <div class="card">
       <div class="muted small" style="margin-bottom:8px">Tus datos se guardan solo en este dispositivo. Guarda una copia en los archivos del móvil con frecuencia y, de vez en cuando, pásala a un ordenador: si se borran los datos del navegador o pierdes el móvil, se pierde todo.</div>
       ${window.backupStatusHTML ? backupStatusHTML() : ''}
-      <button class="primary block" data-action="export-all" style="margin-bottom:8px">💾 Guardar copia en el móvil (todos los usuarios)</button>
+      <button class="primary block" data-action="export-all" style="margin-bottom:8px">${ic('save')} Guardar copia en el móvil (todos los usuarios)</button>
       <div class="muted small" style="margin-bottom:6px">Solo ${esc(activeUser().name)}:</div>
       <div class="grid2">
-        <button data-action="export-json">⬇ Exportar JSON</button>
-        <button data-action="import-json">⬆ Importar JSON</button>
-        <button data-action="export-csv">⬇ Exportar CSV</button>
+        <button data-action="export-json">${ic('download')} Exportar JSON</button>
+        <button data-action="import-json">${ic('upload')} Importar JSON</button>
+        <button data-action="export-csv">${ic('download')} Exportar CSV</button>
         <button class="danger" data-action="wipe">Borrar sus datos</button>
       </div>
       <div class="muted small" style="margin-top:6px">«Importar JSON» acepta una copia de un usuario (sustituye al activo) o una copia de todos (sustituye a todos).</div>
@@ -1340,8 +1373,8 @@ function viewReport() {
     <label>Comentarios del entrenador (aparecen en el informe)</label>
     <textarea data-report-note placeholder="Valoración del periodo, objetivos para el siguiente bloque…">${esc(db.reportNote || '')}</textarea>
     <div class="grid2" style="margin:12px 0">
-      <button class="primary" data-action="r-pdf" ${cur.n ? '' : 'disabled'}>📄 Generar PDF</button>
-      <button data-action="r-print" ${cur.n ? '' : 'disabled'}>🖨 Imprimir</button>
+      <button class="primary" data-action="r-pdf" ${cur.n ? '' : 'disabled'}>${ic('file')} Generar PDF</button>
+      <button data-action="r-print" ${cur.n ? '' : 'disabled'}>${ic('printer')} Imprimir</button>
     </div>
     <div class="muted small" style="margin-bottom:16px">«Generar PDF» crea el archivo en el propio móvil (también en iPhone) y te deja compartirlo o guardarlo. «Imprimir» usa el diálogo del sistema.</div>
   </div>`;
@@ -1354,7 +1387,7 @@ function viewReport() {
     <header class="r-head">
       <div class="row">${avatar(u, 48)}<div class="spacer"><div class="r-kicker">Informe de evolución · ${PERIODS[months]}</div>
         <h1 style="margin:2px 0">${esc(u.name)}</h1>
-        ${u.goal ? `<div class="muted">🎯 ${esc(u.goal)}</div>` : ''}</div></div>
+        ${u.goal ? `<div class="muted">${ic('target')} ${esc(u.goal)}</div>` : ''}</div></div>
       <div class="muted small" style="margin-top:8px">Del ${fmtLong(start)} al ${fmtLong(end)} · generado el ${fmtLong(todayISO())}</div>
     </header>
 
@@ -1460,12 +1493,12 @@ function viewUsers() {
     html += `<div class="card ${active ? 'active-user' : ''}">
       <div class="row">${avatar(u, 44)}
         <div class="spacer"><b>${esc(u.name)}</b> ${active ? '<span class="tag on">Activo</span>' : ''}
-          ${u.goal ? `<div class="muted small">🎯 ${esc(u.goal)}</div>` : ''}
+          ${u.goal ? `<div class="muted small">${ic('target')} ${esc(u.goal)}</div>` : ''}
           <div class="muted small">${sess.length} ${sess.length === 1 ? 'sesión' : 'sesiones'}${last ? ` · última: ${fmtDate(last)}` : ''}</div></div>
-        <button class="icon ghost" data-action="user-form" data-id="${u.id}" aria-label="Editar ${esc(u.name)}">✎</button>
-        ${profiles.users.length > 1 ? `<button class="icon ghost danger" data-action="user-delete" data-id="${u.id}" aria-label="Borrar ${esc(u.name)}">🗑</button>` : ''}
+        <button class="icon ghost" data-action="user-form" data-id="${u.id}" aria-label="Editar ${esc(u.name)}">${ic('edit')}</button>
+        ${profiles.users.length > 1 ? `<button class="icon ghost danger" data-action="user-delete" data-id="${u.id}" aria-label="Borrar ${esc(u.name)}">${ic('trash')}</button>` : ''}
       </div>
-      ${u.notes ? `<div class="muted small" style="margin-top:6px">📝 ${esc(u.notes)}</div>` : ''}
+      ${u.notes ? `<div class="muted small" style="margin-top:6px">${ic('note')} ${esc(u.notes)}</div>` : ''}
       ${active ? '' : `<button class="block" style="margin-top:10px" data-action="user-switch" data-id="${u.id}">Cambiar a ${esc(u.name)}</button>`}
     </div>`;
   }
@@ -1598,8 +1631,8 @@ function targetLineHTML(ex, def) {
   if (!parts.length) return '';
   const noE1 = def.mode === 'wr' && ex.sets.some((x) => x.target?.pct && x.w == null);
   const pending = ex.sets.filter((x) => x.target && !x.done).length;
-  return `<div class="target">🎯 <b>${esc(ex.tplName)}</b>: ${parts.map(esc).join(' · ')}${ex.restTarget != null ? ` · ⏱ ${fmtSec(ex.restTarget)}` : ''}
-    ${ex.tplNote ? `<br>📌 ${esc(ex.tplNote)}` : ''}
+  return `<div class="target">${ic('target')} <b>${esc(ex.tplName)}</b>: ${parts.map(esc).join(' · ')}${ex.restTarget != null ? ` · ${ic('timer')} ${fmtSec(ex.restTarget)}` : ''}
+    ${ex.tplNote ? `<br>${ic('pin')} ${esc(ex.tplNote)}` : ''}
     ${noE1 ? '<br><span class="mismatch">Sin 1RM estimado de este ejercicio: escribe el peso.</span>' : ''}
     ${pending ? `<br><span class="muted">${pending} serie${pending === 1 ? '' : 's'} planificada${pending === 1 ? '' : 's'}: cuenta${pending === 1 ? '' : 'n'} al marcar ✓.</span>` : ''}
     ${ex.sets.some((x) => x.target?.auto) && !simple ? `<br><span class="muted">* % deducido de reps + RIR ${info('tpl_pct')}</span>` : ''}</div>`;
@@ -1615,7 +1648,7 @@ function restRowHTML(ex, i, j, colspan) {
   const set = ex.sets[j], last = j === ex.sets.length - 1;
   const running = ui.rest && ui.rest.sid === currentSession()?.id && ui.rest.i === i && ui.rest.j === j;
   if (last && set.rest == null && !running) return '';
-  return `<tr class="rest-row"><td colspan="${colspan}"><label class="rest-field">⏱ Descanso
+  return `<tr class="rest-row"><td colspan="${colspan}"><label class="rest-field">${ic('timer')} Descanso
       <input data-rest="${i}:${j}" inputmode="numeric" placeholder="m:ss" value="${set.rest != null ? fmtSec(set.rest) : ''}" aria-label="Descanso después de la serie ${j + 1} (m:ss)">
       ${running ? '<span class="rest-live" id="rest-live">en marcha…</span>' : ''}</label></td></tr>`;
 }
@@ -1623,7 +1656,7 @@ const fileSafe = (t) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''
 // Exportar: ofrece «Compartir o guardar» (en iPhone, Guardar en Archivos) y «Descargar».
 function download(name, text, type) {
   showShareResult(new Blob([text], { type }), name, 'Archivo listo',
-    '<div class="hint">📱 <b>iPhone:</b> «Compartir o guardar» → Guardar en Archivos. 🤖 <b>Android:</b> «Descargar» (carpeta Descargas).</div>');
+    '<div class="hint"><b>iPhone:</b> «Compartir o guardar» → Guardar en Archivos. <b>Android:</b> «Descargar» (carpeta Descargas).</div>');
 }
 function toCSV() {
   const rows = [['fecha', 'sesion', 'peso_corporal', 'energia', 'sueno', 'estres', 'factores', 'ejercicio', 'serie', 'tipo', 'kg', 'reps', 'rpe', 'rir', 'segundos', 'metros', 'hecha', 'descanso_despues_s', 'pct_1rm', 'e1rm', 'indice_estres', 'material', 'notas_ejercicio']];
@@ -1646,7 +1679,7 @@ const actions = {
   'session-menu': () => openModal(`<div class="row"><h3 class="spacer">Sesión</h3><button class="ghost" data-action="close-modal">✕</button></div>
       <div style="display:grid;gap:8px;margin-top:10px">
         <button data-action="duplicate-session">Duplicar como nueva sesión de hoy</button>
-        <button data-action="tpl-from-session">📋 Guardar como tabla</button>
+        <button data-action="tpl-from-session">${ic('list')} Guardar como tabla</button>
         <button class="danger" data-action="delete-session">Borrar sesión</button>
       </div>`),
   'duplicate-session': () => { const s = currentSession(); closeModal(); newSession(s.id, todayISO()); },
@@ -1732,7 +1765,7 @@ const actions = {
     if (!set) return;
     set.rest = Math.round((Date.now() - r.start) / 1000);
     save(true); if (currentSession()?.id === s.id) rerender();
-    toast(`⏱ Descanso ${fmtSec(set.rest)} guardado · puedes cambiarlo en la serie`);
+    toast(`Descanso ${fmtSec(set.rest)} guardado · puedes cambiarlo en la serie`);
   },
   'set-level': (el) => {
     db.settings.level = el.dataset.l;
@@ -1906,8 +1939,8 @@ const actions = {
     const used = new Set(db.sessions.flatMap((s) => s.exercises.map((e) => e.exerciseId)));
     openModal(`<div class="row"><h3 class="spacer">Catálogo de ejercicios</h3><button class="ghost" data-action="close-modal">✕</button></div>
       <div class="picker-list">${[...db.exercises].sort((a, b) => a.name.localeCompare(b.name)).map((e) => `
-        <div class="row" style="margin-bottom:6px"><span class="spacer">${esc(e.name)} <span class="muted small">· ${esc(muscleLabel(e))}${e.reviewMuscles ? ' ⚠' : ''}</span></span>
-          <button class="icon ghost" data-action="rename-exercise" data-id="${e.id}" aria-label="Renombrar">✎</button>
+        <div class="row" style="margin-bottom:6px"><span class="spacer">${esc(e.name)} <span class="muted small">· ${esc(muscleLabel(e))}${e.reviewMuscles ? ' ' + ic('alert') : ''}</span></span>
+          <button class="icon ghost" data-action="rename-exercise" data-id="${e.id}" aria-label="Renombrar">${ic('edit')}</button>
           ${used.has(e.id) ? '' : `<button class="icon ghost danger" data-action="del-exercise" data-id="${e.id}" aria-label="Borrar">✕</button>`}
         </div>`).join('')}</div>
       <button class="primary block" data-action="exercise-form">＋ Nuevo ejercicio</button>`);
@@ -1959,10 +1992,10 @@ const actions = {
     openModal(`<div class="row"><h3 class="spacer">Compartir serie</h3><button class="ghost" data-action="close-modal" aria-label="Cerrar">✕</button></div>
       <pre class="share-preview">${esc(setText(setInfo(sess, i, j)))}</pre>
       <div style="display:grid;gap:8px">
-        ${set.videoId ? `<button class="primary" data-action="share-video" data-i="${i}" data-j="${j}" ${canVideo ? '' : 'disabled'}>🎬 Vídeo con los datos encima</button>
+        ${set.videoId ? `<button class="primary" data-action="share-video" data-i="${i}" data-j="${j}" ${canVideo ? '' : 'disabled'}>${ic('video')} Vídeo con los datos encima</button>
           ${canVideo ? '<div class="muted small">Se re-codifica en el móvil: tarda lo mismo que dura el vídeo.</div>' : '<div class="muted small">Este navegador no puede generar vídeo; usa la imagen.</div>'}` : ''}
-        <button class="${set.videoId ? '' : 'primary'}" data-action="share-image" data-i="${i}" data-j="${j}">🖼 Imagen con los datos${set.videoId ? ' (fotograma del vídeo)' : ''}</button>
-        <button data-action="share-text" data-i="${i}" data-j="${j}">📝 Solo texto</button>
+        <button class="${set.videoId ? '' : 'primary'}" data-action="share-image" data-i="${i}" data-j="${j}">${ic('image')} Imagen con los datos${set.videoId ? ' (fotograma del vídeo)' : ''}</button>
+        <button data-action="share-text" data-i="${i}" data-j="${j}">${ic('note')} Solo texto</button>
       </div>
       <div class="muted small" style="margin-top:10px">No se incluye el nombre del atleta. Si compartes vídeos de otra persona, hazlo con su permiso.</div>`);
   },
