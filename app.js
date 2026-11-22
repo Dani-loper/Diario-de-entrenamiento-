@@ -63,7 +63,7 @@ const SET_TYPES = { E: 'Efectiva', C: 'Calentamiento', D: 'Drop set', F: 'Al fal
 const DEFAULT_EXERCISES = [ // [nombre, modo]; músculos en DEFAULT_MUSCLES
   ['Sentadilla trasera'], ['Sentadilla frontal'], ['Peso muerto'], ['Peso muerto rumano'], ['Prensa'], ['Zancadas'], ['Hip thrust'],
   ['Curl femoral'], ['Extensión de cuádriceps'], ['Elevación de gemelos'], ['Press banca'], ['Press inclinado'], ['Press militar'], ['Fondos', 'bw'], ['Aperturas'],
-  ['Dominadas', 'bw'], ['Remo con barra'], ['Remo con mancuerna'], ['Jalón al pecho'], ['Face pull'],
+  ['Dominadas', 'bw'], ['Remo con barra'], ['Remo con mancuerna'], ['Jalón al pecho'], ['Face pull'], ['Elevaciones laterales'], ['Pájaros'],
   ['Arrancada'], ['Dos tiempos'], ['Cargada de potencia'], ['Arrancada de potencia'], ['Jerk'], ['Tirón de arrancada'],
   ['Plancha', 'time'], ['Rueda abdominal', 'bw'], ['Elevación de piernas', 'bw'], ['Curl de bíceps'], ['Extensión de tríceps'],
   ['Carrera', 'dist'], ['Remo ergómetro', 'dist'], ['Bicicleta', 'dist'], ['Comba', 'time'],
@@ -75,7 +75,8 @@ const DEFAULT_EQUIPMENT = ['Straps', 'Zapatillas de halterofilia', 'Cinturón', 
  * Volumen por músculo con conteo fraccionado: cada serie efectiva cuenta 1 para el principal y 0,5 para
  * cada secundario (Pelland et al., 2024: el método que mejor predijo la hipertrofia). */
 const MUSCLES = {
-  pectoral: 'Pectoral', espalda: 'Espalda', hombros: 'Hombros', biceps: 'Bíceps', triceps: 'Tríceps',
+  pectoral: 'Pectoral', espalda: 'Espalda', delt_ant: 'Deltoides anterior', delt_lat: 'Deltoides lateral', delt_post: 'Deltoides posterior',
+  biceps: 'Bíceps', triceps: 'Tríceps',
   abdomen: 'Abdomen', gluteos: 'Glúteos', cuadriceps: 'Cuádriceps', femoral: 'Femoral', gemelos: 'Gemelos',
 };
 const MUSCLE_KEYS = Object.keys(MUSCLES);
@@ -107,13 +108,14 @@ const DEFAULT_MUSCLES = {
   'Peso muerto': ['gluteos', ['femoral', 'espalda', 'cuadriceps']], 'Peso muerto rumano': ['femoral', ['gluteos', 'espalda']],
   'Prensa': ['cuadriceps', ['gluteos']], 'Zancadas': ['cuadriceps', ['gluteos', 'femoral']], 'Hip thrust': ['gluteos', ['femoral']],
   'Curl femoral': ['femoral', ['gemelos']], 'Extensión de cuádriceps': ['cuadriceps', []], 'Elevación de gemelos': ['gemelos', []],
-  'Press banca': ['pectoral', ['triceps', 'hombros']], 'Press inclinado': ['pectoral', ['hombros', 'triceps']], 'Press militar': ['hombros', ['triceps']],
-  'Fondos': ['pectoral', ['triceps', 'hombros']], 'Aperturas': ['pectoral', ['hombros']],
-  'Dominadas': ['espalda', ['biceps']], 'Remo con barra': ['espalda', ['biceps', 'hombros']], 'Remo con mancuerna': ['espalda', ['biceps', 'hombros']],
-  'Jalón al pecho': ['espalda', ['biceps']], 'Face pull': ['hombros', ['espalda']],
-  'Arrancada': ['cuadriceps', ['gluteos', 'espalda', 'hombros', 'femoral']], 'Dos tiempos': ['cuadriceps', ['gluteos', 'espalda', 'hombros', 'triceps']],
-  'Cargada de potencia': ['cuadriceps', ['gluteos', 'espalda', 'femoral']], 'Arrancada de potencia': ['cuadriceps', ['gluteos', 'espalda', 'hombros']],
-  'Jerk': ['hombros', ['triceps', 'cuadriceps']], 'Tirón de arrancada': ['espalda', ['gluteos', 'femoral', 'cuadriceps']],
+  'Press banca': ['pectoral', ['triceps', 'delt_ant']], 'Press inclinado': ['pectoral', ['delt_ant', 'triceps']], 'Press militar': ['delt_ant', ['delt_lat', 'triceps']],
+  'Fondos': ['pectoral', ['triceps', 'delt_ant']], 'Aperturas': ['pectoral', ['delt_ant']],
+  'Dominadas': ['espalda', ['biceps']], 'Remo con barra': ['espalda', ['biceps', 'delt_post']], 'Remo con mancuerna': ['espalda', ['biceps', 'delt_post']],
+  'Jalón al pecho': ['espalda', ['biceps']], 'Face pull': ['delt_post', ['espalda']],
+  'Elevaciones laterales': ['delt_lat', []], 'Pájaros': ['delt_post', ['espalda']],
+  'Arrancada': ['cuadriceps', ['gluteos', 'espalda', 'delt_ant', 'femoral']], 'Dos tiempos': ['cuadriceps', ['gluteos', 'espalda', 'delt_ant', 'triceps']],
+  'Cargada de potencia': ['cuadriceps', ['gluteos', 'espalda', 'femoral']], 'Arrancada de potencia': ['cuadriceps', ['gluteos', 'espalda', 'delt_ant']],
+  'Jerk': ['delt_ant', ['triceps', 'cuadriceps']], 'Tirón de arrancada': ['espalda', ['gluteos', 'femoral', 'cuadriceps']],
   'Plancha': ['abdomen', []], 'Rueda abdominal': ['abdomen', ['espalda']], 'Elevación de piernas': ['abdomen', []],
   'Curl de bíceps': ['biceps', []], 'Extensión de tríceps': ['triceps', []],
   'Carrera': [null, []], 'Remo ergómetro': [null, []], 'Bicicleta': [null, []], 'Comba': [null, []],
@@ -135,6 +137,30 @@ function migrateMuscles(d) {
   if (migrated && !d.exercises.some((e) => e.name.trim().toLowerCase() === 'elevación de gemelos')) {
     d.exercises.push({ id: uid(), name: 'Elevación de gemelos', mode: 'wr', primary: 'gemelos', secondary: [] });
   }
+  return migrateDelts(d);
+}
+/* El antiguo grupo «hombros» se divide en deltoides anterior, lateral y posterior.
+ * Ejercicios por defecto: el deltoides que les corresponde. Propios: se deduce por el nombre y se marcan para revisar. */
+const deltFor = (name) => /lateral/i.test(name) ? 'delt_lat'
+  : /face ?pull|p[aá]jaro|posterior|vuelo|remo|reverse|invertid|facepull/i.test(name) ? 'delt_post' : 'delt_ant';
+function migrateDelts(d) {
+  if (d.musclesV >= 2) return d;
+  const swap = (m, e) => {
+    if (m !== 'hombros') return m;
+    const def = DEFAULT_MUSCLES[e.name];
+    return def ? [def[0], ...def[1]].find((x) => String(x).startsWith('delt_')) || deltFor(e.name) : deltFor(e.name);
+  };
+  for (const e of d.exercises || []) {
+    if (e.primary !== 'hombros' && !(e.secondary || []).includes('hombros')) continue;
+    if (!DEFAULT_MUSCLES[e.name]) e.reviewMuscles = true;
+    e.primary = swap(e.primary, e);
+    e.secondary = [...new Set((e.secondary || []).map((m) => swap(m, e)))].filter((m) => m !== e.primary);
+  }
+  for (const n of ['Elevaciones laterales', 'Pájaros']) {
+    if (!(d.exercises || []).some((e) => e.name.trim().toLowerCase() === n.toLowerCase())) d.exercises.push({ id: uid(), name: n, mode: 'wr', primary: DEFAULT_MUSCLES[n][0], secondary: [...DEFAULT_MUSCLES[n][1]] });
+  }
+  if (d.settings?.landmarks?.hombros) { d.settings.landmarks.delt_lat = d.settings.landmarks.hombros; delete d.settings.landmarks.hombros; }
+  d.musclesV = 2;
   return d;
 }
 
@@ -153,7 +179,8 @@ const LIMB_BASE = [ // lado izquierdo; se refleja
 ];
 const FRONT = { // [músculo, forma del lado izquierdo, ¿reflejar?]
   shapes: [
-    ['hombros', '<ellipse cx="62" cy="78" rx="12" ry="11"/>', true],
+    ['delt_lat', '<ellipse cx="53" cy="80" rx="6" ry="10"/>', true],
+    ['delt_ant', '<ellipse cx="65" cy="79" rx="8" ry="10"/>', true],
     ['pectoral', '<path d="M99 70L76 72Q67 84 71 100Q85 108 99 103Z"/>', true],
     ['biceps', '<ellipse cx="57" cy="108" rx="7.5" ry="18"/>', true],
     ['abdomen', '<path d="M86 108H114L116 168Q100 180 84 168Z"/>', false],
@@ -166,7 +193,8 @@ const BACK = {
     ['espalda', '<path d="M100 50L82 66L100 112L118 66Z"/>', false], // trapecio
     ['espalda', '<path d="M75 82Q67 112 80 150L98 140V108L84 80Z"/>', true], // dorsal
     ['espalda', '<path d="M93 114H107V170H93Z"/>', false], // lumbares
-    ['hombros', '<ellipse cx="62" cy="78" rx="12" ry="11"/>', true],
+    ['delt_lat', '<ellipse cx="53" cy="80" rx="6" ry="10"/>', true],
+    ['delt_post', '<ellipse cx="65" cy="79" rx="8" ry="10"/>', true],
     ['triceps', '<ellipse cx="57" cy="108" rx="7.5" ry="18"/>', true],
     ['gluteos', '<ellipse cx="86" cy="196" rx="15" ry="14"/>', true],
     ['femoral', '<path d="M75 214Q72 244 78 268Q87 274 95 268Q98 242 97 216Z"/>', true],
@@ -196,7 +224,7 @@ function bodyMapHTML(vals, { steps = [2, 4, 6, 8], unit = 'series' } = {}) {
 /* ---------- Persistencia ---------- */
 function seed() {
   return {
-    version: 1,
+    version: 1, musclesV: 2,
     exercises: DEFAULT_EXERCISES.map(([name, mode]) => ({ id: uid(), name, mode: mode || 'wr', primary: DEFAULT_MUSCLES[name][0], secondary: [...DEFAULT_MUSCLES[name][1]] })),
     equipment: DEFAULT_EQUIPMENT.map((name) => ({ id: uid(), name })),
     sessions: [],
@@ -811,7 +839,7 @@ const GLOSSARY = {
     <p>Orientativo: en fuerza con cargas altas suelen recomendarse 2-5 min; en hipertrofia, descansos de al menos 1,5-2 min tienden a dar mejores resultados que los muy cortos.</p>`],
   muscle_volume: ['Volumen por músculo', `
     <p>Cada ejercicio tiene un <b>músculo principal</b> y, opcionalmente, <b>secundarios</b>. Cada serie efectiva cuenta <b>1</b> para el principal y <b>0,5</b> para cada secundario (conteo fraccionado).</p>
-    <p class="formula">4 series de press banca → pectoral 4 · tríceps 2 · hombros 2</p>
+    <p class="formula">4 series de press banca → pectoral 4 · tríceps 2 · deltoides anterior 2</p>
     <p>En el metaanálisis de Pelland et al. (2024), este conteo fue el que mejor predijo la hipertrofia, frente a contar solo el principal o contar los secundarios como series completas.</p>
     <p>En sesiones con índice de estrés, se reparte el IE de cada serie con los mismos pesos.</p>
     <p><b>No se usan kilos</b>: 200 kg en prensa y 20 kg en curl no son comparables entre músculos.</p>
@@ -1198,7 +1226,7 @@ function viewExercises() {
       <span class="lead-ic">${ic('file')}</span><span class="spacer"><b>Informe de evolución (PDF)</b>
       <div class="muted small">1, 3, 6 o 12 meses · evolución por ejercicio, carga, reparto y bienestar</div></span><span>›</span></a>
     ${db.exercises.some((x) => x.reviewMuscles) ? `<div class="card reminder"><b>${ic('alert')} Revisa los músculos de ${db.exercises.filter((x) => x.reviewMuscles).length} ejercicio(s) propio(s)</b>
-      <div class="muted small" style="margin:4px 0 8px">Se les asignó un músculo principal a partir de la categoría antigua y no tienen secundarios.</div>
+      <div class="muted small" style="margin:4px 0 8px">Sus músculos se asignaron automáticamente (desde las categorías antiguas o al dividir «Hombros» en deltoides anterior, lateral y posterior).</div>
       <button class="primary block" data-action="review-muscles">Revisar</button></div>` : ''}
     ${window.exercisesHeaderHTML ? exercisesHeaderHTML() : ''}
     <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">

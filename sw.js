@@ -1,5 +1,5 @@
 // Caché del "app shell" para que funcione sin conexión (el gimnasio suele tener mala cobertura).
-const CACHE = 'diario-v22';
+const CACHE = 'diario-v23';
 const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'pdf.js', 'media.js', 'cloud.js', 'backup.js', 'templates.js', 'records.js', 'progress.js', 'daily.js', 'config.js', 'vendor/jspdf.umd.min.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {

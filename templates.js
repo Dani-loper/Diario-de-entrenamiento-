@@ -31,7 +31,9 @@ const tplSetPct = (ts) => ts.pct != null ? ts.pct : (ts.type !== 'C' && ts.rir !
 function exerciseFromTemplate(te) {
   let def = db.exercises.find((e) => norm(e.name) === norm(te.name));
   if (!def) {
-    def = { id: uid(), name: te.name, mode: te.mode || 'wr', primary: te.primary ?? null, secondary: [...(te.secondary || [])] };
+    // Tablas guardadas antes de dividir «Hombros» en tres deltoides.
+    const fix = (m) => m === 'hombros' ? (DEFAULT_MUSCLES[te.name] ? [DEFAULT_MUSCLES[te.name][0], ...DEFAULT_MUSCLES[te.name][1]].find((x) => String(x).startsWith('delt_')) : null) || deltFor(te.name) : m;
+    def = { id: uid(), name: te.name, mode: te.mode || 'wr', primary: fix(te.primary ?? null), secondary: [...new Set((te.secondary || []).map(fix))] };
     db.exercises.push(def);
   }
   return def;

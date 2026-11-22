@@ -40,7 +40,7 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
 - **Factores y rendimiento** (Progreso → 🔬): rendimiento relativo de cada sesión frente a la mediana de ±6 semanas de cada ejercicio, comparado por factor marcado, sueño, energía y estrés, con un criterio de ±2 errores estándar.
 - **Ejercicios manuales**: crear/editar desde Progreso o Ajustes, además del catálogo por defecto.
 - **Sesiones**: fecha, nombre, peso corporal, energía (1-5), horas de sueño, notas, RPE de sesión y duración automática.
-- **Ejercicios** con catálogo editable. Cada ejercicio tiene un **músculo principal** (pectoral, espalda, hombros, bíceps, tríceps, abdomen, glúteos, cuádriceps, femoral, gemelos, o ninguno en cardio) y **varios secundarios opcionales**. Cuatro tipos de registro: peso×reps, peso corporal (+lastre), tiempo y distancia.
+- **Ejercicios** con catálogo editable. Cada ejercicio tiene un **músculo principal** (pectoral, espalda, deltoides anterior, lateral y posterior, bíceps, tríceps, abdomen, glúteos, cuádriceps, femoral, gemelos, o ninguno en cardio) y **varios secundarios opcionales**. Cuatro tipos de registro: peso×reps, peso corporal (+lastre), tiempo y distancia.
 - **Figura del cuerpo** (frontal y posterior) coloreada según el volumen por músculo, en el resumen de cada sesión y en la carga semanal. Conteo fraccionado: cada serie cuenta 1 para el principal y 0,5 para cada secundario (Pelland et al., 2024); en sesiones con índice de estrés se reparte el IE con los mismos pesos.
 - **Series**: kg, reps, RPE (6–10), tipo (efectiva, calentamiento, drop set, al fallo) y marca de hecha.
 - **Material por ejercicio** (straps, zapatillas de halterofilia, cinturón, rodilleras…), editable en Ajustes.
