@@ -57,7 +57,8 @@ const suggestPlaceholder = (s, i, j, f = 'w') => { const g = suggestFor(s, i, j)
 // Índice de la siguiente serie pendiente con peso (o sugerencia): ahí va el botón de calentamiento.
 function nextPendingSet(s, i) {
   const ex = s.exercises[i], def = exById(ex.exerciseId);
-  if (!def || def.mode !== 'wr') return -1;
+  // Solo en multiarticulares (sentadilla, press, peso muerto…): en aislamiento no suele hacer falta rampa ni discos.
+  if (!def || def.mode !== 'wr' || jointOf(def) === 'mono') return -1;
   return ex.sets.findIndex((x, j) => !x.done && (x.w > 0 || suggestFor(s, i, j)));
 }
 

@@ -39,6 +39,7 @@ const ICONS = {
   alert: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/>',
   save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V3z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+  link: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
   plate: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>',
   hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/>',
 };
@@ -588,7 +589,7 @@ function rtsTableHTML() {
  */
 const SYSTEMS = { sets: 'Series y volumen', si: 'Índice de estrés' };
 const JOINT = { multi: 'Multiarticular', mono: 'Monoarticular' };
-const MONO_DEFAULT = ['Curl femoral', 'Extensión de cuádriceps', 'Aperturas', 'Face pull', 'Curl de bíceps', 'Extensión de tríceps', 'Elevación de piernas'];
+const MONO_DEFAULT = ['Curl femoral', 'Extensión de cuádriceps', 'Aperturas', 'Face pull', 'Curl de bíceps', 'Extensión de tríceps', 'Elevación de piernas', 'Elevaciones laterales', 'Pájaros', 'Elevación de gemelos'];
 const jointOf = (def) => def?.joint || (['biceps', 'triceps'].includes(def?.primary) || MONO_DEFAULT.includes(def?.name) ? 'mono' : 'multi');
 const systemOf = (s) => isSimple() ? 'sets' : (s.system || db.settings.system || 'sets');
 function stressIndex(set, def) {
@@ -834,9 +835,13 @@ const GLOSSARY = {
     <p><b>Objetivo:</b> el de la tabla si la serie viene de una; si no, las repeticiones y el RIR de la serie equivalente de tu última sesión.</p>
     <p>Aparece como texto gris en el campo de peso y no se guarda hasta que lo escribas o pulses «Rellenar». Solo para ejercicios con peso, de 1 a 12 repeticiones.</p>`],
   warmup: ['Calentamiento y discos', `
-    <p>El botón con un disco que aparece bajo el peso de la <b>siguiente serie pendiente</b> abre una rampa de calentamiento hasta ese peso y los discos que hay que poner en cada lado.</p>
+    <p>El botón con un disco que aparece bajo el peso de la <b>siguiente serie pendiente</b> de los ejercicios multiarticulares abre una rampa de calentamiento hasta ese peso y los discos que hay que poner en cada lado.</p>
     <p>Rampa: barra × 10 y luego 40 % × 5, 60 % × 3, 75 % × 2 y 85 % × 1 del peso de trabajo. Si la serie es de 8 o más repeticiones, basta con 50 % × 5 y 70 % × 3. Se omiten los escalones que no aportan (por debajo de la barra o repetidos).</p>
     <p>«Añadir series de calentamiento» las inserta como series de calentamiento (no cuentan en volumen ni récords).</p>`],
+  superset: ['Superserie', `
+    <p>Dos o más ejercicios que se hacen <b>alternando</b>: una serie de cada uno, sin descanso entre ellos, y el descanso al terminar la vuelta.</p>
+    <p>Al marcar ✓ una serie de un ejercicio que no es el último del grupo, no arranca el cronómetro: toca pasar al siguiente. Tras el último, arranca con el descanso más largo del grupo.</p>
+    <p>Se crean con «Superserie con el siguiente», entre las tarjetas de dos ejercicios. Cada ejercicio se sigue contando por separado en volumen, récords y análisis.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -1018,7 +1023,11 @@ function viewSession(id) {
       <textarea data-s="preObs" placeholder="Viaje, gimnasio distinto, competición cerca, medicación…">${esc(s.preObs)}</textarea>
     </details>`}`;
 
-  s.exercises.forEach((ex, i) => { html += exerciseCard(s, ex, i); });
+  s.exercises.forEach((ex, i) => {
+    html += exerciseCard(s, ex, i);
+    // Enlace con el siguiente ejercicio: superserie (se alternan sin descanso entre ellos).
+    if (i < s.exercises.length - 1) html += `<div class="ss-link ${ex.ss ? 'on' : ''}"><button class="ss-btn" data-action="ss-toggle" data-i="${i}" aria-pressed="${!!ex.ss}">${ex.ss ? `${ic('link')} Superserie · separar` : `${ic('link')} Superserie con el siguiente`}</button></div>`;
+  });
 
   html += `<div class="grid2"><button data-action="add-exercise">＋ Añadir ejercicio</button><button data-action="tpl-choose" data-mode="add">${ic('list')} Desde tabla</button></div>
     ${s.exercises.length ? sessionSummary(s) : ''}
@@ -1132,8 +1141,17 @@ function rirSelect(val, i, j) {
 }
 
 /* ---------- Tarjeta de ejercicio (registro de series) ---------- */
+/* Superseries: ex.ss = enlazado con el siguiente. Un grupo es una cadena de ejercicios enlazados. */
+function ssGroupOf(s, i) {
+  let a = i; while (a > 0 && s.exercises[a - 1].ss) a--;
+  let b = i; while (b < s.exercises.length - 1 && s.exercises[b].ss) b++;
+  if (a === b) return null;
+  let letter = 0; for (let k = 0; k < a; k++) if (s.exercises[k].ss && !(k > 0 && s.exercises[k - 1].ss)) letter++;
+  return { a, b, pos: i - a + 1, size: b - a + 1, label: String.fromCharCode(65 + letter) };
+}
 function exerciseCard(s, ex, i) {
   const def = exById(ex.exerciseId) || { name: '(ejercicio borrado)', mode: 'wr' };
+  const ssg = ssGroupOf(s, i);
   const mode = MODES[def.mode] || MODES.wr;
   const before = historyBefore(ex.exerciseId, s);
   const prev = before.find((h) => h.entry.sets.length);
@@ -1180,7 +1198,8 @@ function exerciseCard(s, ex, i) {
   const lastPts = pts.slice(-10);
 
   const eqSel = ex.equipment.map(eqById).filter(Boolean);
-  return `<div class="card" data-ex="${i}">
+  return `<div class="card ${ssg ? 'ss-card' : ''}" data-ex="${i}">
+    ${ssg ? `<div class="ss-tag">${ic('link')} Superserie ${ssg.label} · ${ssg.pos}/${ssg.size} ${info('superset')}</div>` : ''}
     <div class="ex-head">
       <h3><a href="#/exercise/${ex.exerciseId}" style="color:inherit;text-decoration:none">${esc(def.name)}</a></h3>
       ${simple ? '' : `<button class="icon ghost ${chartOpen ? 'active' : ''}" data-action="toggle-chart" data-i="${i}" aria-label="Gráfica y datos">${ic('chart')}</button>`}
@@ -1904,7 +1923,13 @@ const actions = {
       if (ui.rest && ui.rest.sid === s.id && ui.rest.i === i && ui.rest.j === j) { ui.rest = null; stopTimer(); }
     }
     save(); rerender();
-    if (set.done) startTimer(ex.restTarget ?? restTarget(exById(ex.exerciseId)), true);
+    if (set.done) {
+      // Superserie: entre ejercicios del grupo no hay descanso; el cronómetro arranca tras el último.
+      const g = ssGroupOf(s, i);
+      if (g && i < g.b) { toast(`Superserie: ahora ${exById(s.exercises[i + 1].exerciseId)?.name || 'el siguiente'}`); return; }
+      const grp = g ? s.exercises.slice(g.a, g.b + 1) : [ex];
+      startTimer(Math.max(...grp.map((e) => e.restTarget ?? restTarget(exById(e.exerciseId)))), true);
+    }
   },
   // «⏹ Parar»: escribe el tiempo transcurrido en el campo de descanso de la serie (editable después).
   'timer-save-rest': () => {
@@ -1947,6 +1972,7 @@ const actions = {
     const d = new Date(y, m - 1 + +el.dataset.d, 1);
     ui.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; rerender();
   },
+  'ss-toggle': (el) => { const s = currentSession(), ex = s.exercises[+el.dataset.i]; ex.ss = !ex.ss || undefined; if (!ex.ss) delete ex.ss; save(); rerender(); },
   'show-all-ex': () => { ui.showAllEx = !ui.showAllEx; rerender(); },
   'go-today': () => { ui.day = todayISO(); ui.month = ui.day.slice(0, 7); rerender(); },
   'toggle-factor': (el) => {

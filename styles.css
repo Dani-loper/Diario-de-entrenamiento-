@@ -494,3 +494,9 @@ i.vz.opt { background: var(--accent); } i.vz.high { background: var(--warn); } i
 .mini-wu .ic { width: 14px; height: 14px; }
 .wu-table td, .wu-table th { text-align: left; }
 .wu-table tr.wu-work td { font-weight: 700; color: var(--accent); }
+/* Superseries */
+.ss-link { display: flex; justify-content: center; margin: -6px 0 6px; }
+.ss-btn { min-height: 30px; padding: 2px 12px; font-size: .76rem; border-radius: 999px; background: transparent; border: 1px dashed var(--line); color: var(--muted); }
+.ss-link.on .ss-btn { border-style: solid; border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.ss-card { border-left: 4px solid var(--accent); }
+.ss-tag { font-size: .74rem; font-weight: 700; color: var(--accent); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }

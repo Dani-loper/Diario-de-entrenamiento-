@@ -55,7 +55,7 @@ function loadTemplateInto(sess, tpl) {
       if (ts.rir != null && ts.rir <= 4 && !isSimple() && intensityOf(def) !== 'rir') set.rpe = 10 - ts.rir;
       return set;
     });
-    sess.exercises.push({ id: uid(), exerciseId: def.id, notes: '', equipment: [], restTarget: te.rest ?? null, tplNote: te.note || '', tplName: tpl.name, sets });
+    sess.exercises.push({ id: uid(), exerciseId: def.id, notes: '', equipment: [], restTarget: te.rest ?? null, tplNote: te.note || '', tplName: tpl.name, sets, ...(te.ss ? { ss: true } : {}) });
   }
   return missing;
 }
@@ -112,7 +112,7 @@ function viewTemplate(id) {
         <div><label>Descanso objetivo</label><input data-tpl="${t.id}:${ei}:-:rest" value="${te.rest != null ? fmtSec(te.rest) : ''}" placeholder="m:ss" inputmode="numeric"></div>
         <div><label>Indicaciones</label><input data-tpl="${t.id}:${ei}:-:note" value="${esc(te.note || '')}" placeholder="Tempo, técnica…"></div>
       </div>
-    </div>`;
+    </div>${ei < t.exercises.length - 1 ? `<div class="ss-link ${te.ss ? 'on' : ''}"><button class="ss-btn" data-action="tpl-ss" data-id="${t.id}" data-ei="${ei}" aria-pressed="${!!te.ss}">${ic('link')} ${te.ss ? 'Superserie · separar' : 'Superserie con el siguiente'}</button></div>` : ''}`;
   });
   html += `<button class="block" data-action="tpl-add-ex" data-id="${t.id}">＋ Añadir ejercicio</button>
     <div class="muted small" style="margin:8px 0">Repeticiones: número (5) o rango (8-12). %1RM vacío = automático a partir de reps + RIR (tabla RTS). Sin RIR ni %, el peso queda vacío.</div>
@@ -128,7 +128,7 @@ function templateFromSession(s, name) {
       const def = exById(e.exerciseId) || { name: '?', mode: 'wr' };
       return {
         name: def.name, mode: def.mode || 'wr', primary: def.primary ?? null, secondary: [...(def.secondary || [])],
-        rest: e.restTarget ?? def.rest ?? null, note: e.tplNote || '',
+        rest: e.restTarget ?? def.rest ?? null, note: e.tplNote || '', ...(e.ss ? { ss: true } : {}),
         sets: e.sets.map((x) => ({
           type: x.type === 'C' ? 'C' : 'E',
           reps: x.target?.reps || String((def.mode === 'time' ? x.time : def.mode === 'dist' ? x.dist : x.reps) ?? ''),
@@ -141,6 +141,7 @@ function templateFromSession(s, name) {
 }
 
 Object.assign(actions, {
+  'tpl-ss': (el) => { tplUpdate(el.dataset.id, (t) => { const te = t.exercises[+el.dataset.ei]; if (te.ss) delete te.ss; else te.ss = true; }); rerender(); },
   'tpl-choose': (el) => openModal(tplChooserHTML(el.dataset.mode)),
   'tpl-use': (el) => {
     const t = tplGet(el.dataset.id); if (!t) return;
