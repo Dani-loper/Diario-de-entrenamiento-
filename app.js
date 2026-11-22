@@ -329,7 +329,7 @@ function render() {
   document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active',
     a.dataset.tab === (['session', 'templates', 'template'].includes(r.name) ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis', 'report'].includes(r.name) ? 'exercises' : r.name)));
   const app = $('#app');
-  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
+  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, records: () => (window.viewRecords ? viewRecords() : ''), templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
   const u = activeUser();
   const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
   app.innerHTML = bar + view(r.id);
@@ -582,14 +582,29 @@ const pctTxt = (set) => { const p = pct1rm(set); return p ? `${Math.round(p)}%` 
 const siTxt = (set, def) => { const v = stressIndex(set, def); return v == null ? (isWork(set) && (set.reps || set.w) ? 'sin RIR' : '') : `IE ${fmt(v, 1)}`; };
 
 /* ---------- Análisis: carga semanal e intensidad ---------- */
-function weekStart(iso) {
-  const d = new Date(iso + 'T12:00');
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/* Semana del atleta (Ajustes › Avanzado): día de inicio y duración. Por defecto, lunes a domingo (7 días).
+ * Con una duración distinta de 7 es un microciclo: empieza en la fecha de referencia y se repite cada N días. */
+const DOW = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const DOW1 = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+const dayNum = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
+const isoFromNum = (n) => new Date(n * 864e5).toISOString().slice(0, 10);
+const cycleLen = () => db.settings.weekLen || 7;
+const cycleDow = () => db.settings.weekDow ?? 1; // 0 = domingo … 6 = sábado
+const isCustomCycle = () => cycleLen() !== 7;
+const cycleWord = (pl) => isCustomCycle() ? (pl ? 'ciclos' : 'ciclo') : (pl ? 'semanas' : 'semana');
+// 1/1/2024 fue lunes: con 7 días se ancla en el día de la semana elegido; si no, en la fecha de referencia.
+function cycleAnchor() {
+  if (!isCustomCycle()) return dayNum('2024-01-01') + ((cycleDow() - 1 + 7) % 7);
+  return dayNum(db.settings.cycleAnchor || '2024-01-01');
 }
+function weekStart(iso) {
+  const len = cycleLen(), a = cycleAnchor(), n = dayNum(iso);
+  return isoFromNum(a + Math.floor((n - a) / len) * len);
+}
+const weekEnd = (w) => isoFromNum(dayNum(w) + cycleLen() - 1);
 function lastWeeks(n) {
-  const out = [], d = new Date(weekStart(todayISO()) + 'T12:00');
-  for (let i = 0; i < n; i++) { out.unshift(weekStart(d.toISOString().slice(0, 10))); d.setDate(d.getDate() - 7); }
+  const out = [], start = dayNum(weekStart(todayISO())), len = cycleLen();
+  for (let i = n - 1; i >= 0; i--) out.push(isoFromNum(start - i * len));
   return out;
 }
 function weeklyData(n = 12) {
@@ -731,6 +746,35 @@ const GLOSSARY = {
     <p>Porcentaje del 1RM estimado del atleta con el que se calcula el peso. Usa el mejor 1RM estimado de los últimos 120 días (si no hay, el histórico).</p>
     <p>Si lo dejas vacío, se deduce de las <b>repeticiones mínimas + RIR</b> con la tabla RTS (p. ej. 8 reps @ RIR 2 ≈ 74%), y se marca con *.</p>
     <p>Sin historial del ejercicio no hay 1RM estimado: el peso queda vacío para que lo escribas.</p>`],
+  e1rm_trend: ['Evolución del 1RM estimado', `
+    <p>Cada punto es la <b>mejor serie de esa sesión</b> convertida a 1RM estimado con la tabla RTS (peso ÷ %1RM según reps y RIR). La línea discontinua es tu <b>récord vigente</b>; los puntos grandes, sesiones en las que lo batiste.</p>
+    <p>Es una estimación: sube y baja de una sesión a otra por la fatiga, el sueño o un RIR mal calibrado. Fíjate en la <b>tendencia de varias semanas</b>, no en un punto suelto. Las series de 1 a 5 repeticiones estiman mejor el 1RM que las de 10 a 12.</p>
+    <p>Sin RIR ni RPE se asume que la serie fue al fallo, lo que da una estimación conservadora.</p>`],
+  rm_real: ['Máximos por repeticiones (RM)', `
+    <p>El mayor peso que has movido con cada número de repeticiones: tu <b>3RM</b> es lo máximo que has levantado 3 veces.</p>
+    <p>Solo se muestran los <b>máximos reales</b>: si has movido 100 kg × 5, un 100 kg × 3 no aparece como 3RM porque ya lo superaste con más repeticiones.</p>`],
+  hard_sets: ['Series efectivas', `
+    <p>Series de trabajo (no calentamientos) terminadas <b>cerca del fallo</b>: con <b>RIR ≤ 4</b> por defecto (puedes cambiarlo a ≤ 3 en Ajustes). Son las que más cuentan como estímulo para ganar músculo (<i>hard sets</i>).</p>
+    <p>La hipertrofia aumenta cuanto más cerca del fallo se termina la serie (Robinson et al., 2024), aunque las diferencias entre RIR 0 y 3 son pequeñas (Refalo et al., 2023). Por encima de 4-5 RIR el estímulo cae claramente.</p>
+    <p>Recuento <b>fraccionado</b>: cada serie cuenta 1 para el músculo principal y 0,5 para cada secundario (Pelland et al., 2024).</p>
+    <p>La franja de <b>10-20 series por músculo y semana</b> es una referencia orientativa para hipertrofia en personas entrenadas (Schoenfeld et al., 2017; Baz-Valle et al., 2022). No es un mínimo ni un máximo: depende de tu nivel, tu recuperación y tu objetivo. Para fuerza basta con menos.</p>
+    <p>Las series <b>sin RIR</b> se muestran aparte (más claras) y no suman, porque no se sabe lo cerca del fallo que estuvieron.</p>`],
+  consistency: ['Constancia', `
+    <p>Cuántas sesiones haces a la semana y durante cuántas semanas seguidas. La racha cuenta semanas (de lunes a domingo) con al menos una sesión; la semana en curso no la rompe.</p>
+    <p>Mantener la frecuencia durante meses influye más en el progreso que cualquier detalle de la programación.</p>`],
+  relative: ['Fuerza relativa', `
+    <p><b>1RM estimado ÷ peso corporal</b>. Si tu 1RM sube 5 kg pero tu peso corporal también, en relación con tu peso no has mejorado. Útil si buscas perder grasa manteniendo la fuerza o compites por categorías de peso.</p>
+    <p>Para cada sesión se usa el peso corporal registrado más cercano (como mucho 30 días antes o después). Puedes anotarlo en Progreso o en «Antes de empezar» de cada sesión.</p>`],
+  ex_change: ['Cambio en el periodo', `
+    <p>Compara la media de tus <b>3 primeras sesiones</b> del periodo con la media de las <b>3 últimas</b> (con menos de 6 sesiones, la primera con la última). Usar medias evita que un día bueno o malo distorsione el resultado.</p>
+    <p>La métrica es la de cada ejercicio: 1RM estimado, repeticiones, tiempo o distancia.</p>`],
+  athlete_week: ['Semana del atleta', `
+    <p>Periodo con el que se agrupan los datos semanales: series por músculo, constancia, análisis de carga, informes y calendario.</p>
+    <p>Por defecto es la semana natural de <b>lunes a domingo</b>. Puedes cambiar el día en que empieza (p. ej. si tu semana de entrenamiento va de sábado a viernes).</p>
+    <p>Si tu programación usa <b>microciclos</b> de otra duración (p. ej. 8 o 10 días), elige la duración y la fecha en que empieza uno de ellos: la app repetirá el ciclo cada N días hacia delante y hacia atrás. La franja de 10-20 series se refiere a 7 días; con otra duración se ajusta en proporción.</p>`],
+  same_weight: ['Con el mismo peso', `
+    <p>Cuántas repeticiones podías hacer con un peso concreto en cada sesión: <b>repeticiones + RIR</b> (lo que hiciste más lo que te quedaba). Si sube con el tiempo, eres más fuerte con ese peso.</p>
+    <p>Es más intuitivo que el 1RM estimado y no depende de ninguna tabla: «con 100 kg en agosto podía 6, hoy puedo 8». Sin RIR se cuentan solo las repeticiones hechas.</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -823,7 +867,8 @@ function viewCalendar() {
   const byDay = {};
   for (const s of db.sessions) (byDay[s.date] = byDay[s.date] || []).push(s);
   const first = new Date(y, m - 1, 1);
-  const offset = (first.getDay() + 6) % 7; // semana empieza en lunes
+  const cdow = isCustomCycle() ? 1 : cycleDow(); // el calendario sigue el día de inicio de la semana del atleta
+  const offset = (first.getDay() - cdow + 7) % 7;
   const nDays = new Date(y, m, 0).getDate();
   const pad = (n) => String(n).padStart(2, '0');
   let cells = '';
@@ -858,7 +903,7 @@ function viewCalendar() {
           <div class="muted small">${monthCount} ${monthCount === 1 ? 'sesión' : 'sesiones'}</div></div>
         <button class="icon ghost" data-action="month" data-d="1" aria-label="Mes siguiente">›</button>
       </div>
-      <div class="cal">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => `<span class="dow">${d}</span>`).join('')}${cells}</div>
+      <div class="cal">${[0, 1, 2, 3, 4, 5, 6].map((i) => `<span class="dow">${DOW1[(cdow + i) % 7]}</span>`).join('')}${cells}</div>
       ${sel !== today || ui.month !== today.slice(0, 7) ? '<button class="block ghost" data-action="go-today" style="margin-top:4px">Ir a hoy</button>' : ''}
     </div>
     <h2>${sel === today ? 'Hoy · ' : ''}${fmtDate(sel)}</h2>
@@ -1119,6 +1164,7 @@ function viewExercises() {
   const counts = {};
   for (const s of db.sessions) for (const e of s.exercises) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
   let html = `<div class="row"><h1 class="spacer">Progreso</h1><button data-action="exercise-form">＋ Nuevo ejercicio</button></div>
+    ${window.progressTopHTML ? progressTopHTML() : ''}
     ${isSimple() ? '' : `<a class="card list-item" href="#/analysis" style="display:flex;align-items:center;gap:10px">
       <span class="lead-ic">${ic('pulse')}</span><span class="spacer"><b>Análisis</b>
       <div class="muted small">Factores y rendimiento · índice de estrés semanal · intensidad relativa</div></span><span>›</span></a>`}
@@ -1128,17 +1174,24 @@ function viewExercises() {
     ${db.exercises.some((x) => x.reviewMuscles) ? `<div class="card reminder"><b>${ic('alert')} Revisa los músculos de ${db.exercises.filter((x) => x.reviewMuscles).length} ejercicio(s) propio(s)</b>
       <div class="muted small" style="margin:4px 0 8px">Se les asignó un músculo principal a partir de la categoría antigua y no tienen secundarios.</div>
       <button class="primary block" data-action="review-muscles">Revisar</button></div>` : ''}
+    ${window.exercisesHeaderHTML ? exercisesHeaderHTML() : ''}
     <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">
     <div style="height:12px"></div>`;
-  const items = db.exercises.filter((e) => norm(e.name).includes(q))
-    .sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0) || a.name.localeCompare(b.name));
+  // Favoritos primero; los ejercicios sin registros se ocultan salvo al buscar o al pedir «ver todos».
+  const matching = db.exercises.filter((e) => norm(e.name).includes(q))
+    .sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || (counts[b.id] || 0) - (counts[a.id] || 0) || a.name.localeCompare(b.name));
+  const unused = matching.filter((e) => !counts[e.id] && !e.fav).length;
+  const items = q || ui.showAllEx ? matching : matching.filter((e) => counts[e.id] || e.fav);
+  if (!items.length) html += `<div class="empty">${q ? 'Ningún ejercicio coincide.' : 'Aún no has registrado ningún ejercicio.'}</div>`;
   for (const e of items) {
     const m = METRIC[e.mode] || METRIC.wr;
     const best = maxOf(historyFor(e.id).map((x) => entryStats(x.entry).best));
     html += `<a class="card list-item" href="#/exercise/${e.id}" style="padding:12px 14px">
-      <div class="row"><span class="title">${esc(e.name)}</span><span class="spacer"></span>
+      <div class="row"><span class="title">${e.fav ? '<span class="fav-mark">★</span> ' : ''}${esc(e.name)}</span><span class="spacer"></span>
+      ${counts[e.id] && window.exerciseRowExtra ? exerciseRowExtra(e) : ''}
       <span class="muted small">${counts[e.id] ? `${counts[e.id]} ses.${best ? ` · ${m.label} ${fmtM(best, m)}` : ''}` : esc(muscleLabel(e))}</span></div></a>`;
   }
+  if (!q && unused) html += `<button class="block ghost" data-action="show-all-ex">${ui.showAllEx ? 'Ocultar los ejercicios sin registros' : `Ver también los ${unused} ejercicios sin registros`}</button>`;
   return html;
 }
 
@@ -1161,7 +1214,7 @@ function viewExercise(id) {
 
   let html = `<div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a><span class="spacer"></span>
       <button class="ghost" data-action="yt" data-id="${def.id}">${ic('play')} Técnica</button>
-      <button class="ghost" data-action="exercise-form" data-id="${def.id}">${ic('edit')} Editar</button></div>
+      <button class="ghost" data-action="exercise-form" data-id="${def.id}">${ic('edit')} Editar</button>${window.favBtn ? favBtn(def) : ''}</div>
     <h1>${esc(def.name)}</h1>
     <div class="muted small">${esc(muscleDesc(def))} · ${esc(MODES[def.mode]?.label)}</div>`;
   if (usedEq.length) {
@@ -1179,8 +1232,9 @@ function viewExercise(id) {
     </div></div>`;
 
   const pts = hist.map((h) => ({ d: h.sess.date, v: entryStats(h.entry).best })).filter((p) => p.v).reverse();
-  if (pts.length >= 2) html += `<h2>${m.label} por sesión</h2><div class="card">${chart(pts)}</div>`;
+  if (pts.length >= 2) html += `<h2>Evolución · ${m.label} ${def.mode === 'wr' ? info('e1rm_trend') : ''}</h2><div class="card">${window.progressChartHTML ? progressChartHTML(def, hist) : chart(pts)}</div>`;
 
+  if (window.sameWeightHTML) html += sameWeightHTML(def, hist);
   if (best && def.mode === 'wr') {
     html += `<h2>Tabla de cargas (1RM est. ${fmt(best.v)} kg) ${info('load_table')}</h2><div class="card"><div class="stats">
       ${[1, 2, 3, 5, 8, 10, 12].map((r) => `<div class="stat"><b>${fmt(Math.round(best.v * RTS[(r - 1) * 2] / 100 / 2.5) * 2.5)} kg</b><span>${r} rep @10</span></div>`).join('')}
@@ -1231,6 +1285,26 @@ function viewSettings() {
       <label>Descanso por defecto entre series (segundos)</label>
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
       <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
+    </div>
+    <h2>Avanzado</h2>
+    <div class="card">
+      <label>Semana del atleta ${info('athlete_week')}</label>
+      <div class="grid2">
+        <div><label>Duración</label><select data-setting="weekLen">${[5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((n) => `<option value="${n}" ${cycleLen() === n ? 'selected' : ''}>${n} días${n === 7 ? ' (semana)' : ''}</option>`).join('')}</select></div>
+        <div>${isCustomCycle()
+          ? `<label>Un ciclo empieza el</label><input type="date" data-setting-str="cycleAnchor" value="${esc(weekStart(todayISO()))}">`
+          : `<label>Empieza el</label><select data-setting="weekDow">${[1, 2, 3, 4, 5, 6, 0].map((d) => `<option value="${d}" ${cycleDow() === d ? 'selected' : ''}>${DOW[d]}</option>`).join('')}</select>`}</div>
+      </div>
+      <div class="muted small" style="margin-top:6px">${isCustomCycle()
+        ? `Ciclo actual: <b>${fmtDate(weekStart(todayISO()))}</b> – <b>${fmtDate(weekEnd(weekStart(todayISO())))}</b>.`
+        : `Semana actual: <b>${fmtDate(weekStart(todayISO()))}</b> – <b>${fmtDate(weekEnd(weekStart(todayISO())))}</b>.`}
+        Se usa en las series por músculo, la constancia, el análisis semanal y los informes${isCustomCycle() ? '' : ', y el calendario empieza ese día'}. Por defecto, de lunes a domingo.</div>
+    </div>
+    <h2>Series efectivas</h2>
+    <div class="card">
+      <label>Cuenta como serie efectiva ${info('hard_sets')}</label>
+      <select data-setting="hardRir">${[[4, 'RIR 4 o menos (recomendado)'], [3, 'RIR 3 o menos (más estricto)']].map(([v, l]) => `<option value="${v}" ${(db.settings.hardRir ?? 4) === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <div class="muted small" style="margin-top:6px">Se usa en Progreso para contar las series semanales por músculo.</div>
     </div>
     ${isSimple() ? '' : `<h2>Intensidad y fatiga</h2>
     <div class="card">
@@ -1343,9 +1417,9 @@ function exerciseEvolution(exId, a, b) {
 function completeWeeks(start, end) {
   const out = [];
   for (let w = weekStart(start); w <= end; ) {
-    const d = new Date(w + 'T12:00'); d.setDate(d.getDate() + 6); const sunday = isoOf(d);
-    if (w >= start && sunday <= end && sunday < todayISO()) out.push(w);
-    d.setDate(d.getDate() + 1); w = isoOf(d);
+    const last = weekEnd(w);
+    if (w >= start && last <= end && last < todayISO()) out.push(w);
+    w = isoFromNum(dayNum(w) + cycleLen());
   }
   return out;
 }
@@ -1799,6 +1873,7 @@ const actions = {
     const d = new Date(y, m - 1 + +el.dataset.d, 1);
     ui.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; rerender();
   },
+  'show-all-ex': () => { ui.showAllEx = !ui.showAllEx; rerender(); },
   'go-today': () => { ui.day = todayISO(); ui.month = ui.day.slice(0, 7); rerender(); },
   'toggle-factor': (el) => {
     const s = currentSession(); const f = el.dataset.f;
@@ -2080,8 +2155,11 @@ document.addEventListener('input', (e) => {
     document.querySelectorAll('#ef-sec .chip').forEach((c) => c.classList.toggle('hidden', c.dataset.m === t.value));
     return;
   }
-  if (t.dataset.setting) { db.settings[t.dataset.setting] = num(t.value) ?? 0; save(); return; }
-  if (t.dataset.settingStr) { db.settings[t.dataset.settingStr] = t.value; save(); return; }
+  if (t.dataset.setting) { db.settings[t.dataset.setting] = num(t.value) ?? 0; save(); if (['weekLen', 'weekDow'].includes(t.dataset.setting)) rerender(); return; }
+  if (t.dataset.settingStr) {
+    if (t.dataset.settingStr === 'cycleAnchor' && !t.value) return;
+    db.settings[t.dataset.settingStr] = t.value; save(); if (t.dataset.settingStr === 'cycleAnchor') rerender(); return;
+  }
   if (t.dataset.reportNote != null) { db.reportNote = t.value; save(); return; }
   const s = currentSession(); if (!s) return;
   if (t.dataset.s) {
