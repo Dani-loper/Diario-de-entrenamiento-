@@ -513,3 +513,4 @@ i.vz.opt { background: var(--accent); } i.vz.high { background: var(--warn); } i
 .zc.z-opt { background: var(--accent); color: var(--accent-ink); }
 .zc.z-high { background: var(--warn); color: #111; }
 .zc.z-over { background: var(--danger); color: #fff; }
+.welcome h3 { font-size: 1.15rem; }
