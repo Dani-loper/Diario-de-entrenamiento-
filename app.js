@@ -39,6 +39,8 @@ const ICONS = {
   alert: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/>',
   save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V3z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+  link: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
+  plate: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>',
   hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/>',
 };
 const ic = (name, cls = '') => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -355,9 +357,9 @@ function route() {
 function render() {
   const r = route();
   document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active',
-    a.dataset.tab === (['session', 'templates', 'template'].includes(r.name) ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis', 'report'].includes(r.name) ? 'exercises' : r.name)));
+    a.dataset.tab === (['session', 'templates', 'template', 'meso'].includes(r.name) ? 'sessions' : r.name === 'users' ? 'settings' : ['exercise', 'analysis', 'report'].includes(r.name) ? 'exercises' : r.name)));
   const app = $('#app');
-  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, records: () => (window.viewRecords ? viewRecords() : ''), templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
+  const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, records: () => (window.viewRecords ? viewRecords() : ''), meso: (id) => (window.viewMeso ? viewMeso(id) : ''), templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
   const u = activeUser();
   const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
   app.innerHTML = bar + view(r.id);
@@ -587,7 +589,7 @@ function rtsTableHTML() {
  */
 const SYSTEMS = { sets: 'Series y volumen', si: 'Índice de estrés' };
 const JOINT = { multi: 'Multiarticular', mono: 'Monoarticular' };
-const MONO_DEFAULT = ['Curl femoral', 'Extensión de cuádriceps', 'Aperturas', 'Face pull', 'Curl de bíceps', 'Extensión de tríceps', 'Elevación de piernas'];
+const MONO_DEFAULT = ['Curl femoral', 'Extensión de cuádriceps', 'Aperturas', 'Face pull', 'Curl de bíceps', 'Extensión de tríceps', 'Elevación de piernas', 'Elevaciones laterales', 'Pájaros', 'Elevación de gemelos'];
 const jointOf = (def) => def?.joint || (['biceps', 'triceps'].includes(def?.primary) || MONO_DEFAULT.includes(def?.name) ? 'mono' : 'multi');
 const systemOf = (s) => isSimple() ? 'sets' : (s.system || db.settings.system || 'sets');
 function stressIndex(set, def) {
@@ -827,6 +829,38 @@ const GLOSSARY = {
     <p>Colores: gris por debajo del MEV, verde claro entre MEV y MAV, verde en el MAV, naranja entre MAV y MRV, rojo por encima del MRV.</p>
     <p>Los valores por defecto son <b>aproximados</b>: varían entre ediciones de sus guías y entre personas (más entrenadas, más volumen toleran). Lo habitual es empezar un mesociclo cerca del MEV e ir subiendo hacia el MRV. Puedes ajustarlos para cada atleta en Ajustes › Avanzado.</p>
     <p>Aquí las series secundarias cuentan 0,5. Israetel no cuenta así exactamente (por ejemplo, da MEV 0 a glúteos porque las sentadillas y el peso muerto ya los trabajan), así que en músculos que trabajan mucho como secundarios el valor puede salir algo alto frente a su tabla.</p>`],
+  suggest: ['Peso sugerido', `
+    <p>Peso propuesto para la serie a partir de tu <b>1RM estimado</b> y de las repeticiones y el RIR objetivo, con la tabla RTS: peso = 1RM × %1RM(reps, RIR), redondeado al incremento mínimo.</p>
+    <p><b>1RM de referencia:</b> si ya has hecho series de ese ejercicio hoy, se usan esas (si hoy vas más fuerte o más cansado, la sugerencia se ajusta); si no, tu última sesión; si no, tu mejor marca de los últimos 120 días.</p>
+    <p><b>Objetivo:</b> el de la tabla si la serie viene de una; si no, las repeticiones y el RIR de la serie equivalente de tu última sesión.</p>
+    <p>Aparece como texto gris en el campo de peso y no se guarda hasta que lo escribas o pulses «Rellenar». Solo para ejercicios con peso, de 1 a 12 repeticiones.</p>`],
+  warmup: ['Calentamiento y discos', `
+    <p>El botón con un disco que aparece bajo el peso de la <b>siguiente serie pendiente</b> de los ejercicios multiarticulares abre una rampa de calentamiento hasta ese peso y los discos que hay que poner en cada lado.</p>
+    <p>Rampa: barra × 10 y luego 40 % × 5, 60 % × 3, 75 % × 2 y 85 % × 1 del peso de trabajo. Si la serie es de 8 o más repeticiones, basta con 50 % × 5 y 70 % × 3. Se omiten los escalones que no aportan (por debajo de la barra o repetidos).</p>
+    <p>«Añadir series de calentamiento» las inserta como series de calentamiento (no cuentan en volumen ni récords).</p>`],
+  superset: ['Superserie', `
+    <p>Dos o más ejercicios que se hacen <b>alternando</b>: una serie de cada uno, sin descanso entre ellos, y el descanso al terminar la vuelta.</p>
+    <p>Al marcar ✓ una serie de un ejercicio que no es el último del grupo, no arranca el cronómetro: toca pasar al siguiente. Tras el último, arranca con el descanso más largo del grupo.</p>
+    <p>Se crean con «Superserie con el siguiente», entre las tarjetas de dos ejercicios. Cada ejercicio se sigue contando por separado en volumen, récords y análisis.</p>`],
+  deload: ['Descarga', `
+    <p>Una <b>descarga</b> es una semana con menos carga para disipar la fatiga acumulada y volver a progresar. Lo habitual: misma frecuencia, la mitad de series y más lejos del fallo (RIR 4-5). Muchos entrenadores la programan cada 4-6 semanas (Bell et al., 2023, encuesta a entrenadores de fuerza) o al final de cada mesociclo.</p>
+    <p>La app avisa cuando ve señales de fatiga (es una ayuda, no un diagnóstico):</p>
+    <p>• <b>Rendimiento</b>: en las sesiones de los últimos 14 días, tu 1RM estimado está de media un 3 % o más por debajo de tu mejor marca del mes anterior (con al menos 3 sesiones).<br>
+    • <b>Caídas entre series</b> mayores que tu umbral en 2 o más sesiones recientes.<br>
+    • <b>Semanas seguidas sin una semana suave</b> (una semana suave tiene menos del 70 % de las series de una semana normal tuya).</p>
+    <p>Avisa si cae el rendimiento, o si llevas 5 semanas o más sin descargar y además hay caídas entre series. A partir de 8 semanas sin descargar, el aviso es más suave. El rendimiento también baja por dormir poco, estrés o enfermedad: míralo junto a cómo te encuentras.</p>`],
+  athlete_share: ['Entrenador y atleta', `
+    <p>Sin servidor ni cuentas: los datos viajan en un <b>archivo</b> que se envía por WhatsApp, correo o AirDrop.</p>
+    <p><b>1.</b> El atleta pulsa <b>«Enviar mis datos al entrenador»</b> (Ajustes › Copia de seguridad).<br>
+    <b>2.</b> El entrenador lo abre en <b>Usuarios › Importar datos de un atleta</b>. La primera vez se crea el perfil del atleta (no lo crees a mano: así ambos quedan enlazados). Las siguientes veces se combina con él.<br>
+    <b>3.</b> El entrenador puede preparar tablas o un mesociclo en ese perfil y pulsar <b>«Enviar datos»</b>; el atleta lo importa igual.</p>
+    <p><b>Combinar</b> no borra nada: se añaden las sesiones nuevas y las del archivo sustituyen a las que tienen el mismo identificador. Lo que se borra en un móvil no se borra en el otro. Los ajustes de cada dispositivo se conservan. Antes de combinar se guarda una copia automática. Los vídeos no viajan.</p>`],
+  meso: ['Mesociclo', `
+    <p>Un bloque de varias semanas que repite tus <b>tablas</b> (cada día del mesociclo es una tabla) con progresión, y termina con una <b>descarga</b>.</p>
+    <p><b>RIR:</b> baja en línea recta desde el RIR inicial hasta el final (p. ej. 3 → 1 en 4 semanas: 3 · 2,5 · 1,5 · 1). Como el peso se calcula con tu 1RM estimado y el RIR, al bajar el RIR sube el peso.</p>
+    <p><b>Series:</b> opcionalmente, una serie más por ejercicio cada semana o cada dos, para ir del MEV hacia el MRV, como propone Israetel.</p>
+    <p><b>Descarga:</b> la mitad de series, RIR 4 y el 90 % de la carga de la primera semana.</p>
+    <p>Si una tabla trae un %1RM explícito, ese % se respeta y el RIR queda como guía. La tabla «Plan semana a semana» muestra cuántas series por músculo planificas cada semana, coloreadas con tus referencias de volumen. Las semanas siguen tu «semana del atleta» (Ajustes › Avanzado).</p>`],
   level: ['Modo de atleta', `
     <p><b>Sencillo:</b> para registrar lo básico sin distracciones: ejercicios, series, peso, repeticiones, <b>RIR</b> y descansos. Mantiene el calendario, el progreso por ejercicio, el informe, los vídeos y las copias.</p>
     <p><b>Avanzado:</b> añade RPE (o RPE + RIR), material, «antes de empezar» (sueño, energía, estrés, factores), RPE de sesión y carga interna, %1RM e índice de estrés por serie, avisos de fatiga, descanso objetivo por ejercicio y el apartado de Análisis.</p>
@@ -936,6 +970,8 @@ function viewCalendar() {
   const q = norm(ui.csearch).trim();
 
   let html = `<h1>Calendario</h1>
+    ${window.installReminderHTML ? installReminderHTML() : ''}
+    ${window.deloadHTML ? deloadHTML(true) : ''}
     ${window.backupReminderHTML ? backupReminderHTML() : ''}
     <input type="search" data-action-input="csearch" placeholder="Buscar: ejercicio, nota, material, sensación…" value="${esc(ui.csearch)}">
     <div style="height:12px"></div>`;
@@ -960,6 +996,7 @@ function viewCalendar() {
     </div>
     <h2>${sel === today ? 'Hoy · ' : ''}${fmtDate(sel)}</h2>
     ${window.dailyCardHTML ? dailyCardHTML(sel) : ''}
+    ${window.mesoCardHTML ? mesoCardHTML(sel) : ''}
     <div class="grid2">
       <button class="primary" data-action="new-session">＋ Nueva sesión</button>
       <button data-action="repeat-session" ${db.sessions.length ? '' : 'disabled'}>${ic('refresh')} Repetir…</button>
@@ -1007,7 +1044,11 @@ function viewSession(id) {
       <textarea data-s="preObs" placeholder="Viaje, gimnasio distinto, competición cerca, medicación…">${esc(s.preObs)}</textarea>
     </details>`}`;
 
-  s.exercises.forEach((ex, i) => { html += exerciseCard(s, ex, i); });
+  s.exercises.forEach((ex, i) => {
+    html += exerciseCard(s, ex, i);
+    // Enlace con el siguiente ejercicio: superserie (se alternan sin descanso entre ellos).
+    if (i < s.exercises.length - 1) html += `<div class="ss-link ${ex.ss ? 'on' : ''}"><button class="ss-btn" data-action="ss-toggle" data-i="${i}" aria-pressed="${!!ex.ss}">${ex.ss ? `${ic('link')} Superserie · separar` : `${ic('link')} Superserie con el siguiente`}</button></div>`;
+  });
 
   html += `<div class="grid2"><button data-action="add-exercise">＋ Añadir ejercicio</button><button data-action="tpl-choose" data-mode="add">${ic('list')} Desde tabla</button></div>
     ${s.exercises.length ? sessionSummary(s) : ''}
@@ -1121,8 +1162,17 @@ function rirSelect(val, i, j) {
 }
 
 /* ---------- Tarjeta de ejercicio (registro de series) ---------- */
+/* Superseries: ex.ss = enlazado con el siguiente. Un grupo es una cadena de ejercicios enlazados. */
+function ssGroupOf(s, i) {
+  let a = i; while (a > 0 && s.exercises[a - 1].ss) a--;
+  let b = i; while (b < s.exercises.length - 1 && s.exercises[b].ss) b++;
+  if (a === b) return null;
+  let letter = 0; for (let k = 0; k < a; k++) if (s.exercises[k].ss && !(k > 0 && s.exercises[k - 1].ss)) letter++;
+  return { a, b, pos: i - a + 1, size: b - a + 1, label: String.fromCharCode(65 + letter) };
+}
 function exerciseCard(s, ex, i) {
   const def = exById(ex.exerciseId) || { name: '(ejercicio borrado)', mode: 'wr' };
+  const ssg = ssGroupOf(s, i);
   const mode = MODES[def.mode] || MODES.wr;
   const before = historyBefore(ex.exerciseId, s);
   const prev = before.find((h) => h.entry.sets.length);
@@ -1144,13 +1194,14 @@ function exerciseCard(s, ex, i) {
 
   const simple = isSimple();
   let rows = '';
+  const wuJ = window.nextPendingSet ? nextPendingSet(s, i) : -1; // botón de calentamiento solo en la siguiente serie pendiente
   ex.sets.forEach((set, j) => {
     const est = isWork(set) ? m.best([set]) : null;
     const isPR = est && prevBest && est > prevBest;
     rows += `<tr class="${set.done ? 'done' : ''}">
       <td><button class="settype ${set.type}${set.videoId ? ' has-video' : ''}" data-action="cycle-type" data-i="${i}" data-j="${j}" title="${SET_TYPES[set.type]}">${set.type === 'E' ? j + 1 : set.type}</button></td>
       ${fields.map((f) => f === 'rpe' ? `<td>${rpeSelect(set.rpe, i, j)}</td>` : f === 'rir' ? `<td>${rirSelect(set.rir, i, j)}</td>`
-        : `<td><input type="text" inputmode="${FIELD[f].step === '1' ? 'numeric' : 'decimal'}" autocomplete="off" enterkeyhint="next" data-set="${i}:${j}:${f}" value="${decIn(set[f])}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : ''}">${simple ? '' : f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${set.type === 'C' ? '' : pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
+        : `<td><input type="text" inputmode="${FIELD[f].step === '1' ? 'numeric' : 'decimal'}" autocomplete="off" enterkeyhint="next" data-set="${i}:${j}:${f}" value="${decIn(set[f])}" placeholder="${f === 'w' && def.mode === 'bw' ? '+0' : (f === 'w' || f === 'reps') && window.suggestPlaceholder ? suggestPlaceholder(s, i, j, f) : ''}">${f === 'w' && j === wuJ ? `<button class="mini-wu" data-action="warmup" data-i="${i}" data-j="${j}" aria-label="Calentamiento y discos">${ic('plate')}</button>` : ''}${simple ? '' : f === 'w' && def.mode === 'wr' ? `<small class="cap" id="cap-${i}-${j}">${set.type === 'C' ? '' : pctTxt(set)}</small>` : f === 'reps' && siMode ? `<small class="cap" id="si-${i}-${j}">${siTxt(set, def)}</small>` : ''}</td>`).join('')}
       <td><button class="check ${set.done ? 'on' : ''}" data-action="toggle-done" data-i="${i}" data-j="${j}" aria-label="Hecha">✓</button></td>
       <td><button class="icon ghost" data-action="set-menu" data-i="${i}" data-j="${j}" aria-label="Opciones de la serie ${j + 1}: vídeo, compartir, borrar">⋯</button></td>
     </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
@@ -1168,7 +1219,8 @@ function exerciseCard(s, ex, i) {
   const lastPts = pts.slice(-10);
 
   const eqSel = ex.equipment.map(eqById).filter(Boolean);
-  return `<div class="card" data-ex="${i}">
+  return `<div class="card ${ssg ? 'ss-card' : ''}" data-ex="${i}">
+    ${ssg ? `<div class="ss-tag">${ic('link')} Superserie ${ssg.label} · ${ssg.pos}/${ssg.size} ${info('superset')}</div>` : ''}
     <div class="ex-head">
       <h3><a href="#/exercise/${ex.exerciseId}" style="color:inherit;text-decoration:none">${esc(def.name)}</a></h3>
       ${simple ? '' : `<button class="icon ghost ${chartOpen ? 'active' : ''}" data-action="toggle-chart" data-i="${i}" aria-label="Gráfica y datos">${ic('chart')}</button>`}
@@ -1202,6 +1254,7 @@ function exerciseCard(s, ex, i) {
       ${open ? '' : `<button class="chip" data-action="yt" data-id="${def.id}">${ic('play')} Técnica${def.refUrl ? ' ★' : ''}</button>`}
     </div>
     ${simple ? '' : `<div class="row" style="margin-top:8px"><button class="chip" data-action="cycle-intensity" data-i="${i}">Intensidad: <b>${INTENSITY[intensityOf(def)]}</b> ⇄</button>${info('intensity')}</div>`}
+    ${window.suggestLineHTML ? suggestLineHTML(s, i) : ''}
     <table class="sets">
       <thead><tr><th title="Serie"># ${info('set_types')}</th>${fields.map((f) => `<th>${f === 'w' && def.mode === 'bw' ? 'Lastre' : FIELD[f].h}${f === 'rpe' || f === 'rir' ? ' ' + info(f) : ''}</th>`).join('')}<th>✓</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
@@ -1340,6 +1393,7 @@ function viewSettings() {
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
       <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
     </div>
+    ${window.weightsSettingsHTML ? weightsSettingsHTML() : ''}
     <h2>Avanzado</h2>
     <div class="card">
       <label>Semana del atleta ${info('athlete_week')}</label>
@@ -1403,6 +1457,7 @@ function viewSettings() {
         <button class="danger" data-action="wipe">Borrar sus datos</button>
       </div>
       <div class="muted small" style="margin-top:6px">«Importar JSON» acepta una copia de un usuario (sustituye al activo) o una copia de todos (sustituye a todos).</div>
+      <button class="block" style="margin-top:8px" data-action="athlete-export">${ic('share')} Enviar mis datos al entrenador ${info('athlete_share')}</button>
       <input type="file" id="import-file" accept="application/json,.json" class="hidden">
     </div>
     <h2>Copias automáticas</h2>
@@ -1621,7 +1676,9 @@ function viewUsers() {
   const list = [...profiles.users].sort((a, b) => (b.id === profiles.active) - (a.id === profiles.active) || a.name.localeCompare(b.name));
   let html = `<div class="row"><h1 class="spacer">Usuarios</h1><button class="primary" data-action="user-form">＋ Nuevo</button></div>
     <div class="card muted small">Cada usuario tiene sus propias sesiones, ejercicios, material y ajustes. Los perfiles se guardan <b>solo en este dispositivo</b>:
-      exporta la copia de todos con regularidad en Ajustes.</div>`;
+      exporta la copia de todos con regularidad en Ajustes.</div>
+    <button class="block" style="margin-bottom:12px" data-action="athlete-import">${ic('upload')} Importar datos de un atleta ${info('athlete_share')}</button>
+    <input type="file" id="athlete-file" accept="application/json,.json" class="hidden">`;
   for (const u of list) {
     const d = u.id === profiles.active ? db : readUserData(u.id);
     const sess = d ? d.sessions : [];
@@ -1636,7 +1693,8 @@ function viewUsers() {
         ${profiles.users.length > 1 ? `<button class="icon ghost danger" data-action="user-delete" data-id="${u.id}" aria-label="Borrar ${esc(u.name)}">${ic('trash')}</button>` : ''}
       </div>
       ${u.notes ? `<div class="muted small" style="margin-top:6px">${ic('note')} ${esc(u.notes)}</div>` : ''}
-      ${active ? '' : `<button class="block" style="margin-top:10px" data-action="user-switch" data-id="${u.id}">Cambiar a ${esc(u.name)}</button>`}
+      <div class="grid2" style="margin-top:10px">${active ? '<span></span>' : `<button data-action="user-switch" data-id="${u.id}">Cambiar a ${esc(u.name)}</button>`}
+        <button data-action="athlete-export" data-id="${u.id}">${ic('share')} Enviar datos</button></div>
     </div>`;
   }
   return html;
@@ -1890,7 +1948,13 @@ const actions = {
       if (ui.rest && ui.rest.sid === s.id && ui.rest.i === i && ui.rest.j === j) { ui.rest = null; stopTimer(); }
     }
     save(); rerender();
-    if (set.done) startTimer(ex.restTarget ?? restTarget(exById(ex.exerciseId)), true);
+    if (set.done) {
+      // Superserie: entre ejercicios del grupo no hay descanso; el cronómetro arranca tras el último.
+      const g = ssGroupOf(s, i);
+      if (g && i < g.b) { toast(`Superserie: ahora ${exById(s.exercises[i + 1].exerciseId)?.name || 'el siguiente'}`); return; }
+      const grp = g ? s.exercises.slice(g.a, g.b + 1) : [ex];
+      startTimer(Math.max(...grp.map((e) => e.restTarget ?? restTarget(exById(e.exerciseId)))), true);
+    }
   },
   // «⏹ Parar»: escribe el tiempo transcurrido en el campo de descanso de la serie (editable después).
   'timer-save-rest': () => {
@@ -1933,6 +1997,7 @@ const actions = {
     const d = new Date(y, m - 1 + +el.dataset.d, 1);
     ui.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; rerender();
   },
+  'ss-toggle': (el) => { const s = currentSession(), ex = s.exercises[+el.dataset.i]; ex.ss = !ex.ss || undefined; if (!ex.ss) delete ex.ss; save(); rerender(); },
   'show-all-ex': () => { ui.showAllEx = !ui.showAllEx; rerender(); },
   'go-today': () => { ui.day = todayISO(); ui.month = ui.day.slice(0, 7); rerender(); },
   'toggle-factor': (el) => {

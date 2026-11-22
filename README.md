@@ -13,6 +13,12 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
 - **Favoritos**: estrella ☆ en la ficha del ejercicio y en Récords; aparecen primero y se puede filtrar el Salón de la fama por favoritos y/o con vídeo. La lista de Progreso muestra solo los ejercicios usados (y favoritos), con opción de ver todos.
 - **Semana del atleta** (Ajustes › Avanzado): día de inicio de la semana o microciclos de 5 a 14 días con fecha de inicio. Por defecto, lunes a domingo.
 - **Datos del día** (opcionales, en el calendario bajo la fecha y al final de cada sesión): pasos, calorías consumidas y peso corporal. En Progreso, medias por semana y **mantenimiento calórico estimado** (calorías medias de 28 días corregidas por la tendencia del peso, ≈ 7700 kcal/kg); en el análisis de factores, pasos y calorías del día anterior frente al rendimiento; en el informe, pasos y calorías medios del periodo.
+- **Peso sugerido**: en cada serie sin peso, el peso (y las repeticiones) propuestos en gris a partir del 1RM estimado (de las series de hoy, de la última sesión o reciente) y del objetivo de reps y RIR; «Rellenar» los escribe.
+- **Calentamiento y discos**: un botón pequeño bajo el peso de la siguiente serie abre la rampa de calentamiento y los discos por lado (barra, discos e incremento mínimo configurables); se pueden añadir como series de calentamiento.
+- **Superseries**: «Superserie con el siguiente» entre dos ejercicios (en la sesión y en las tablas); el descanso arranca al terminar el último del grupo, con el más largo de ellos.
+- **Aviso de posible descarga** (Progreso y calendario): rendimiento de los últimos 14 días frente a las mejores marcas del mes anterior, caídas entre series y semanas seguidas sin una semana suave. Es una ayuda, no un diagnóstico.
+- **Entrenador y atleta por archivo**: «Enviar mis datos al entrenador» / «Enviar datos» de un perfil y «Importar datos de un atleta». La primera importación crea el perfil enlazado; las siguientes combinan sin borrar nada (sesiones nuevas + actualizadas, ejercicios con el mismo nombre unificados, tablas). Copia automática antes de combinar.
+- **Mesociclos** (en Tablas): días = tablas, 2-6 semanas de carga con el RIR bajando (p. ej. 3 → 1) y, opcionalmente, una serie más por ejercicio cada semana o cada dos; semana de descarga (mitad de series, RIR 4, 90 % de la carga). Plan semana a semana de series por músculo coloreado con las referencias de Israetel. El calendario muestra qué día toca y lo empieza con un botón.
 - **Salón de la fama** (pestaña Récords): récord de cada ejercicio y máximos reales por repeticiones (1-12 RM), con acceso directo al vídeo de la serie y filtro «con vídeo».
 - **Tablas de ejercicios** (plantillas de sesión, comunes a todos los usuarios del dispositivo): ejercicios con series prescritas (tipo, repeticiones o rango, RIR, %1RM), descanso objetivo e indicaciones. Se cargan al crear una sesión o dentro de una sesión: los campos se rellenan y el peso se calcula con el 1RM estimado de cada atleta (sin %, a partir de reps + RIR con la tabla RTS). Las series cargadas no cuentan en estadísticas hasta marcarlas con ✓. También se puede guardar una sesión como tabla. Se incluyen en las copias de seguridad.
 - **Descansos entre series**: campo «⏱ Descanso» editable bajo cada serie (m:ss o segundos). Al marcar ✓ arranca un cronómetro; «⏹ Parar» rellena el campo con el tiempo transcurrido y ✕ lo descarta. La app no calcula descansos por su cuenta. Descanso objetivo por ejercicio (avanzado), descanso medio en el resumen y en el CSV.
@@ -56,6 +62,10 @@ Sírvelo por HTTPS (p. ej. GitHub Pages: Settings → Pages → rama y carpeta r
 En local: `python3 -m http.server` y abre http://localhost:8000.
 
 Los datos se guardan solo en el navegador del dispositivo: **exporta copias de seguridad con regularidad** (Ajustes → Exportar todos los usuarios). No hay sincronización entre dispositivos: el usuario no puede apuntar desde su propio móvil.
+
+## Pruebas
+
+`npm test` ejecuta las pruebas de extremo a extremo (Playwright). Detalles en [tests/README.md](tests/README.md). GitHub las pasa en cada pull request.
 
 ## Base científica
 - Zourdos et al. (2016): escala RPE basada en repeticiones en reserva (RPE ≈ 10 − RIR).

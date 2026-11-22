@@ -487,3 +487,29 @@ i.vz.opt { background: var(--accent); } i.vz.high { background: var(--warn); } i
 .lm-table th, .lm-table td { padding: 3px 2px; text-align: center; font-size: .78rem; }
 .lm-table td:first-child { text-align: left; font-weight: 600; }
 .lm-table input { min-height: 34px; padding: 4px 2px; text-align: center; width: 100%; min-width: 34px; }
+/* Peso sugerido y calentamiento */
+.suggest { margin: 8px 0 2px; padding: 6px 10px; border-radius: 10px; background: var(--card2); font-size: .82rem; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.suggest .small-btn { margin-left: auto; }
+.mini-wu { display: block; margin: 2px auto 0; min-height: 0; min-width: 0; width: 26px; height: 18px; padding: 0; border: 0; background: transparent; color: var(--muted); }
+.mini-wu .ic { width: 14px; height: 14px; }
+.wu-table td, .wu-table th { text-align: left; }
+.wu-table tr.wu-work td { font-weight: 700; color: var(--accent); }
+/* Superseries */
+.ss-link { display: flex; justify-content: center; margin: -6px 0 6px; }
+.ss-btn { min-height: 30px; padding: 2px 12px; font-size: .76rem; border-radius: 999px; background: transparent; border: 1px dashed var(--line); color: var(--muted); }
+.ss-link.on .ss-btn { border-style: solid; border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.ss-card { border-left: 4px solid var(--accent); }
+.ss-tag { font-size: .74rem; font-weight: 700; color: var(--accent); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+.deload-mini { display: block; text-decoration: none; color: inherit; }
+.deload ul li { margin: 2px 0; }
+/* Mesociclos */
+.meso-card { border-left: 4px solid var(--accent); }
+.meso-plan th, .meso-plan td { text-align: center; padding: 4px 4px; font-size: .78rem; white-space: nowrap; }
+.meso-plan td:first-child { text-align: left; font-weight: 600; }
+.meso-plan th.cur { color: var(--accent); }
+.zc { display: inline-block; min-width: 30px; padding: 1px 4px; border-radius: 6px; font-weight: 700; }
+.zc.z-under, .zc.z-maint { background: var(--card2); color: var(--muted); }
+.zc.z-low { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+.zc.z-opt { background: var(--accent); color: var(--accent-ink); }
+.zc.z-high { background: var(--warn); color: #111; }
+.zc.z-over { background: var(--danger); color: #fff; }

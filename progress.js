@@ -209,7 +209,7 @@ function exerciseRowExtra(e) {
   return `${sparkHTML(t.pts)}<b class="chg ${cls}">${c > 0 ? '+' : ''}${fmt(c, 1)}%</b>`;
 }
 function progressTopHTML() {
-  return muscleWeekHTML() + consistencyHTML() + bodyweightHTML() + (window.activityHTML ? activityHTML() : '');
+  return deloadHTML() + muscleWeekHTML() + consistencyHTML() + bodyweightHTML() + (window.activityHTML ? activityHTML() : '');
 }
 function exercisesHeaderHTML() {
   const r = ui.erange || '1y';
@@ -282,8 +282,64 @@ document.addEventListener('change', (e) => {
 });
 document.addEventListener('toggle', (e) => { if (e.target.classList?.contains('lm-edit')) ui.lmOpen = e.target.open; }, true);
 
+/* ---------- Aviso de posible descarga ----------
+ * Heurística (no un diagnóstico) con tres señales:
+ *  1) Rendimiento: en las sesiones de los últimos 14 días, el 1RM estimado de cada ejercicio frente a tu mejor marca
+ *     de los 28 días anteriores a esa sesión. Media ≤ −3 % con al menos 3 sesiones → señal principal.
+ *  2) Fatiga dentro de la sesión: sesiones de los últimos 14 días con caídas entre series ≥ el umbral de Ajustes.
+ *  3) Semanas seguidas de carga normal sin una semana suave (< 70 % de las series de una semana normal).
+ * Aviso si hay señal de rendimiento, o si se acumulan ≥ 5 semanas sin descarga y además hay otra señal;
+ * aviso suave a partir de 8 semanas sin descarga. */
+function deloadSignal() {
+  const today = todayISO(), d14 = isoFromNum(dayNum(today) - 13);
+  // Series de trabajo por semana: la referencia de «semana normal» y las semanas suaves (descargas).
+  const weekSets = (w) => db.sessions.filter((s) => weekStart(s.date) === w).reduce((a, s) => a + s.exercises.reduce((b, e) => b + e.sets.filter(isWork).length, 0), 0);
+  const closed = lastWeeks(13).slice(0, -1), sets = closed.map(weekSets);
+  // Semana «normal» de referencia: percentil 75 de las semanas con entrenamiento (la mediana la arrastran las propias descargas).
+  const active = sets.filter((x) => x > 0).sort((x, y) => x - y), typical = active.length ? active[Math.floor((active.length - 1) * 0.75)] : 0;
+  // 1) Rendimiento frente a la mejor marca reciente. Las series de descarga (RIR > 3,5) no estiman 1RM y no cuentan.
+  const recent = db.sessions.filter((s) => s.date >= d14 && s.date <= today);
+  const perf = [];
+  for (const s of recent) {
+    const vals = [];
+    for (const e of s.exercises) {
+      const def = exById(e.exerciseId); if ((def?.mode || 'wr') !== 'wr') continue;
+      const best = entryStats(e).best; if (!best) continue;
+      const from = isoFromNum(dayNum(s.date) - 28);
+      const prior = maxOf(db.sessions.filter((o) => o.date >= from && o.date < s.date).flatMap((o) => o.exercises.filter((x) => x.exerciseId === e.exerciseId)).map((x) => entryStats(x).best));
+      if (prior) vals.push((best / prior - 1) * 100);
+    }
+    if (vals.length) perf.push(mean(vals));
+  }
+  const perfMean = perf.length >= 3 ? mean(perf) : null;
+  // 2) Caídas dentro de la sesión
+  const dropSessions = recent.filter((s) => s.exercises.some((e) => e.sets.some((_, j) => (setDrop(e.sets, j) ?? 0) >= db.settings.dropWarn))).length;
+  // 3) Semanas cerradas seguidas con carga normal
+  let streak = 0;
+  for (let k = sets.length - 1; k >= 0; k--) { if (typical && sets[k] >= typical * 0.7) streak++; else break; }
+  const reasons = [];
+  if (perfMean != null && perfMean <= -3) reasons.push(`Tu rendimiento de los últimos 14 días está un <b>${fmt(Math.abs(perfMean), 1)}&nbsp;%</b> por debajo de tus mejores marcas del mes anterior (${perf.length} sesiones).`);
+  if (dropSessions >= 2) reasons.push(`En <b>${dropSessions} sesiones</b> recientes el rendimiento cayó más de un ${db.settings.dropWarn}&nbsp;% entre series.`);
+  if (streak >= 5) reasons.push(`Llevas <b>${streak} ${isCustomCycle() ? 'ciclos' : 'semanas'} seguid${isCustomCycle() ? 'os' : 'as'}</b> de carga normal sin una semana suave.`);
+  const strong = (perfMean != null && perfMean <= -3) || (streak >= 5 && dropSessions >= 2);
+  const level = strong ? 'strong' : streak >= 8 ? 'soft' : null;
+  return { level, reasons, perfMean, dropSessions, streak };
+}
+function deloadHTML(compact = false) {
+  const g = deloadSignal(); if (!g.level) return '';
+  if (db.settings.deloadSnooze && db.settings.deloadSnooze >= todayISO()) return '';
+  if (compact) return `<a class="card reminder deload-mini" href="#/exercises">${ic('alert')} <b>${g.level === 'strong' ? 'Posible fatiga acumulada' : 'Toca pensar en una descarga'}</b> <span class="muted small">· ver en Progreso</span></a>`;
+  return `<div class="card reminder deload">
+    <div><b>${ic('alert')} ${g.level === 'strong' ? 'Posible fatiga acumulada: valora una semana de descarga' : 'Llevas muchas semanas sin descargar'}</b> ${info('deload')}</div>
+    <ul class="small" style="margin:6px 0 8px;padding-left:18px">${g.reasons.map((r) => `<li>${r}</li>`).join('')}</ul>
+    <div class="muted small">Una descarga típica: misma frecuencia, la mitad de series y más lejos del fallo (RIR 4-5) durante una semana.</div>
+    <button class="ghost block" style="margin-top:6px" data-action="deload-snooze">Ocultar durante 7 días</button>
+  </div>`;
+}
+
 Object.assign(actions, {
   'lm-reset': () => { if (!confirm('¿Volver a las referencias por defecto para este atleta?')) return; delete db.settings.landmarks; save(); rerender(); },
+  'deload-snooze': () => { db.settings.deloadSnooze = isoFromNum(dayNum(todayISO()) + 7); save(); rerender(); },
   pmuscle: (el) => { ui.pmuscle = ui.pmuscle === el.dataset.m ? null : el.dataset.m; rerender(); },
   'bw-add': () => {
     const last = bodyweightLog().pop();
@@ -296,5 +352,5 @@ Object.assign(actions, {
   'same-w': (el) => { ui.sameW = ui.sameW || {}; ui.sameW[el.dataset.id] = el.dataset.w; rerender(); },
   'chart-rel': () => { ui.chartRel = !ui.chartRel; ui.chartSel = null; rerender(); },
 });
-Object.assign(window, { landmarksSettingsHTML, sameWeightHTML, progressTopHTML, exerciseRowExtra, exercisesHeaderHTML, bodyweightAt, bodyweightLog });
+Object.assign(window, { deloadHTML, deloadSignal, landmarksSettingsHTML, sameWeightHTML, progressTopHTML, exerciseRowExtra, exercisesHeaderHTML, bodyweightAt, bodyweightLog });
 if (['exercises', 'exercise'].includes(route().name)) rerender();

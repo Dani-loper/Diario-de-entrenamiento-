@@ -1,0 +1,11 @@
+{
+  "name": "diario-de-entrenamiento",
+  "private": true,
+  "description": "PWA para registrar sesiones de entrenamiento. Sin compilación: los archivos se sirven tal cual.",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

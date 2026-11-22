@@ -96,6 +96,19 @@ function backupStatusHTML() {
   const warn = d == null || d > REMIND_DAYS;
   return `<div class="${warn ? 'mismatch' : 'muted small'}" style="margin-bottom:8px">Última copia guardada fuera de la app: <b>${txt}</b>.</div>`;
 }
+/* iPhone/iPad: Safari borra los datos de una web tras 7 días sin abrirla (ITP), salvo si está instalada en la
+ * pantalla de inicio. Se avisa solo en iOS cuando la app no se ejecuta instalada. */
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isInstalled = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+function installReminderHTML() {
+  if (!isIOS() || isInstalled() || localBk.installDismissed) return '';
+  return `<div class="card reminder">
+    <div><b>${ic('alert')} Instala la app para no perder tus datos</b></div>
+    <div class="muted small" style="margin:4px 0 10px">En iPhone, si usas la app desde Safari sin instalarla, el sistema puede <b>borrar todo lo registrado</b> tras 7 días sin abrirla.
+      Para evitarlo: botón <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>, y ábrela desde ese icono. Guarda antes una copia de seguridad: los datos de Safari no pasan a la app instalada.</div>
+    <div class="grid2"><button class="primary" data-action="export-all">Guardar copia</button><button class="ghost" data-action="dismiss-install">Ya la tengo instalada</button></div>
+  </div>`;
+}
 function backupReminderHTML() {
   const total = profiles.users.reduce((a, u) => a + ((u.id === profiles.active ? db : readUserData(u.id))?.sessions.length || 0), 0);
   const d = agoDays(localBk.lastExport);
@@ -123,6 +136,7 @@ async function fillSnapList() {
 
 Object.assign(actions, {
   'export-all': () => saveBackupFile(),
+  'dismiss-install': () => { localBk.installDismissed = true; localBkSave(); rerender(); },
   'snooze-backup': () => { localBk.snoozeUntil = Date.now() + 3 * 864e5; localBkSave(); rerender(); },
   'snap-now': async () => { await takeSnapshot('Manual'); fillSnapList(); toast('✓ Copia automática creada'); },
   'snap-restore': async (el) => {
