@@ -1,4 +1,8 @@
 :root {
+  /* Márgenes de las barras del sistema (muesca, barra de estado, barra de navegación). En la app Android, Capacitor
+     los da en --safe-area-inset-* porque el visor web deja env(safe-area-inset-*) a 0. */
+  --sa-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sa-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   --bg: #111418;
   --card: #1b2027;
   --card2: #232a33;
@@ -22,9 +26,9 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text);
   font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
-body.timer-on { padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
-main { max-width: 720px; margin: 0 auto; padding: calc(12px + env(safe-area-inset-top)) 16px 24px; }
+body { padding-bottom: calc(72px + var(--sa-bottom)); }
+body.timer-on { padding-bottom: calc(140px + var(--sa-bottom)); }
+main { max-width: 720px; margin: 0 auto; padding: calc(12px + var(--sa-top)) 16px 24px; }
 h1 { font-size: 1.5rem; margin: 8px 0 16px; }
 h2 { font-size: 1.1rem; margin: 20px 0 8px; }
 h3 { font-size: 1rem; margin: 0; }
@@ -91,13 +95,13 @@ label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 4p
 
 /* Tab bar */
 .tabbar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: var(--card);
-  border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 10; }
+  border-top: 1px solid var(--line); padding-bottom: var(--sa-bottom); z-index: 10; }
 .tabbar a { flex: 1; text-align: center; padding: 8px 0 10px; color: var(--muted); text-decoration: none; font-size: 1.2rem; }
 .tabbar a span { display: block; font-size: .7rem; }
 .tabbar a.active { color: var(--accent); }
 
 /* Rest timer */
-.timer { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom));
+.timer { position: fixed; left: 12px; right: 12px; bottom: calc(76px + var(--sa-bottom));
   max-width: 696px; margin: 0 auto; background: var(--accent); color: var(--accent-ink);
   border-radius: var(--radius); padding: 8px 10px; display: flex; align-items: center; gap: 8px; z-index: 11;
   box-shadow: 0 6px 24px rgba(0,0,0,.35); }
@@ -275,7 +279,7 @@ button.info::after { content: ''; position: absolute; inset: -12px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Aviso flotante */
-.toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0;
+.toast { position: fixed; left: 50%; bottom: calc(84px + var(--sa-bottom)); transform: translate(-50%, 20px); opacity: 0;
   background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: .9rem; z-index: 30;
   transition: opacity .2s, transform .2s; pointer-events: none; max-width: calc(100vw - 32px); text-align: center; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -326,7 +330,7 @@ code { font-size: .85em; background: var(--card2); padding: 1px 5px; border-radi
   .timer button { padding: 6px 8px; }
 }
 /* El aviso flotante no tapa el temporizador */
-body.timer-on .toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
+body.timer-on .toast { bottom: calc(150px + var(--sa-bottom)); }
 
 /* Campo de descanso bajo cada serie */
 .rest-field { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 4px 40px; font-size: .78rem; color: var(--muted); }
@@ -517,3 +521,5 @@ i.vz.opt { background: var(--accent); } i.vz.high { background: var(--warn); } i
 .chip .secw { margin-left: 2px; }
 .kit-chips { margin: 0 0 8px; }
 .kit-chips .chip { min-height: 32px; padding: 4px 10px; font-size: .8rem; }
+/* Franja opaca bajo la barra de estado: al desplazarse, el contenido no pasa por debajo del reloj y los iconos. */
+body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: var(--sa-top); background: var(--bg); z-index: 30; pointer-events: none; }

@@ -31,5 +31,10 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await ios.addInitScript(() => { window.Capacitor = { isNativePlatform: () => true, Plugins: {} }; });
   const q = await ios.newPage(); await q.goto('http://localhost:8123/'); await q.waitForSelector('.cal');
   assert(!(await q.isVisible('text=Instala la app para no perder tus datos')), 'dentro de la app no avisa de instalarla');
+  // Barras del sistema (Android a pantalla completa): Capacitor da sus medidas en --safe-area-inset-*
+  await p.goto('http://localhost:8123/');
+  await p.evaluate(() => { document.documentElement.style.setProperty('--safe-area-inset-top', '40px'); document.documentElement.style.setProperty('--safe-area-inset-bottom', '48px'); });
+  const pad = await p.evaluate(() => [getComputedStyle(document.querySelector('main')).paddingTop, getComputedStyle(document.querySelector('.tabbar')).paddingBottom, getComputedStyle(document.body, '::before').height]);
+  assert(pad.join() === '52px,48px,40px', 'hueco para la barra de estado (12 + 40 px), franja opaca fija de 40 px detrás de ella y 48 px para la barra de navegación: ' + pad.join());
   console.log('errors', errs); await b.close();
 })();
