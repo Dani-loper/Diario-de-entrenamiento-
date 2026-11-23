@@ -71,7 +71,7 @@ const DEFAULT_EQUIPMENT = ['Straps', 'Zapatillas de halterofilia', 'Cinturón', 
  * cada secundario: 0,5 por defecto (Pelland et al., 2024) o 0,25 / 0,75 según el ejercicio (def.sw).
  * Criterios y fuentes: catalog.js y docs/volumen-por-musculo.md. */
 const MUSCLES = {
-  pectoral: 'Pectoral', espalda: 'Espalda', trapecio: 'Trapecio', delt_ant: 'Deltoides anterior', delt_lat: 'Deltoides lateral', delt_post: 'Deltoides posterior',
+  pectoral: 'Pectoral', espalda: 'Espalda', lumbar: 'Lumbar', trapecio: 'Trapecio', delt_ant: 'Deltoides anterior', delt_lat: 'Deltoides lateral', delt_post: 'Deltoides posterior',
   biceps: 'Bíceps', triceps: 'Tríceps', antebrazo: 'Antebrazo',
   abdomen: 'Abdomen', gluteos: 'Glúteos', aductores: 'Aductores', cuadriceps: 'Cuádriceps', femoral: 'Femoral', gemelos: 'Gemelos',
 };
@@ -152,7 +152,7 @@ function migrateDelts(d) {
  * músculos y pesos nuevos; los que cambió conservan sus músculos (sus secundarios siguen contando 0,5). Se añaden
  * los ejercicios del catálogo que falten y a todos los del catálogo se les pone material y tipo si no lo tenían. */
 function migrateCatalog(d) {
-  if (d.musclesV >= 3) return d;
+  if (d.musclesV >= 3) return migrateLumbar(d);
   const same = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
   const have = new Set((d.exercises || []).map((e) => e.name.trim().toLowerCase()));
   for (const e of d.exercises || []) {
@@ -166,6 +166,26 @@ function migrateCatalog(d) {
   }
   for (const c of CATALOG) if (!have.has(c.name.toLowerCase())) d.exercises.push(defFromCatalog(c));
   d.musclesV = 3;
+  return migrateLumbar(d);
+}
+/* Lumbar separado de espalda (v4). «Espalda» queda para dorsal y espalda alta (remos, dominadas, jalones), que es lo
+ * que miden las referencias de Israetel; los erectores (sentadillas, pesos muertos, buenos días, hiperextensiones,
+ * halterofilia) pasan a «Lumbar», con el mismo peso que tenían. Los ejercicios del catálogo sin cambios del atleta se
+ * actualizan; los propios o cambiados que parecen de cadera con «espalda» se marcan para revisar (no se adivina). */
+const sameSw = (a = {}, b = {}) => { const ka = Object.keys(a), kb = Object.keys(b); return ka.length === kb.length && ka.every((k) => b[k] === a[k]); };
+const HINGE_NAME = /hiperext|lumbar|buenos d[ií]as|good ?morning|superman|tir[oó]n|cargada|arrancada|peso muerto|deadlift|swing/i;
+function migrateLumbar(d) {
+  if (d.musclesV >= 4) return d;
+  const have = new Set((d.exercises || []).map((e) => e.name.trim().toLowerCase()));
+  for (const e of d.exercises || []) {
+    const c = CATALOG_BY_NAME[e.name.trim().toLowerCase()], old = c && LEGACY_MUSCLES_V3[c.name];
+    const sw = e.sw || Object.fromEntries((e.secondary || []).map((m) => [m, SECONDARY_WEIGHT]));
+    if (old && (e.primary ?? null) === old[0] && sameSw(sw, old[1])) { e.primary = c.primary; e.secondary = Object.keys(c.sw); e.sw = { ...c.sw }; continue; }
+    const hinge = ['cuadriceps', 'gluteos', 'femoral', 'aductores'].includes(e.primary) || HINGE_NAME.test(e.name);
+    if (hinge && (e.primary === 'espalda' || (e.secondary || []).includes('espalda'))) e.reviewMuscles = true;
+  }
+  for (const c of CATALOG) if (!have.has(c.name.toLowerCase())) d.exercises.push(defFromCatalog(c));
+  d.musclesV = 4;
   return d;
 }
 
@@ -200,7 +220,7 @@ const BACK = {
   shapes: [
     ['trapecio', '<path d="M100 50L82 66L100 112L118 66Z"/>', false],
     ['espalda', '<path d="M75 82Q67 112 80 150L98 140V108L84 80Z"/>', true], // dorsal
-    ['espalda', '<path d="M93 114H107V170H93Z"/>', false], // lumbares
+    ['lumbar', '<path d="M93 114H107V170H93Z"/>', false], // erectores (lumbar)
     ['delt_lat', '<ellipse cx="53" cy="80" rx="6" ry="10"/>', true],
     ['delt_post', '<ellipse cx="65" cy="79" rx="8" ry="10"/>', true],
     ['triceps', '<ellipse cx="57" cy="108" rx="7.5" ry="18"/>', true],
@@ -233,7 +253,7 @@ function bodyMapHTML(vals, { steps = [2, 4, 6, 8], unit = 'series' } = {}) {
 /* ---------- Persistencia ---------- */
 function seed() {
   return {
-    version: 1, musclesV: 3,
+    version: 1, musclesV: 4,
     exercises: CATALOG.map(defFromCatalog),
     equipment: DEFAULT_EQUIPMENT.map((name) => ({ id: uid(), name })),
     sessions: [],
@@ -862,6 +882,7 @@ const GLOSSARY = {
     <b>MAV</b> · volumen adaptativo máximo: el rango donde se suele progresar mejor.<br>
     <b>MRV</b> · volumen máximo recuperable: por encima, la fatiga supera la recuperación y el rendimiento cae.</p>
     <p>Colores: gris por debajo del MEV, verde claro entre MEV y MAV, verde en el MAV, naranja entre MAV y MRV, rojo por encima del MRV.</p>
+    <p><b>Lumbar</b> (erectores de la columna) no tiene referencia: Israetel no publica cifras y no hay estudios de dosis y respuesta fiables. Se muestra solo el recuento, en gris. «Espalda» cuenta solo dorsal y espalda alta (remos, dominadas, jalones).</p>
     <p>Los valores por defecto son <b>aproximados</b>: varían entre ediciones de sus guías y entre personas (más entrenadas, más volumen toleran). Lo habitual es empezar un mesociclo cerca del MEV e ir subiendo hacia el MRV. Puedes ajustarlos para cada atleta en Ajustes › Avanzado.</p>
     <p>Aquí las series secundarias cuentan 0,5. Israetel no cuenta así exactamente (por ejemplo, da MEV 0 a glúteos porque las sentadillas y el peso muerto ya los trabajan), así que en músculos que trabajan mucho como secundarios el valor puede salir algo alto frente a su tabla.</p>`],
   suggest: ['Peso sugerido', `
@@ -1361,7 +1382,7 @@ function viewExercises() {
       <span class="lead-ic">${ic('file')}</span><span class="spacer"><b>Informe de evolución (PDF)</b>
       <div class="muted small">1, 3, 6 o 12 meses · evolución por ejercicio, carga, reparto y bienestar</div></span><span>›</span></a>
     ${db.exercises.some((x) => x.reviewMuscles) ? `<div class="card reminder"><b>${ic('alert')} Revisa los músculos de ${db.exercises.filter((x) => x.reviewMuscles).length} ejercicio(s) propio(s)</b>
-      <div class="muted small" style="margin:4px 0 8px">Sus músculos se asignaron automáticamente (desde las categorías antiguas o al dividir «Hombros» en deltoides anterior, lateral y posterior).</div>
+      <div class="muted small" style="margin:4px 0 8px">Sus músculos se asignaron automáticamente o pueden haber quedado anticuados (al dividir «Hombros» en deltoides, o al separar «Lumbar» de «Espalda»: si el ejercicio trabaja los erectores, pon «Lumbar» en lugar de «Espalda»).</div>
       <button class="primary block" data-action="review-muscles">Revisar</button></div>` : ''}
     ${window.exercisesHeaderHTML ? exercisesHeaderHTML() : ''}
     <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">

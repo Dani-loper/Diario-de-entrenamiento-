@@ -548,3 +548,10 @@ h1 + .sgroup { margin-top: 8px; }
 .rest-line .rest-field { flex: 1; }
 .vid-quick { min-width: 40px; min-height: 34px; height: 34px; padding: 4px; color: var(--muted); margin-left: auto; }
 .vid-quick.on { color: var(--danger); }
+.mb-h.z-none { background: var(--muted); }
+.zc.z-none { background: var(--card2); }
+/* Series por músculo: marca de lo hecho en el microciclo anterior y navegación por periodos */
+.mb-prev { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--text); opacity: .55; border-radius: 1px; }
+i.mb-prev-key { display: inline-block; width: 2px; height: 11px; background: var(--text); opacity: .55; }
+.mw-nav { margin-top: 4px; }
+.mw-nav .icon { min-height: 36px; }

@@ -82,7 +82,7 @@ function mesoCardHTML(iso) {
 }
 function zoneCell(v, m) {
   if (!v) return '<td class="muted">–</td>';
-  const z = window.volZone ? volZone(v, landmarksOf(m)) : '';
+  const L = window.landmarksOf ? landmarksOf(m) : null, z = L ? volZone(v, L) : 'none'; // lumbar: sin referencia
   return `<td><span class="zc z-${z}">${fmt(v, 1)}</span></td>`;
 }
 function viewMeso(id) {

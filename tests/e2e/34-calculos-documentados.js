@@ -33,7 +33,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
       e1_80x8r2: e1(80, 8, 2), pct_8r2: pct1rm({ reps: 8, rir: 2 }), e1_80x7r1: e1(80, 7, 1), e1_775: e1(77.5, 8, 2), best,
       noRir: e1(100, 5, null), rir4: e1(100, 5, 4),
       volPress: entryStats(t16.exercises[0]).vol, volSes: sessionVolume(t16),
-      hard: v.hard, unknown: v.unknown, easy: sum(v.easy), zonePec: volZone(v.hard.pectoral, landmarksOf('pectoral')), zoneEsp: volZone(v.hard.espalda, landmarksOf('espalda')),
+      hard: v.hard, unknown: v.unknown, easy: sum(v.easy), zonePec: volZone(v.hard.pectoral, landmarksOf('pectoral')), zoneEsp: volZone(v.hard.espalda, landmarksOf('espalda')), lmLumbar: landmarksOf('lumbar'),
       table: [1, 5, 8].map((n) => Math.round(best * RTS[(n - 1) * 2] / 100 / 2.5) * 2.5),
       sug, sug2, warm: warmupRamp(80, 8, true).map((x) => `${x.w}x${x.reps}`).join(' '),
       warmHeavy: warmupRamp(140, 3, true).map((x) => `${x.w}x${x.reps}`).join(' '),
@@ -48,10 +48,10 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   assert(near(r.noRir, 100 / 0.863) && r.rir4 === null, 'sin RIR se asume al fallo (100 × 5 → 115,9); con RIR 4 no se estima');
   assert(r.volPress === 1840 && r.volSes === 4640, 'volumen: press 1840 kg (sin calentamiento) · sesión 4640 kg');
   assert(r.hard.pectoral === 3 && r.hard.triceps === 1.5 && r.hard.delt_ant === 1.5, 'press banca 3 series: pectoral 3, tríceps 1,5, deltoides anterior 1,5');
-  assert(r.hard.espalda === 3.75 && r.hard.biceps === 1.5 && r.hard.trapecio === 0.75, 'espalda 3 (remo) + 0,75 (sentadilla ¼ × 3) = 3,75; bíceps 1,5; trapecio 0,75');
+  assert(r.hard.espalda === 3 && r.hard.lumbar === 0.75 && r.hard.biceps === 1.5 && r.hard.trapecio === 0.75, 'espalda 3 (solo remo) · lumbar 0,75 (sentadilla ¼ × 3) · bíceps 1,5 · trapecio 0,75');
   assert(r.hard.cuadriceps === 3 && r.hard.gluteos === 2.25 && r.unknown.cuadriceps === 1, 'sentadilla: cuádriceps 3 (+1 sin RIR aparte), glúteos 2,25');
   assert(r.easy === 2.25, 'la serie de remo a RIR 5 suma 2,25 «no efectivas» (1 + ½ + ½ + ¼)');
-  assert(r.zonePec === 'under' && r.zoneEsp === 'under', 'pectoral 3 y espalda 3,75: por debajo del mantenimiento');
+  assert(r.zonePec === 'under' && r.zoneEsp === 'under' && r.lmLumbar === null, 'pectoral 3 y espalda 3: por debajo del mantenimiento · lumbar sin referencia');
   assert(r.table.join() === '107.5,92.5,85', 'tabla de cargas: 1 rep 107,5 · 5 reps 92,5 · 8 reps 85');
   assert(r.sug && r.sug.w === 80 && r.sug.reps === 8 && r.sug.rir === 2, 'peso sugerido serie 1: 80 kg × 8 @ RIR 2 (de la sesión anterior)');
   assert(r.sug2 && r.sug2.w === 80 && near(r.sug2.e1, 82.5 / 0.762), 'tras 82,5 × 8 @ RIR 1 hoy (1RM 108,3): serie 2 → 80 kg');
