@@ -13,6 +13,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
     db.sessions.push(mk('olv', 'Pierna', now - 4 * 3600e3, now - 3 * 3600e3), mk('reciente', 'Torso', now - 30 * 60e3, now - 10 * 60e3));
     save(true); rerender(); return now;
   });
+  await p.click('[data-action=notices]');
   await p.waitForSelector('.stale');
   const cards = await p.$$eval('.stale', (x) => x.map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
   assert(cards.length === 1 && cards[0].includes('«Pierna» sigue abierta') && cards[0].includes('hace 3 h'), 'calendario: aviso solo de la sesión sin actividad desde hace 3 h: ' + cards[0]);

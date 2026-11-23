@@ -45,6 +45,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.route('**/version.json', (r) => r.fulfill({ json: { version: '1.5', code: 5 } }));
   await p.route('https://api.github.com/**', (r) => r.fulfill({ json: { tag_name: 'android-v1.7', name: 'App Android 1.7', html_url: 'https://github.com/Dani-loper/Diario-de-entrenamiento-/releases/tag/android-v1.7' } }));
   await p.goto('http://localhost:8123/');
+  await p.click('[data-action=notices]');
   await p.waitForSelector('text=Hay una versión nueva de la app (App Android 1.7)');
   assert(await p.getAttribute('a.btn.primary[href*="releases/tag/android-v1.7"]', 'href') !== null, 'app 1.5 y publicada la 1.7: aviso con enlace de descarga');
   await p.click('[data-action=update-dismiss]');
@@ -57,5 +58,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.route('https://api.github.com/**', (r) => { asked = true; r.abort(); });
   await p.goto('http://localhost:8123/#/settings'); await p.waitForTimeout(300);
   assert(!asked && (await p.textContent('#app')).includes('Versión web'), 'en la web no consulta GitHub (siempre carga la última)');
+  // Privacidad: resumen en Ajustes y texto completo
+  await p.click('[data-action=privacy]');
+  assert((await p.textContent('#modal')).includes('Tus datos se guardan solo en este dispositivo') && (await p.textContent('#modal')).includes('api.github') === false, 'Ajustes › Privacidad: texto completo en una ventana');
   console.log('errors', errs); await b.close();
 })();

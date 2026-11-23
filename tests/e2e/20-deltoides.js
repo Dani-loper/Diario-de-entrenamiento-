@@ -42,7 +42,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   assert(v.delt_ant === '4' && v.delt_lat === '6' && v.delt_post === '0' && !('hombros' in v), 'barras: anterior 4 · lateral 6 (se respetan los secundarios que tenía el press militar) · posterior 0: ' + JSON.stringify([v.delt_ant, v.delt_lat, v.delt_post]));
   assert((await p.textContent('#app')).includes('Revisa los músculos'), 'aviso para revisar los ejercicios propios');
   // Figura del cuerpo en la sesión
-  await p.goto('http://localhost:8123/#/session/s1'); await p.waitForSelector('.body-fig');
+  await p.goto('http://localhost:8123/#/session/s1'); await p.waitForSelector('#vol');
+  if (await p.$('[data-action=sum-open][aria-expanded=false]')) await p.click('[data-action=sum-open]'); await p.waitForSelector('.body-fig');
   const fig = await p.$$eval('.body-fig', (f) => f.map((x) => [...new Set([...x.querySelectorAll('.mz')].map((g) => g.dataset.m))].filter((k) => k.startsWith('delt')).join('+')));
   assert(fig[0] === 'delt_lat+delt_ant' && fig[1] === 'delt_lat+delt_post', 'figura: frontal anterior + lateral; posterior posterior + lateral: ' + fig.join(' | '));
   await (await p.$('.body-map')).screenshot({ path: out + '/20body.png' });

@@ -54,6 +54,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   }
   const acc = await p.evaluate(() => sessionMuscles(currentSession()));
   assert(JSON.stringify(acc) === JSON.stringify({ pectoral: 4, triceps: 2, delt_ant: 2, femoral: 3, gemelos: 0.75 }), 'volumen fraccionado: ' + JSON.stringify(acc));
+  if (await p.$('[data-action=sum-open][aria-expanded=false]')) await p.click('[data-action=sum-open]'); 
   const lv = await p.evaluate(() => Object.fromEntries(['pectoral', 'triceps', 'femoral', 'gemelos', 'biceps'].map((m) => [m, document.querySelector(`.mz[data-m=${m}]`).className.baseVal.match(/m(\d)/)[1]])));
   assert(JSON.stringify(lv) === JSON.stringify({ pectoral: '3', triceps: '2', femoral: '2', gemelos: '1', biceps: '0' }), 'niveles de color: ' + JSON.stringify(lv));
   const tip = await p.textContent('.mz[data-m=pectoral] title');

@@ -62,6 +62,7 @@ const kv = (() => {
       for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (isDataKey(k)) moved.push(k); }
       for (const k of moved) { const v = localStorage.getItem(k); mem.set(k, v); await tx('readwrite', (st) => st.put(v, k)); }
       for (const k of moved) localStorage.removeItem(k); // solo tras guardarlas en IndexedDB
+      localStorage.removeItem('diario-entreno.nube'); // estado de la antigua copia en Google Drive (eliminada)
     } catch (e) {
       // Sin IndexedDB: se trabaja directamente con localStorage.
       idb = null; lastError = e;
@@ -82,8 +83,8 @@ const kv = (() => {
 })();
 
 // Carga el resto de la app cuando los datos ya están en memoria (en orden, sin bloquear el primer pintado).
-const APP_SCRIPTS = ['config.js', 'app.js', 'pdf.js', 'media.js', 'cloud.js', 'backup.js', 'templates.js', 'records.js', 'progress.js',
-  'daily.js', 'suggest.js', 'share.js', 'meso.js', 'profile.js', 'autoclose.js', 'update.js'];
+const APP_SCRIPTS = ['app.js', 'pdf.js', 'media.js', 'backup.js', 'templates.js', 'records.js', 'progress.js',
+  'daily.js', 'suggest.js', 'share.js', 'meso.js', 'profile.js', 'autoclose.js', 'privacy.js', 'update.js'];
 kv.ready.then(() => {
   APP_SCRIPTS.forEach((src, i) => {
     const s = document.createElement('script'); s.src = src; s.async = false;

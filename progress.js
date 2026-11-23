@@ -56,6 +56,8 @@ const ZONES_VOL = {
   under: ['Por debajo del mantenimiento', 'under'], maint: ['Mantenimiento (MV-MEV)', 'maint'], low: ['Crecimiento mínimo (MEV-MAV)', 'low'],
   opt: ['Rango adaptativo (MAV)', 'opt'], high: ['Alto (MAV-MRV)', 'high'], over: ['Por encima del MRV', 'over'],
 };
+const SIMPLE_ZONES = [['Poco', 'maint'], ['Bien', 'opt'], ['Mucho', 'high']];
+const simpleZone = (z) => (z === 'opt' ? 'bien' : z === 'high' || z === 'over' ? 'mucho' : 'poco');
 function volZone(v, L) {
   if (v > L.mrv) return 'over';
   if (v > L.hi) return 'high';
@@ -72,15 +74,18 @@ function muscleWeekHTML() {
   const pc = (n) => `${(n / max) * 100}%`;
   const unknownTotal = Object.values(v.unknown).reduce((a, b) => a + b, 0);
   const easyTotal = Object.values(v.easy).reduce((a, b) => a + b, 0);
-  const sel = ui.pmuscle;
+  const sel = ui.pmuscle, simple = isSimple();
+  // Modo sencillo: tres estados (poco, bien, mucho) en lugar de las cinco zonas de Israetel.
+  const legend = simple ? SIMPLE_ZONES.map(([l, c]) => `<span><i class="vz ${c}"></i>${l}</span>`).join('')
+    : Object.values(ZONES_VOL).filter(([, c]) => c !== 'under').map(([l, c]) => `<span><i class="vz ${c}"></i>${l}</span>`).join('');
   let html = `<div class="card">
     <div class="row"><h3 class="spacer">Series efectivas por músculo ${info('hard_sets')}</h3></div>
-    <div class="muted small" style="margin:2px 0 6px">Últimos ${len} días (${shortDate(from)} – ${shortDate(to)}) · RIR ≤ ${hardRir()} · referencias de Israetel ${info('landmarks')}</div>
-    <div class="vz-legend small">${Object.values(ZONES_VOL).filter(([, c]) => c !== 'under').map(([l, c]) => `<span><i class="vz ${c}"></i>${l}</span>`).join('')}</div>
-    <div class="mbars">`;
+    <div class="muted small" style="margin:2px 0 6px">Últimos ${len} días (${shortDate(from)} – ${shortDate(to)}) · RIR ≤ ${hardRir()}${simple ? '' : ` · referencias de Israetel ${info('landmarks')}`}</div>
+    <div class="vz-legend small">${legend}</div>
+    <div class="mbars ${simple ? 'simple' : ''}">`;
   for (const m of MUSCLE_KEYS) {
     const h = v.hard[m] || 0, u = v.unknown[m] || 0, tot = h + u, L = landmarksOf(m), z = volZone(h, L);
-    html += `<button class="mbar ${sel === m ? 'on' : ''}" data-action="pmuscle" data-m="${m}" aria-label="${MUSCLES[m]}: ${fmt(h, 1)} series efectivas, ${ZONES_VOL[z][0]}">
+    html += `<button class="mbar ${sel === m ? 'on' : ''}" data-action="pmuscle" data-m="${m}" aria-label="${MUSCLES[m]}: ${fmt(h, 1)} series efectivas, ${simple ? simpleZone(z) : ZONES_VOL[z][0]}">
       <span class="mb-l">${MUSCLES[m]}</span>
       <span class="mb-t"><span class="mb-seg low" style="left:${pc(L.mev)};width:${pc(L.lo - L.mev)}"></span><span class="mb-seg opt" style="left:${pc(L.lo)};width:${pc(L.hi - L.lo)}"></span><span class="mb-seg high" style="left:${pc(L.hi)};width:${pc(L.mrv - L.hi)}"></span><span class="mb-mrv" style="left:${pc(L.mrv)}"></span>
         <span class="mb-h z-${z}" style="width:${pc(h)}"></span><span class="mb-u" style="left:${pc(h)};width:${pc(u)}"></span></span>
@@ -110,8 +115,8 @@ function muscleTrendHTML(m) {
     <svg class="chart wchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Series efectivas semanales de ${MUSCLES[m]}">
       <rect class="band" x="${X}" width="${W - X - R}" y="${y(L.hi)}" height="${y(L.lo) - y(L.hi)}"/>
       ${ticks.map((v) => `<line class="grid" x1="${X}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${X - 4}" y="${y(v) + 3}" text-anchor="end">${v}</text>`).join('')}
-      ${L.mev ? `<line class="lm mev" x1="${X}" x2="${W - R}" y1="${y(L.mev)}" y2="${y(L.mev)}"/>` : ''}<line class="lm mrv" x1="${X}" x2="${W - R}" y1="${y(L.mrv)}" y2="${y(L.mrv)}"/>
-      <text class="lmt" x="${W - R - 2}" y="${y(L.mrv) - 3}" text-anchor="end">MRV ${fmt(L.mrv)}</text>${L.mev ? `<text class="lmt" x="${W - R - 2}" y="${y(L.mev) - 3}" text-anchor="end">MEV ${fmt(L.mev)}</text>` : ''}
+      ${isSimple() ? '' : `${L.mev ? `<line class="lm mev" x1="${X}" x2="${W - R}" y1="${y(L.mev)}" y2="${y(L.mev)}"/>` : ''}<line class="lm mrv" x1="${X}" x2="${W - R}" y1="${y(L.mrv)}" y2="${y(L.mrv)}"/>
+      <text class="lmt" x="${W - R - 2}" y="${y(L.mrv) - 3}" text-anchor="end">MRV ${fmt(L.mrv)}</text>${L.mev ? `<text class="lmt" x="${W - R - 2}" y="${y(L.mev) - 3}" text-anchor="end">MEV ${fmt(L.mev)}</text>` : ''}`}
       ${vals.map((x, i) => {
         const cx = X + i * bw + bw * 0.15, wd = bw * 0.7, cur = i === vals.length - 1;
         return `<rect class="col ${cur ? 'cur' : ''}" x="${cx}" width="${wd}" y="${y(x.h)}" height="${y(0) - y(x.h)}" rx="2"/>
@@ -119,7 +124,7 @@ function muscleTrendHTML(m) {
       }).join('')}
       <text x="${X}" y="${H - 4}">${wkLabel(vals[0].w)}</text><text x="${W - R}" y="${H - 4}" text-anchor="end">${isCustomCycle() ? 'ciclo actual' : 'esta semana'}</text>
     </svg>
-    <div class="muted small">Referencias: MV ${fmt(L.mv)} · MEV ${fmt(L.mev)} · MAV ${fmt(L.lo)}-${fmt(L.hi)} · MRV ${fmt(L.mrv)} series/${cycleWord()}.<br>Media de ${isCustomCycle() ? 'los últimos 4 ciclos completos' : 'las últimas 4 semanas completas'}: <b>${fmt(avg, 1)}</b> series efectivas (${ZONES_VOL[volZone(avg, L)][0].toLowerCase()}). ${isCustomCycle() ? 'El ciclo en curso aparece más claro porque aún no ha terminado.' : 'La semana en curso aparece más clara porque aún no ha terminado.'}</div></div>`;
+    <div class="muted small">${isSimple() ? `Lo recomendable: entre ${fmt(L.lo)} y ${fmt(L.hi)} series por ${cycleWord()} (franja verde).` : `Referencias: MV ${fmt(L.mv)} · MEV ${fmt(L.mev)} · MAV ${fmt(L.lo)}-${fmt(L.hi)} · MRV ${fmt(L.mrv)} series/${cycleWord()}.`}<br>Media de ${isCustomCycle() ? 'los últimos 4 ciclos completos' : 'las últimas 4 semanas completas'}: <b>${fmt(avg, 1)}</b> series efectivas (${isSimple() ? simpleZone(volZone(avg, L)) : ZONES_VOL[volZone(avg, L)][0].toLowerCase()}). ${isCustomCycle() ? 'El ciclo en curso aparece más claro porque aún no ha terminado.' : 'La semana en curso aparece más clara porque aún no ha terminado.'}</div></div>`;
 }
 
 /* ---------- Constancia ---------- */
@@ -182,7 +187,7 @@ function bodyweightHTML() {
   const last = log[log.length - 1];
   let html = `<div class="card"><div class="row"><h3 class="spacer">Peso corporal ${info('relative')}</h3>
       <button class="small-btn" data-action="bw-add">＋ Anotar</button></div>`;
-  if (!log.length) return html + `<div class="muted small" style="margin-top:6px">Anota tu peso de vez en cuando para ver su evolución y tu fuerza relativa (1RM ÷ peso corporal) en cada ejercicio.</div></div>`;
+  if (!log.length) return ''; // sin datos no se muestra: el peso se anota en «Datos del día» del calendario
   const first = log.find((r) => isoMs(r.d) >= isoMs(last.d) - 91 * dayMs) || log[0];
   html += `<div class="muted small" style="margin:4px 0 6px">Último: <b>${fmt(last.v)} kg</b> (${shortDate(last.d)})${first !== last ? ` · ${last.v - first.v >= 0 ? '+' : ''}${fmt(last.v - first.v)} kg desde el ${shortDate(first.d)}` : ''}</div>`;
   if (log.length >= 2) html += lineChartHTML(log, { label: 'Evolución del peso corporal', unit: ' kg' });
@@ -254,7 +259,7 @@ function sameWeightHTML(def, hist) {
     <div class="chips" style="margin-bottom:6px">${[...cands].sort((a, b) => a - b).map((w) => `<button class="chip ${w === String(W) ? 'on' : ''}" data-action="same-w" data-id="${def.id}" data-w="${w}">${wl(w)} <small class="cnt">${count[w]}</small></button>`).join('')}</div>
     <div class="muted small">Repeticiones posibles con <b>${wl(W)}</b> (reps + RIR): ${shortDate(first.d)} ${capTxt(first)} · ${shortDate(last.d)} ${capTxt(last)}
       <b class="${dif > 0 ? 'up' : dif < 0 ? 'down' : ''}">(${dif > 0 ? '+' : ''}${fmt(dif)} reps)</b></div>
-    ${lineChartHTML(pts, { label: `Repeticiones posibles con ${wl(W)}`, dec: 0, unit: ' reps' })}
+    ${pts.length >= 3 ? lineChartHTML(pts, { label: `Repeticiones posibles con ${wl(W)}`, dec: 0, unit: ' reps' }) : ''}
     <div class="muted small">Se muestran los pesos que has usado en al menos 2 sesiones; el número pequeño indica en cuántas.</div></div>`;
 }
 

@@ -79,7 +79,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
 
   // Repetir la sesión: las series copiadas no arrastran el vídeo
   await p.goto('http://localhost:8123/#/');
-  await p.click('[data-action=repeat-session]');
+  await p.click('[data-action=start-from]');
   await p.click('[data-action=repeat-from]');
   assert(await p.evaluate(() => currentSession().exercises[0].sets.every((x) => !x.videoId)), 'al repetir una sesión no se copia el vídeo');
   await p.click('[data-action=session-menu]');

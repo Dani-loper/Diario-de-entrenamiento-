@@ -31,7 +31,6 @@ npm run lint                         # revisión estática del código
 | 06-usuarios | Usuarios: migración, crear, cambiar, borrar |
 | 07-informe | Informe de evolución y su PDF |
 | 08-video-y-compartir | Vídeo por serie y compartir con datos superpuestos |
-| 09-google-drive | Copia en Google Drive (simulada) |
 | 10-copias | Copias de seguridad locales y avisos |
 | 11-musculos | Músculos principal/secundarios, recuento fraccionado, figura |
 | 12-modo-y-descansos | Modo sencillo/avanzado y registro de descansos |
@@ -55,3 +54,4 @@ npm run lint                         # revisión estática del código
 | 30-app-android | Dentro de la app Android (puente simulado): archivos por la hoja de compartir nativa, sin service worker |
 | 31-catalogo-y-pesos | Catálogo de 154 ejercicios y músculos nuevos (aductores, trapecio, antebrazo), pesos por músculo secundario, migración desde la versión anterior, editor de pesos, filtro por material |
 | 32-almacenamiento-y-version | Datos en IndexedDB, migración desde localStorage, recuperación de cambios pendientes, más de 5 MB, sin IndexedDB, aviso de versión nueva |
+| 33-pantallas-sencillas | Avisos tras la campana, calendario plegable, botón «Repetir o tabla», resumen plegado y sin comparar en la sesión abierta, historial de 5, tarjetas vacías ocultas, Ajustes en tres grupos |

@@ -75,12 +75,13 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   // No hay cálculos automáticos
   assert(await p.evaluate(() => currentSession().exercises[0].sets.every((x) => !('restSec' in x) && !('restSrc' in x))), 'la app no calcula descansos por su cuenta');
   // Resumen
+  if (await p.$('[data-action=sum-open][aria-expanded=false]')) await p.click('[data-action=sum-open]'); 
   assert(await p.isVisible('.stat:has-text("descanso medio")'), 'resumen con descanso medio');
   await (await p.$('[data-ex="0"]')).screenshot({ path: out + '/13simple.png' });
   // Repetir sesión no copia descansos
   await p.click('[data-action=finish-session]');
   await p.goto('http://localhost:8123/#/');
-  await p.click('[data-action=repeat-session]'); await p.click('[data-action=repeat-from]');
+  await p.click('[data-action=start-from]'); await p.click('[data-action=repeat-from]');
   assert(await p.evaluate(() => currentSession().exercises[0].sets.every((x) => x.rest == null && !x.doneAt)), 'repetir sesión no copia descansos ni horas');
   await p.click('[data-action=session-menu]'); await p.click('[data-action=delete-session]');
 

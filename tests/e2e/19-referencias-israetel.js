@@ -10,6 +10,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   const order = await p.evaluate(() => { const d = document.querySelector('.daily'), n = document.querySelector('[data-action=new-session]'); return !!d && !!(d.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING); });
   assert(order, 'calendario: «Datos del día» aparece antes de «Nueva sesión»');
   const ids = await p.evaluate(() => {
+    db.settings.level = 'advanced'; // las cinco zonas de Israetel se ven en modo avanzado
     const ex = (n) => db.exercises.find((e) => e.name === n).id;
     const S = (id, date, list) => db.sessions.push({ id, createdAt: date + 'T10', date, startedAt: 1, title: 'x', factors: [], exercises: list.map(([n, k], i) => ({ id: id + i, exerciseId: ex(n), equipment: [], notes: '', sets: Array.from({ length: k }, () => ({ type: 'E', w: 50, reps: 10, rir: 2, done: true })) })) });
     // Últimos 7 días: pectoral 14 (opt 12-20) · bíceps 5 (maint 4-8) · cuádriceps 19 (alto 18-20) · tríceps 22 (por encima de MRV 18)
@@ -43,9 +44,17 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.evaluate(() => { document.querySelector('.lm-edit').open = true; });
   await p.click('[data-action=lm-reset]');
   assert(await p.evaluate(() => db.settings.landmarks) === undefined, 'restablecer valores por defecto');
-  // Datos del día también en la sesión
-  await p.goto('http://localhost:8123/#/session/a');
-  await p.waitForSelector('.daily');
-  assert(await p.$eval('.daily [data-daily]', (e) => e.dataset.daily.startsWith(addDays(todayISO(), -1))), 'la sesión muestra los datos de su día');
+  // Modo sencillo: tres estados (poco, bien, mucho), sin siglas de Israetel
+  await p.evaluate(() => { db.settings.level = 'simple'; save(true); });
+  await p.goto('http://localhost:8123/#/exercises'); await p.waitForSelector('.mbars.simple');
+  const leg = await p.textContent('.vz-legend');
+  assert(leg.includes('Poco') && leg.includes('Bien') && leg.includes('Mucho') && !leg.includes('MEV'), 'sencillo: leyenda Poco · Bien · Mucho');
+  assert(await p.getAttribute('.mbar[data-m=triceps]', 'aria-label').then((t) => t.endsWith('mucho')) && await p.getAttribute('.mbar[data-m=pectoral]', 'aria-label').then((t) => t.endsWith('bien')), 'sencillo: tríceps «mucho», pectoral «bien»');
+  await p.click('.mbar[data-m=pectoral]');
+  assert((await p.textContent('.ptrend')).includes('Lo recomendable: entre 12 y 20') && !(await p.$('.wchart .lm.mrv')), 'sencillo: detalle con el rango recomendado, sin MEV/MRV');
+  await (await p.$('.card:has(.mbars)')).screenshot({ path: out + '/19simple.png' });
+  // «Datos del día» solo en el calendario, no dentro de la sesión
+  await p.goto('http://localhost:8123/#/session/a'); await p.waitForSelector('#vol');
+  assert(!(await p.$('.daily')), 'la sesión ya no repite «Datos del día»');
   console.log('errors', errs); await b.close();
 })();

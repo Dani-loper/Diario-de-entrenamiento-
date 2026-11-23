@@ -22,7 +22,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   assert(Math.abs(e1 - 123.3) < 0.1, '1RM estimado de referencia: ' + e1.toFixed(1));
 
   // ---- Crear una tabla ----
-  await p.click('[data-action=tpl-choose][data-mode=new]');
+  await p.click('[data-action=start-from]');
   assert((await p.textContent('#modal')).includes('Todavía no hay tablas'), 'sin tablas: lo indica');
   await p.click('#modal a[href="#/templates"]');
   await p.click('[data-action=tpl-new]');
@@ -104,7 +104,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.fill('#uf-name', 'Marta'); await p.uncheck('#uf-copy');
   await p.click('[data-action=user-save]');
   await p.goto('http://localhost:8123/#/');
-  await p.click('[data-action=tpl-choose][data-mode=new]');
+  await p.click('[data-action=start-from]');
   const names = await p.$$eval('#modal [data-action=tpl-use] b', (x) => x.map((e) => e.textContent));
   assert(names.join() === 'Pierna A,Pierna B', 'las tablas son comunes a todos los usuarios');
   await p.click('#modal [data-action=tpl-use]:has-text("Pierna B")');

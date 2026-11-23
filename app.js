@@ -35,12 +35,12 @@ const ICONS = {
   image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-10 9"/>',
   pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
   file: '<path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/>',
-  cloud: '<path d="M7 19h10.5a4 4 0 0 0 .4-8A6 6 0 0 0 6.3 9.5 4.8 4.8 0 0 0 7 19z"/>',
   alert: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/>',
   save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V3z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
   link: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
   plate: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/>',
 };
 const ic = (name, cls = '') => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -291,7 +291,6 @@ function save(now = false) {
   const id = profiles.active, data = db; // fija el destino: un cambio de usuario no puede desviar la escritura
   const write = () => kv.set(dataKey(id), JSON.stringify(data));
   if (now) write(); else saveTimer = setTimeout(write, 250);
-  if (window.cloudMarkDirty) cloudMarkDirty();
 }
 function switchUser(id) {
   if (!profiles.users.some((u) => u.id === id)) return;
@@ -965,6 +964,14 @@ function sessionCard(s) {
   </a>`;
 }
 
+// Calendario plegado (solo la semana del día elegido). Preferencia de este dispositivo.
+const CAL_FOLD = 'diario-entreno.calPlegado';
+const calFolded = () => { try { return localStorage.getItem(CAL_FOLD) === '1'; } catch (e) { return false; } };
+// Avisos del calendario: se recogen tras un icono con contador para no tapar el calendario.
+function noticesList() {
+  return [window.updateBannerHTML && updateBannerHTML(), window.staleBannerHTML && staleBannerHTML(),
+    window.installReminderHTML && installReminderHTML(), window.backupReminderHTML && backupReminderHTML()].filter(Boolean);
+}
 function viewCalendar() {
   const today = todayISO();
   const sel = ui.day || today;
@@ -976,24 +983,30 @@ function viewCalendar() {
   const offset = (first.getDay() - cdow + 7) % 7;
   const nDays = new Date(y, m, 0).getDate();
   const pad = (n) => String(n).padStart(2, '0');
-  let cells = '';
-  for (let i = 0; i < offset; i++) cells += '<span></span>';
-  let monthCount = 0;
-  for (let d = 1; d <= nDays; d++) {
-    const iso = `${y}-${pad(m)}-${pad(d)}`;
+  const folded = calFolded();
+  const dayBtn = (iso, label) => {
     const n = byDay[iso]?.length || 0;
-    monthCount += n;
-    cells += `<button class="day ${iso === sel ? 'sel' : ''} ${iso === today ? 'today' : ''}" data-action="pick-day" data-day="${iso}" aria-label="${iso}${n ? `, ${n} sesiones` : ''}">${d}${n ? '<i></i>' : ''}</button>`;
+    return `<button class="day ${iso === sel ? 'sel' : ''} ${iso === today ? 'today' : ''}" data-action="pick-day" data-day="${iso}" aria-label="${iso}${n ? `, ${n} sesiones` : ''}">${label}${n ? '<i></i>' : ''}</button>`;
+  };
+  let cells = '', monthCount = 0, title;
+  if (folded) {
+    // Semana (de 7 días, empezando el día de inicio del atleta) que contiene el día elegido.
+    const d0 = dayNum(sel) - ((new Date(sel + 'T12:00').getDay() - cdow + 7) % 7);
+    for (let k = 0; k < 7; k++) { const iso = isoFromNum(d0 + k); monthCount += byDay[iso]?.length || 0; cells += dayBtn(iso, +iso.slice(8)); }
+    const a = isoFromNum(d0), b = isoFromNum(d0 + 6);
+    title = `${shortDay(a)} – ${shortDay(b)}`;
+  } else {
+    for (let i = 0; i < offset; i++) cells += '<span></span>';
+    for (let d = 1; d <= nDays; d++) { const iso = `${y}-${pad(m)}-${pad(d)}`; monthCount += byDay[iso]?.length || 0; cells += dayBtn(iso, d); }
+    title = first.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).replace(/^./, (c) => c.toUpperCase());
   }
-  const monthName = first.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).replace(/^./, (c) => c.toUpperCase());
   const q = norm(ui.csearch).trim();
+  const notices = noticesList();
+  if (!notices.length) ui.noticesOpen = false; // el próximo aviso vuelve a salir recogido
 
-  let html = `<h1>Calendario</h1>
-    ${window.updateBannerHTML ? updateBannerHTML() : ''}
-    ${window.staleBannerHTML ? staleBannerHTML() : ''}
-    ${window.installReminderHTML ? installReminderHTML() : ''}
-    ${window.deloadHTML ? deloadHTML(true) : ''}
-    ${window.backupReminderHTML ? backupReminderHTML() : ''}
+  let html = `<div class="row cal-head"><h1 class="spacer">Calendario</h1>
+      ${notices.length ? `<button class="icon ghost bell ${ui.noticesOpen ? 'active' : ''}" data-action="notices" aria-expanded="${!!ui.noticesOpen}" aria-label="${notices.length} aviso${notices.length === 1 ? '' : 's'}">${ic('bell')}<span class="badge">${notices.length}</span></button>` : ''}</div>
+    ${ui.noticesOpen ? `<div class="notices">${notices.join('')}</div>` : ''}
     <input type="search" data-action-input="csearch" placeholder="Buscar: ejercicio, nota, material, sensación…" value="${esc(ui.csearch)}">
     <div style="height:12px"></div>`;
 
@@ -1005,24 +1018,27 @@ function viewCalendar() {
     return html;
   }
 
+  const offToday = folded ? sel !== today : sel !== today || ui.month !== today.slice(0, 7);
   html += `<div class="card">
       <div class="row">
-        <button class="icon ghost" data-action="month" data-d="-1" aria-label="Mes anterior">‹</button>
-        <div class="spacer" style="text-align:center"><b>${monthName}</b>
+        <button class="icon ghost" data-action="${folded ? 'week' : 'month'}" data-d="-1" aria-label="${folded ? 'Semana' : 'Mes'} anterior">‹</button>
+        <div class="spacer" style="text-align:center"><b>${title}</b>
           <div class="muted small">${monthCount} ${monthCount === 1 ? 'sesión' : 'sesiones'}</div></div>
-        <button class="icon ghost" data-action="month" data-d="1" aria-label="Mes siguiente">›</button>
+        <button class="icon ghost" data-action="${folded ? 'week' : 'month'}" data-d="1" aria-label="${folded ? 'Semana' : 'Mes'} siguiente">›</button>
       </div>
       <div class="cal">${[0, 1, 2, 3, 4, 5, 6].map((i) => `<span class="dow">${DOW1[(cdow + i) % 7]}</span>`).join('')}${cells}</div>
-      ${sel !== today || ui.month !== today.slice(0, 7) ? '<button class="block ghost" data-action="go-today" style="margin-top:4px">Ir a hoy</button>' : ''}
+      <div class="row cal-foot">
+        ${offToday ? '<button class="ghost small-btn" data-action="go-today">Ir a hoy</button>' : ''}<span class="spacer"></span>
+        <button class="ghost small-btn" data-action="cal-fold" aria-expanded="${!folded}">${folded ? 'Ver el mes ▾' : 'Ver solo la semana ▴'}</button>
+      </div>
     </div>
     <h2>${sel === today ? 'Hoy · ' : ''}${fmtDate(sel)}</h2>
     ${window.dailyCardHTML ? dailyCardHTML(sel) : ''}
     ${window.mesoCardHTML ? mesoCardHTML(sel) : ''}
     <div class="grid2">
       <button class="primary" data-action="new-session">＋ Nueva sesión</button>
-      <button data-action="repeat-session" ${db.sessions.length ? '' : 'disabled'}>${ic('refresh')} Repetir…</button>
+      <button data-action="start-from">${ic('list')} Repetir o tabla…</button>
     </div>
-    <button class="block" style="margin-top:8px" data-action="tpl-choose" data-mode="new">${ic('list')} Nueva sesión desde una tabla</button>
     <div style="height:12px"></div>`;
   const daySessions = (byDay[sel] || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   html += daySessions.map(sessionCard).join('') || '<div class="muted" style="padding:8px 0 16px">Sin sesiones este día.</div>';
@@ -1030,6 +1046,7 @@ function viewCalendar() {
   if (recent.length) html += `<h2>Últimas sesiones</h2>${recent.map(sessionCard).join('')}`;
   return html;
 }
+const shortDay = (iso) => new Date(iso + 'T12:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 
 /* ---------- Sesión ---------- */
 function viewSession(id) {
@@ -1080,7 +1097,6 @@ function viewSession(id) {
       ${isSimple() ? '' : `<div style="height:8px"></div>
       <label>RPE de la sesión (esfuerzo global 1-10) ${info('srpe')}</label>${scaleSelect('srpe', s.srpe, 1, 10)}`}
     </div>
-    ${window.dailyCardHTML ? dailyCardHTML(s.date) : ''}
     ${s.endedAt
       ? `<button class="block" data-action="reopen-session">Reabrir sesión (seguir cronometrando)</button>`
       : `<button class="primary block" data-action="finish-session">✓ Finalizar sesión</button>`}`;
@@ -1109,25 +1125,36 @@ function sessionSummary(s) {
   // Compara solo los ejercicios presentes en ambas sesiones (evita falsas caídas con la sesión a medias).
   const common = prev ? s.exercises.map((e) => e.exerciseId).filter((id) => prev.exercises.some((e) => e.exerciseId === id)) : [];
   const volIn = (x, ids) => x.exercises.filter((e) => ids.includes(e.exerciseId)).reduce((a, e) => a + e.sets.filter(isWork).reduce((b, z) => b + (z.w || 0) * (z.reps || 0), 0), 0);
-  const trend = same.slice(0, 10).reverse().map((x) => ({ d: x.date, v: sessionVolume(x) })).filter((p) => p.v);
+  // Sesión abierta: no se compara con sesiones terminadas (una sesión a medias siempre parecería peor).
+  const live = !s.endedAt;
+  const trend = (live ? same.filter((x) => x.id !== s.id) : same).slice(0, 10).reverse().map((x) => ({ d: x.date, v: sessionVolume(x) })).filter((p) => p.v);
+  const head = `<div class="stat"><b>${fmt(vol, 0)} kg ${prev && !live ? delta(volIn(s, common), volIn(prev, common)) : ''}</b><span>volumen ${info('volume')}</span></div>
+      <div class="stat"><b>${all.length}</b><span>series efectivas ${info('work_sets')}</span></div>`;
+  const recTxt = `<div class="stat"><b>${records ? '★ ' + records : '0'}</b><span>récords ${info('pr')}</span></div>`;
+  // Mientras se entrena, el resumen va plegado: tres cifras y «Ver más».
+  if (live && !ui.sumOpen?.[s.id]) {
+    return `<h2>Resumen de la sesión</h2><div class="card sum-mini">
+      <div class="stats">${head}${recTxt}</div>
+      <button class="ghost block small-btn" data-action="sum-open" data-id="${s.id}" aria-expanded="false">Ver resumen completo ▾</button></div>`;
+  }
 
   return `<h2>Resumen de la sesión</h2><div class="card">
     <div class="stats">
-      <div class="stat"><b>${fmt(vol, 0)} kg ${prev ? delta(volIn(s, common), volIn(prev, common)) : ''}</b><span>volumen ${info('volume')}</span></div>
-      <div class="stat"><b>${all.length}</b><span>series efectivas ${info('work_sets')}</span></div>
+      ${head}
       <div class="stat"><b>${reps}</b><span>reps</span></div>
       ${rpes.length && !isSimple() ? `<div class="stat"><b>${fmt(mean(rpes))}</b><span>RPE medio ${info('rpe')}</span></div>` : ''}
       ${rirs.length ? `<div class="stat"><b>${fmt(mean(rirs))}</b><span>RIR medio ${info('rir')}</span></div>` : ''}
-      <div class="stat"><b>${records ? '★ ' + records : '0'}</b><span>récords ${info('pr')}</span></div>
+      ${recTxt}
       ${(() => { const r = restAvg(s.exercises.flatMap((e) => e.sets)); return r ? `<div class="stat"><b>${r.txt}</b><span>descanso medio ${info('rest')}</span></div>` : ''; })()}
       ${s.srpe && mins > 0 && !isSimple() ? `<div class="stat"><b>${s.srpe * mins} UA</b><span>carga interna ${info('load')}</span></div>` : ''}
     </div>
-    ${prev ? `<div class="muted small" style="margin-top:8px">Variación de volumen frente a «${esc(prev.title)}» del ${fmtDate(prev.date)}, solo en los ejercicios comunes.</div>` : s.title ? '' : '<div class="muted small" style="margin-top:8px">Pon nombre a la sesión para compararla con las anteriores del mismo tipo.</div>'}
+    ${live ? '<div class="muted small" style="margin-top:8px">Sesión en curso: la comparación con la anterior aparece al finalizarla.</div>' : prev ? `<div class="muted small" style="margin-top:8px">Variación de volumen frente a «${esc(prev.title)}» del ${fmtDate(prev.date)}, solo en los ejercicios comunes.</div>` : s.title ? '' : '<div class="muted small" style="margin-top:8px">Pon nombre a la sesión para compararla con las anteriores del mismo tipo.</div>'}
     ${isSimple() ? '' : fatigueBlock(s)}
     ${volEx.length ? `<h3 class="sub">Volumen por ejercicio (kg)</h3>${bars(volEx, '')}` : ''}
     ${systemOf(s) === 'si' ? siSummary(s) : ''}
     ${musclesBlock(s)}
-    ${trend.length >= 2 ? `<h3 class="sub">Volumen en «${esc(s.title)}» (últimas ${trend.length})</h3>${chart(trend)}` : ''}
+    ${trend.length >= 2 ? `<h3 class="sub">Volumen en «${esc(s.title)}» (últimas ${trend.length}${live ? ' terminadas' : ''})</h3>${chart(trend)}` : ''}
+    ${live ? `<button class="ghost block small-btn" data-action="sum-open" data-id="${s.id}" aria-expanded="true">Plegar el resumen ▴</button>` : ''}
   </div>`;
 }
 
@@ -1318,9 +1345,9 @@ function viewExercises() {
     const m = METRIC[e.mode] || METRIC.wr;
     const best = maxOf(historyFor(e.id).map((x) => entryStats(x.entry).best));
     html += `<a class="card list-item" href="#/exercise/${e.id}" style="padding:12px 14px">
-      <div class="row"><span class="title">${e.fav ? '<span class="fav-mark">★</span> ' : ''}${esc(e.name)}</span><span class="spacer"></span>
-      ${counts[e.id] && window.exerciseRowExtra ? exerciseRowExtra(e) : ''}
-      <span class="muted small">${counts[e.id] ? `${counts[e.id]} ses.${best ? ` · ${m.label} ${fmtM(best, m)}` : ''}` : esc(muscleLabel(e))}</span></div></a>`;
+      <div class="row"><span class="title spacer">${e.fav ? '<span class="fav-mark">★</span> ' : ''}${esc(e.name)}</span>
+      ${counts[e.id] && window.exerciseRowExtra ? exerciseRowExtra(e) : ''}</div>
+      <div class="muted small">${counts[e.id] ? `${counts[e.id]} ${counts[e.id] === 1 ? 'sesión' : 'sesiones'}${best ? ` · ${m.label} ${fmtM(best, m)}` : ''}` : esc(muscleLabel(e))}</div></a>`;
   }
   if (!q && unused) html += `<button class="block ghost" data-action="show-all-ex">${ui.showAllEx ? 'Ocultar los ejercicios sin registros' : `Ver también los ${unused} ejercicios sin registros`}</button>`;
   return html;
@@ -1345,7 +1372,7 @@ function viewExercise(id) {
 
   let html = `<div class="row"><a class="btn ghost" href="#/exercises">‹ Progreso</a><span class="spacer"></span>
       <button class="ghost" data-action="yt" data-id="${def.id}">${ic('play')} Técnica</button>
-      <button class="ghost" data-action="exercise-form" data-id="${def.id}">${ic('edit')} Editar</button>${window.favBtn ? favBtn(def) : ''}</div>
+      <button class="icon ghost" data-action="exercise-form" data-id="${def.id}" aria-label="Editar ejercicio" title="Editar">${ic('edit')}</button>${window.favBtn ? favBtn(def) : ''}</div>
     <h1>${esc(def.name)}</h1>
     <div class="muted small">${esc(muscleDesc(def))} · ${esc(MODES[def.mode]?.label)}</div>`;
   if (usedEq.length) {
@@ -1374,7 +1401,8 @@ function viewExercise(id) {
 
   html += `<h2>Historial</h2>`;
   if (!hist.length) html += `<div class="empty">Sin registros${f !== 'all' ? ' con este filtro' : ''}.</div>`;
-  for (const h of hist) {
+  const HIST_N = 5, showAll = ui.histAll === id;
+  for (const h of showAll ? hist : hist.slice(0, HIST_N)) {
     const st = entryStats(h.entry);
     html += `<a class="card list-item" href="#/session/${h.sess.id}">
       <div class="row"><b>${fmtDate(h.sess.date)}</b><span class="spacer"></span>${st.best ? `<span class="muted small">${m.label} ${fmtM(st.best, m)}</span>` : ''}</div>
@@ -1383,6 +1411,7 @@ function viewExercise(id) {
       ${h.entry.notes ? `<div class="muted small" style="margin-top:4px">${ic('note')} ${esc(h.entry.notes)}</div>` : ''}
     </a>`;
   }
+  if (hist.length > HIST_N) html += `<button class="block ghost" data-action="hist-all" data-id="${id}">${showAll ? 'Ver solo las últimas 5' : `Ver todas (${hist.length})`}</button>`;
   return html;
 }
 
@@ -1402,12 +1431,15 @@ function chart(pts, label = 'Evolución') {
 
 function viewSettings() {
   const used = new Set(db.sessions.flatMap((s) => s.exercises.flatMap((e) => e.equipment)));
+  const simple = isSimple();
+  // Tres grupos: entreno, tus datos y acerca de. En modo sencillo se ocultan los ajustes avanzados (no se borran).
   return `<h1>Ajustes</h1>
+    <div class="sgroup">Entreno</div>
     <h2>Modo de atleta ${info('level')}</h2>
     <div class="card">
       <div class="seg" style="margin-bottom:8px">${Object.entries(LEVELS).map(([k, v]) => `<button class="${db.settings.level === k ? 'on' : ''}" data-action="set-level" data-l="${k}">${v}</button>`).join('')}</div>
       <div class="muted small">${isSimple()
-        ? '<b>Sencillo:</b> series, peso, repeticiones, RIR y descansos. Oculta RPE, material, índice de estrés, %1RM, fatiga, «antes de empezar» y análisis avanzados.'
+        ? '<b>Sencillo:</b> series, peso, repeticiones, RIR y descansos. Oculta RPE, material, índice de estrés, %1RM, fatiga, «antes de empezar», y análisis y ajustes avanzados.'
         : '<b>Avanzado:</b> todo: RPE y RIR, material, sensaciones y factores, índice de estrés, %1RM, fatiga, análisis e informes completos.'}
         Se aplica a ${esc(activeUser().name)}; no se borra nada al cambiar de modo.</div>
     </div>
@@ -1417,9 +1449,16 @@ function viewSettings() {
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
       <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
     </div>
-    ${window.versionSettingsHTML ? versionSettingsHTML() : ''}
     ${window.closeSettingsHTML ? closeSettingsHTML() : ''}
     ${window.weightsSettingsHTML ? weightsSettingsHTML() : ''}
+    <h2>Ejercicios</h2>
+    <div class="card"><button class="block" data-action="manage-exercises">Gestionar catálogo (${db.exercises.length})</button></div>
+    ${simple ? '' : `    <h2>Material</h2>
+    <div class="card">
+      <div class="chips">${db.equipment.map((e) => `<span class="chip">${esc(e.name)} <button class="ghost" style="min-height:0;padding:0 0 0 6px" data-action="del-equipment" data-id="${e.id}" aria-label="Borrar">✕</button></span>`).join('')}</div>
+      <div class="row" style="margin-top:10px"><input id="new-eq" placeholder="Nuevo material (p. ej. Rodilleras 7mm)"><button data-action="add-equipment">Añadir</button></div>
+      ${used.size ? '<div class="muted small" style="margin-top:6px">El material ya usado en sesiones no se puede borrar.</div>' : ''}
+    </div>
     <h2>Avanzado</h2>
     <div class="card">
       <label>Semana del atleta ${info('athlete_week')}</label>
@@ -1434,13 +1473,15 @@ function viewSettings() {
         : `Semana actual: <b>${fmtDate(weekStart(todayISO()))}</b> – <b>${fmtDate(weekEnd(weekStart(todayISO())))}</b>.`}
         Se usa en las series por músculo, la constancia, el análisis semanal y los informes${isCustomCycle() ? '' : ', y el calendario empieza ese día'}. Por defecto, de lunes a domingo.</div>
     </div>
-    ${window.landmarksSettingsHTML ? landmarksSettingsHTML() : ''}
-    <h2>Series efectivas</h2>
+`}
+    ${simple ? '' : (window.landmarksSettingsHTML ? landmarksSettingsHTML() : '')}
+    ${simple ? '' : `    <h2>Series efectivas</h2>
     <div class="card">
       <label>Cuenta como serie efectiva ${info('hard_sets')}</label>
       <select data-setting="hardRir">${[[4, 'RIR 4 o menos (recomendado)'], [3, 'RIR 3 o menos (más estricto)']].map(([v, l]) => `<option value="${v}" ${(db.settings.hardRir ?? 4) === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <div class="muted small" style="margin-top:6px">Se usa en Progreso para contar las series semanales por músculo.</div>
     </div>
+`}
     ${isSimple() ? '' : `<h2>Intensidad y fatiga</h2>
     <div class="card">
       <label>Medir la intensidad por defecto con ${info('intensity')}</label>
@@ -1452,24 +1493,10 @@ function viewSettings() {
       <label>Aviso de caída de rendimiento entre series (%) ${info('drop')}</label>
       <input type="number" inputmode="numeric" data-setting="dropWarn" value="${db.settings.dropWarn}">
     </div>`}
-    <h2>Material</h2>
-    <div class="card">
-      <div class="chips">${db.equipment.map((e) => `<span class="chip">${esc(e.name)} <button class="ghost" style="min-height:0;padding:0 0 0 6px" data-action="del-equipment" data-id="${e.id}" aria-label="Borrar">✕</button></span>`).join('')}</div>
-      <div class="row" style="margin-top:10px"><input id="new-eq" placeholder="Nuevo material (p. ej. Rodilleras 7mm)"><button data-action="add-equipment">Añadir</button></div>
-      ${used.size ? '<div class="muted small" style="margin-top:6px">El material ya usado en sesiones no se puede borrar.</div>' : ''}
-    </div>
-    <h2>Ejercicios</h2>
-    <div class="card"><button class="block" data-action="manage-exercises">Gestionar catálogo (${db.exercises.length})</button></div>
+    <div class="sgroup">Tus datos</div>
     <h2>Usuarios</h2>
     <a class="card list-item" href="#/users" style="display:flex;align-items:center;gap:10px">${avatar(activeUser(), 40)}
       <span class="spacer"><b>${esc(activeUser().name)}</b><div class="muted small">${profiles.users.length} usuario${profiles.users.length === 1 ? '' : 's'} en este dispositivo · crear o cambiar</div></span><span>›</span></a>
-    <h2>Vídeos</h2>
-    <div class="card">
-      <div id="video-stats" class="small">Calculando…</div>
-      <div class="muted small" style="margin:8px 0">Los vídeos se guardan dentro de la app y <b>no</b> se incluyen en la copia de seguridad. Para conservarlos, ábrelos desde la serie (⋯) y usa «Guardar en el móvil».</div>
-      <button class="danger block" data-action="delete-videos">Borrar todos los vídeos de ${esc(activeUser().name)}</button>
-    </div>
-    ${typeof cloudClientId === 'function' && cloudClientId() ? `<h2>Copia en Google Drive</h2>${cloudSettingsHTML()}` : ''}
     <h2>Copia de seguridad</h2>
     <div class="card">
       <div class="muted small" style="margin-bottom:8px">Tus datos se guardan solo en este dispositivo. Guarda una copia en los archivos del móvil con frecuencia y, de vez en cuando, pásala a un ordenador: si se borran los datos del navegador o pierdes el móvil, se pierde todo.</div>
@@ -1492,7 +1519,16 @@ function viewSettings() {
       <div id="snap-list" class="small">Cargando…</div>
       <button class="block" style="margin-top:8px" data-action="snap-now">Crear una copia ahora</button>
     </div>
-    <p class="muted small">${esc(activeUser().name)}: ${db.sessions.length} ${db.sessions.length === 1 ? 'sesión guardada' : 'sesiones guardadas'}.</p>`;
+    <h2>Vídeos</h2>
+    <div class="card">
+      <div id="video-stats" class="small">Calculando…</div>
+      <div class="muted small" style="margin:8px 0">Los vídeos se guardan dentro de la app y <b>no</b> se incluyen en la copia de seguridad. Para conservarlos, ábrelos desde la serie (⋯) y usa «Guardar en el móvil».</div>
+      <button class="danger block" data-action="delete-videos">Borrar todos los vídeos de ${esc(activeUser().name)}</button>
+    </div>
+    <p class="muted small">${esc(activeUser().name)}: ${db.sessions.length} ${db.sessions.length === 1 ? 'sesión guardada' : 'sesiones guardadas'}.</p>
+    <div class="sgroup">Acerca de</div>
+    ${window.versionSettingsHTML ? versionSettingsHTML() : ''}
+    ${window.privacySettingsHTML ? privacySettingsHTML() : ''}`;
 }
 
 /* ---------- Informe de evolución (imprimible / PDF) ---------- */
@@ -1729,6 +1765,13 @@ function viewUsers() {
 
 /* ---------- Modal ---------- */
 const modal = $('#modal');
+// Aviso breve en la parte inferior (antes vivía en cloud.js).
+function toast(text) {
+  let t = $('#toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = text; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 3500);
+}
 function openModal(html) { $('#modal-body').innerHTML = html; if (!modal.open) modal.showModal(); }
 function closeModal() { if (modal.open) modal.close(); }
 modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
@@ -1815,7 +1858,7 @@ function newSession(fromId, date = ui.day || todayISO()) {
   db.sessions.push(s); save(true);
   location.hash = `#/session/${s.id}`;
 }
-// Restaura una copia con todos los usuarios (de un archivo o de Google Drive). Devuelve true si se restauró.
+// Restaura una copia con todos los usuarios (de un archivo o de una copia automática). Devuelve true si se restauró.
 function restoreAllData(d, origin) {
   if (d?.type !== 'diario-entreno-todos' || !d.profiles?.users?.length || !d.data) throw new Error('Copia de usuarios incompleta o con otro formato');
   const names = d.profiles.users.map((u) => u.name).join(', ');
@@ -1893,12 +1936,6 @@ function toCSV() {
 
 const actions = {
   'new-session': () => newSession(),
-  'repeat-session': () => {
-    const list = sortedSessions().slice(0, 30);
-    openModal(`<div class="row"><h3 class="spacer">Repetir una sesión</h3><button class="ghost" data-action="close-modal">✕</button></div>
-      <p class="muted small">Se crea una sesión el ${fmtDate(ui.day || todayISO())} copiando ejercicios, material y cargas como punto de partida.</p>
-      <div class="picker-list">${list.map((s) => `<button data-action="repeat-from" data-id="${s.id}"><b>${esc(s.title || 'Sesión')}</b>&nbsp;<span class="muted">${fmtDate(s.date)}</span></button>`).join('')}</div>`);
-  },
   'repeat-from': (el) => { closeModal(); newSession(el.dataset.id); },
   'session-menu': () => openModal(`<div class="row"><h3 class="spacer">Sesión</h3><button class="ghost" data-action="close-modal">✕</button></div>
       <div style="display:grid;gap:8px;margin-top:10px">
@@ -1914,7 +1951,7 @@ const actions = {
     deleteVideos(setsWithVideo(s));
     db.sessions = db.sessions.filter((x) => x.id !== s.id); save(true); closeModal(); location.hash = '#/';
   },
-  'finish-session': () => { const s = currentSession(); s.endedAt = Date.now(); save(true); stopTimer(); rerender(); if (window.cloudOnFinish) cloudOnFinish(); },
+  'finish-session': () => { const s = currentSession(); s.endedAt = Date.now(); save(true); stopTimer(); rerender(); },
   'reopen-session': () => { const s = currentSession(); s.endedAt = null; save(true); rerender(); },
   'add-exercise': () => openPicker(),
   'pick-exercise': (el) => {
@@ -2030,6 +2067,27 @@ const actions = {
   'pick-kit': (el) => { ui.pickKit = el.dataset.k; $('#picker-list').innerHTML = pickerHTML($('#picker-q')?.value || ''); },
   'show-all-ex': () => { ui.showAllEx = !ui.showAllEx; rerender(); },
   'go-today': () => { ui.day = todayISO(); ui.month = ui.day.slice(0, 7); rerender(); },
+  'week': (el) => { ui.day = isoFromNum(dayNum(ui.day || todayISO()) + 7 * +el.dataset.d); ui.month = ui.day.slice(0, 7); rerender(); },
+  'cal-fold': () => {
+    try { localStorage.setItem(CAL_FOLD, calFolded() ? '0' : '1'); } catch (e) { /* sin almacenamiento: no se recuerda */ }
+    ui.month = (ui.day || todayISO()).slice(0, 7); rerender();
+  },
+  'hist-all': (el) => { ui.histAll = ui.histAll === el.dataset.id ? null : el.dataset.id; rerender(); },
+  'sum-open': (el) => { ui.sumOpen = ui.sumOpen || {}; ui.sumOpen[el.dataset.id] = !ui.sumOpen[el.dataset.id]; rerender(); },
+  'notices': () => { ui.noticesOpen = !ui.noticesOpen; rerender(); },
+  // Empezar una sesión desde una tabla o repitiendo una anterior (un solo botón en el calendario).
+  'start-from': () => {
+    const tpls = window.tplList ? tplList().sort((a, b) => a.name.localeCompare(b.name)) : [];
+    const list = sortedSessions().slice(0, 30);
+    openModal(`<div class="row"><h3 class="spacer">Empezar desde…</h3><button class="ghost" data-action="close-modal" aria-label="Cerrar">✕</button></div>
+      <h3 class="sub">Una tabla</h3>
+      ${tpls.length ? `<div class="picker-list">${tpls.map((t) => `<button data-action="tpl-use" data-id="${t.id}" data-mode="new"><span class="spacer" style="text-align:left"><b>${esc(t.name)}</b><br><small class="muted">${tplSummary(t)}</small></span></button>`).join('')}</div>`
+        : '<p class="muted small">Todavía no hay tablas. Guarda una sesión como tabla desde su menú ⋯ o créala en «Gestionar tablas».</p>'}
+      <a class="btn block" href="#/templates">${ic('list')} Gestionar tablas</a>
+      ${list.length ? `<h3 class="sub">Repetir una sesión</h3>
+      <p class="muted small">Se crea una sesión el ${fmtDate(ui.day || todayISO())} copiando ejercicios, material y cargas como punto de partida.</p>
+      <div class="picker-list">${list.map((s) => `<button data-action="repeat-from" data-id="${s.id}"><b>${esc(s.title || 'Sesión')}</b>&nbsp;<span class="muted">${fmtDate(s.date)}</span></button>`).join('')}</div>` : ''}`);
+  },
   'toggle-factor': (el) => {
     const s = currentSession(); const f = el.dataset.f;
     s.factors = s.factors.includes(f) ? s.factors.filter((x) => x !== f) : [...s.factors, f];

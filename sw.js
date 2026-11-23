@@ -1,6 +1,6 @@
 // Caché del "app shell" para que funcione sin conexión (el gimnasio suele tener mala cobertura).
-const CACHE = 'diario-v37';
-const ASSETS = ['./', 'index.html', 'styles.css', 'native.js', 'storage.js', 'update.js', 'catalog.js', 'app.js', 'pdf.js', 'media.js', 'cloud.js', 'backup.js', 'templates.js', 'records.js', 'progress.js', 'daily.js', 'suggest.js', 'share.js', 'meso.js', 'profile.js', 'autoclose.js', 'config.js', 'vendor/jspdf.umd.min.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'diario-v39';
+const ASSETS = ['./', 'index.html', 'styles.css', 'native.js', 'storage.js', 'update.js', 'privacy.js', 'catalog.js', 'app.js', 'pdf.js', 'media.js', 'backup.js', 'templates.js', 'records.js', 'progress.js', 'daily.js', 'suggest.js', 'share.js', 'meso.js', 'profile.js', 'autoclose.js', 'vendor/jspdf.umd.min.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -10,7 +10,7 @@ self.addEventListener('activate', (e) => {
 });
 // Red primero (para recibir actualizaciones), caché como respaldo.
 self.addEventListener('fetch', (e) => {
-  // Solo archivos de la propia app. Las peticiones a Google (inicio de sesión, Drive) van directas a la red
+  // Solo archivos de la propia app. Las peticiones a otros dominios (GitHub, YouTube) van directas a la red
   // y nunca se guardan en caché: contienen datos personales.
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(

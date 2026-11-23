@@ -10,21 +10,25 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   const snaps = () => p.evaluate(() => snapList());
   await p.goto('http://localhost:8123/');
   await p.waitForTimeout(300);
-  assert(!(await p.isVisible('.reminder')), 'sin sesiones no hay aviso de copia');
+  assert(!(await p.$('[data-action=notices]')), 'sin sesiones no hay aviso de copia (ni campana)');
   assert((await snaps()).length === 0, 'sin sesiones no se crea copia diaria');
   // 3 sesiones
   await p.evaluate(() => { for (let k = 0; k < 3; k++) db.sessions.push({ id: 's' + k, createdAt: '2026-11-1' + k + 'T10:00', date: '2026-11-1' + k, startedAt: 1, endedAt: 2, title: 'S' + k, factors: [], exercises: [] }); save(true); });
   await p.reload(); await p.waitForTimeout(400);
-  assert(await p.isVisible('.reminder'), 'con sesiones y sin copia: aviso en el calendario');
+  assert((await p.textContent('[data-action=notices] .badge')) === '1' && !(await p.isVisible('.reminder')), 'con sesiones y sin copia: campana con 1 aviso, recogido');
+  await p.click('[data-action=notices]');
+  assert(await p.isVisible('.reminder'), 'al tocar la campana se ve el aviso de copia');
   let list = await snaps();
   assert(list.length === 1 && list[0].reason === 'Diaria' && list[0].sessions === 3, 'copia automática diaria al abrir la app');
   await p.reload(); await p.waitForTimeout(400);
   assert((await snaps()).length === 1, 'no repite la diaria el mismo día');
+  await p.click('[data-action=notices]');
   await (await p.$('.reminder')).screenshot({ path: out + '/10reminder.png' });
   // «Más tarde» oculta el aviso 3 días
   await p.click('[data-action=snooze-backup]');
   assert(!(await p.isVisible('.reminder')), '«Más tarde» oculta el aviso');
   await p.evaluate(() => { localBk.snoozeUntil = 0; localBkSave(); rerender(); });
+  await p.click('[data-action=notices]');
   // Guardar copia en el móvil
   await p.click('.reminder [data-action=export-all]');
   assert((await p.textContent('#modal')).includes('Guardar en Archivos'), 'instrucciones para guardar en Archivos / Descargas');
