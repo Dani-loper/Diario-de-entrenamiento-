@@ -1601,6 +1601,7 @@ function viewSettings() {
     <p class="muted small">${esc(activeUser().name)}: ${db.sessions.length} ${db.sessions.length === 1 ? 'sesión guardada' : 'sesiones guardadas'}.</p>
     <div class="sgroup">Acerca de</div>
     ${window.tourSettingsHTML ? tourSettingsHTML() : ''}
+    ${window.errSettingsHTML ? errSettingsHTML() : ''}
     ${window.versionSettingsHTML ? versionSettingsHTML() : ''}
     ${window.privacySettingsHTML ? privacySettingsHTML() : ''}`;
 }
