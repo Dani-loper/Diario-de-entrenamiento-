@@ -328,7 +328,16 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 const exById = (id) => db.exercises.find((e) => e.id === id);
 const eqById = (id) => db.equipment.find((e) => e.id === id);
 const sessionById = (id) => db.sessions.find((s) => s.id === id);
-const sortedSessions = () => [...db.sessions].sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
+/* Memoria de un pintado: mientras se dibuja una pantalla los datos no cambian, así que las sesiones ordenadas y el
+ * historial de cada ejercicio se calculan una sola vez (con 3 años de datos y la CPU
+ * de un móvil medio, Progreso pasa de ~310 a ~100 ms y Récords de ~165 a ~40 ms). Fuera de render() no hay memoria: las acciones siempre leen los datos al momento. */
+let renderMemo = null;
+const sortSessions = () => [...db.sessions].sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
+const sortedSessions = () => {
+  if (!renderMemo) return sortSessions();
+  if (!renderMemo.sorted) renderMemo.sorted = sortSessions();
+  return renderMemo.sorted.slice();
+};
 
 /* ---------- Cálculos ---------- */
 // 1RM estimado (Epley), corrigiendo por repeticiones en reserva si hay RPE.
@@ -370,6 +379,13 @@ function previousEntry(exerciseId, sess) {
   return null;
 }
 function historyFor(exerciseId) {
+  if (renderMemo) {
+    if (!renderMemo.hist) { // índice de todos los ejercicios en una sola pasada
+      renderMemo.hist = new Map();
+      for (const s of sortedSessions()) for (const e of s.exercises) { const h = renderMemo.hist.get(e.exerciseId); if (h) h.push({ sess: s, entry: e }); else renderMemo.hist.set(e.exerciseId, [{ sess: s, entry: e }]); }
+    }
+    return (renderMemo.hist.get(exerciseId) || []).slice();
+  }
   const out = [];
   for (const s of sortedSessions()) for (const e of s.exercises) if (e.exerciseId === exerciseId) out.push({ sess: s, entry: e });
   return out;
@@ -388,7 +404,8 @@ function render() {
   const view = { sessions: viewCalendar, session: viewSession, exercises: viewExercises, exercise: viewExercise, analysis: viewAnalysis, settings: viewSettings, users: viewUsers, report: viewReport, records: () => (window.viewRecords ? viewRecords() : ''), meso: (id) => (window.viewMeso ? viewMeso(id) : ''), templates: () => (window.viewTemplates ? viewTemplates() : ''), template: (id) => (window.viewTemplate ? viewTemplate(id) : '') }[r.name] || viewCalendar;
   const u = activeUser();
   const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
-  app.innerHTML = bar + view(r.id);
+  renderMemo = {};
+  try { app.innerHTML = bar + view(r.id); } finally { renderMemo = null; }
   if (r.name === 'settings' && window.fillVideoStats) fillVideoStats();
   if (r.name === 'settings' && window.fillSnapList) fillSnapList();
   if (r.name === 'settings' && window.fillStorageInfo) fillStorageInfo();
@@ -1608,6 +1625,21 @@ function periodStats(a, b) {
   const list = db.sessions.filter((s) => inRange(s, a, b)).sort((x, y) => sortKey(x).localeCompare(sortKey(y)));
   const out = { sessions: list, n: list.length, sets: 0, volume: 0, si: 0, durations: [], srpe: [], prs: 0, setsCat: {}, pcts: [], bw: [], sleep: [], readiness: [], stress: [], factors: {}, steps: [], kcal: [] };
   for (const [d, v] of Object.entries(db.daily || {})) if (d >= a && d <= b) { if (v.steps != null) out.steps.push(v.steps); if (v.kcal != null) out.kcal.push(v.kcal); }
+  // Mejor marca anterior a cada entrada: una pasada cronológica por ejercicio (antes, todo el historial por cada entrada).
+  const before = new Map(), done = new Set();
+  const bestBefore = (e) => {
+    if (!done.has(e.exerciseId)) {
+      done.add(e.exerciseId);
+      let run = null, prevKey = null, pending = [];
+      for (const h of historyFor(e.exerciseId).reverse()) {
+        const k = sortKey(h.sess);
+        if (k !== prevKey) { for (const x of pending) run = maxOf([run, x]); pending = []; prevKey = k; } // misma sesión: no se compara consigo
+        before.set(h.entry, run);
+        pending.push(entryStats(h.entry).best);
+      }
+    }
+    return before.get(e);
+  };
   for (const s of list) {
     out.volume += sessionVolume(s);
     out.si += sessionSI(s).total;
@@ -1623,7 +1655,7 @@ function periodStats(a, b) {
       addShares(out.setsCat, def, work.length);
       if ((def?.mode || 'wr') === 'wr') for (const x of work) { const p = pct1rm(x); if (p) out.pcts.push(p); }
       const best = entryStats(e).best;
-      const prevBest = maxOf(historyBefore(e.exerciseId, s).map((h) => entryStats(h.entry).best));
+      const prevBest = bestBefore(e);
       if (best && prevBest && best > prevBest) out.prs++;
     }
   }
