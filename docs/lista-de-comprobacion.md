@@ -24,7 +24,8 @@ Las pruebas automáticas cubren la lógica, pero no un móvil real. Marca cada p
 - [ ] Añade un segundo ejercicio y pulsa **Superserie con el siguiente**. Al marcar ✓ en el primero, el descanso no arranca.
 
 ## 4. Vídeo (el punto más delicado en Android)
-- [ ] En una serie: **⋯ › Grabar o elegir vídeo** → graba 5 segundos → el vídeo se ve dentro del menú.
+- [ ] Marca ✓ una serie y toca el **icono de cámara** a la derecha de su descanso → se abre **la cámara** (no la galería) → graba 5 segundos → el vídeo se ve en el menú y el icono queda en rojo.
+- [ ] **⋯ › De la galería** → eliges un vídeo que ya tengas → se guarda en la serie.
 - [ ] **Guardar en el móvil** → se abre el menú de compartir de Android → «Guardar en Archivos» o Drive.
 - [ ] **⋯ › Compartir serie › Imagen con los datos** → se genera la imagen y se abre el menú de compartir.
 - [ ] (Si tu móvil lo permite) **Vídeo con los datos encima** → se genera y se puede compartir.

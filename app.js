@@ -1941,10 +1941,13 @@ function restAvg(sets) {
 function restRowHTML(ex, i, j, colspan) {
   const set = ex.sets[j], last = j === ex.sets.length - 1;
   const running = ui.rest && ui.rest.sid === currentSession()?.id && ui.rest.i === i && ui.rest.j === j;
-  if (last && set.rest == null && !running) return '';
-  return `<tr class="rest-row"><td colspan="${colspan}"><label class="rest-field">${ic('timer')} Descanso
+  if (last && set.rest == null && !running && !set.done && !set.videoId) return '';
+  // Botón de vídeo a la derecha de la fila del descanso: graba directamente (o abre el vídeo si ya tiene).
+  const vid = set.type === 'C' ? '' : `<button class="icon ghost vid-quick ${set.videoId ? 'on' : ''}" data-action="${set.videoId ? 'set-menu' : 'video-pick'}" data-src="cam" data-i="${i}" data-j="${j}"
+      aria-label="${set.videoId ? `Ver el vídeo de la serie ${j + 1}` : `Grabar vídeo de la serie ${j + 1}`}">${ic('video')}</button>`;
+  return `<tr class="rest-row"><td colspan="${colspan}"><div class="rest-line"><label class="rest-field">${ic('timer')} Descanso
       <input data-rest="${i}:${j}" inputmode="numeric" placeholder="m:ss" value="${set.rest != null ? fmtSec(set.rest) : ''}" aria-label="Descanso después de la serie ${j + 1} (m:ss)">
-      ${running ? '<span class="rest-live" id="rest-live">en marcha…</span>' : ''}</label></td></tr>`;
+      ${running ? '<span class="rest-live" id="rest-live">en marcha…</span>' : ''}</label>${vid}</div></td></tr>`;
 }
 const fileSafe = (t) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'usuario';
 // Exportar: ofrece «Compartir o guardar» (en iPhone, Guardar en Archivos) y «Descargar».
@@ -2289,7 +2292,8 @@ const actions = {
   'set-menu': (el) => openSetMenu(+el.dataset.i, +el.dataset.j),
   'video-pick': (el) => {
     ui.videoTarget = { sid: currentSession().id, i: +el.dataset.i, j: +el.dataset.j };
-    const inp = $('#video-file'); inp.value = ''; inp.click();
+    // Grabar: input con «capture» (abre la cámara); galería: selector de archivos.
+    const inp = $(el.dataset.src === 'cam' ? '#video-cam' : '#video-file'); inp.value = ''; inp.click();
   },
   'video-save': async (el) => {
     const set = currentSession().exercises[+el.dataset.i].sets[+el.dataset.j];
@@ -2432,7 +2436,7 @@ document.addEventListener('input', (e) => {
 // Al cambiar cosas que afectan a cálculos visibles (récords, volumen), refresca al salir del campo.
 document.addEventListener('change', (e) => {
   const t = e.target;
-  if (t.id === 'video-file' && t.files[0] && ui.videoTarget) {
+  if ((t.id === 'video-file' || t.id === 'video-cam') && t.files[0] && ui.videoTarget) {
     const { sid, i, j } = ui.videoTarget; ui.videoTarget = null;
     storeSetVideo(sid, i, j, t.files[0]);
     return;

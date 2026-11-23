@@ -189,9 +189,10 @@ function setMenuHTML(sess, i, j) {
     ${set.videoId ? `<div id="vid-slot" class="vid-slot"><div class="muted small">Cargando vídeo…</div></div>` : ''}
     <div style="display:grid;gap:8px">
       ${set.videoId
-        ? `<div class="grid2"><button data-action="video-pick" data-i="${i}" data-j="${j}">${ic('refresh')} Cambiar vídeo</button><button data-action="video-save" data-i="${i}" data-j="${j}">${ic('save')} Guardar en el móvil</button></div>
+        ? `<button data-action="video-save" data-i="${i}" data-j="${j}">${ic('save')} Guardar en el móvil</button>
+           <div class="grid2"><button data-action="video-pick" data-src="cam" data-i="${i}" data-j="${j}">${ic('video')} Grabar otro</button><button data-action="video-pick" data-src="gal" data-i="${i}" data-j="${j}">${ic('image')} Elegir otro</button></div>
            <button class="danger" data-action="video-del" data-i="${i}" data-j="${j}">${ic('trash')} Borrar vídeo</button>`
-        : `<button data-action="video-pick" data-i="${i}" data-j="${j}">${ic('video')} Grabar o elegir vídeo</button>`}
+        : `<div class="grid2"><button data-action="video-pick" data-src="cam" data-i="${i}" data-j="${j}">${ic('video')} Grabar vídeo</button><button data-action="video-pick" data-src="gal" data-i="${i}" data-j="${j}">${ic('image')} De la galería</button></div>`}
       <button class="primary" data-action="share-set" data-i="${i}" data-j="${j}">${ic('share')} Compartir serie</button>
       <button class="danger" data-action="del-set" data-i="${i}" data-j="${j}">Borrar serie</button>
     </div>

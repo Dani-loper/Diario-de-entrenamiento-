@@ -543,3 +543,8 @@ body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 
 .sgroup { margin: 28px 0 -6px; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 h1 + .sgroup { margin-top: 8px; }
 .auto-bk { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+/* Fila del descanso: campo a la izquierda y botón de vídeo a la derecha */
+.rest-line { display: flex; align-items: center; }
+.rest-line .rest-field { flex: 1; }
+.vid-quick { min-width: 40px; min-height: 34px; height: 34px; padding: 4px; color: var(--muted); margin-left: auto; }
+.vid-quick.on { color: var(--danger); }
