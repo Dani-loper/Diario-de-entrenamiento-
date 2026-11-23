@@ -4,11 +4,11 @@
  * Cada serie efectiva cuenta 1 para el músculo principal y una fracción para cada secundario:
  *   0,75  contribución alta  (p. ej. glúteo en sentadilla profunda o prensa; bíceps en dominadas supinas)
  *   0,5   contribución media (valor por defecto; Pelland et al., 2024)
- *   0,25  contribución baja  (p. ej. deltoides anterior en aperturas; erectores en sentadilla)
+ *   0,25  contribución baja  (p. ej. deltoides anterior en aperturas; lumbar en sentadilla)
  *   —     sin crecimiento medible (p. ej. femoral en sentadilla y prensa: Kubo et al., 2019; Plotkin et al., 2023)
  * Criterios y fuentes completos en docs/volumen-por-musculo.md.
  *
- * Músculos: los de MUSCLES en app.js (incluye aductores, trapecio y antebrazo desde la v3).
+ * Músculos: los de MUSCLES en app.js (aductores, trapecio y antebrazo desde la v3; lumbar, separado de espalda, desde la v4).
  * Formato: [nombre, material, principal, { secundario: peso }, modo, tipo]
  *   material: barra · mancuernas · maquina · polea · corporal · kettlebell · banda
  *   modo: wr (peso × reps, por defecto) · bw (peso corporal + lastre) · time · dist
@@ -16,8 +16,8 @@
 const KITS = { barra: 'Barra', mancuernas: 'Mancuernas', maquina: 'Máquina', polea: 'Polea', corporal: 'Peso corporal', kettlebell: 'Kettlebell', banda: 'Bandas', otro: 'Otro' };
 const CATALOG_RAW = [
   // ---- Cuádriceps ----
-  ['Sentadilla trasera', 'barra', 'cuadriceps', { gluteos: 0.75, aductores: 0.75, espalda: 0.25 }],
-  ['Sentadilla frontal', 'barra', 'cuadriceps', { gluteos: 0.5, aductores: 0.75, espalda: 0.25, abdomen: 0.25 }],
+  ['Sentadilla trasera', 'barra', 'cuadriceps', { gluteos: 0.75, aductores: 0.75, lumbar: 0.25 }],
+  ['Sentadilla frontal', 'barra', 'cuadriceps', { gluteos: 0.5, aductores: 0.75, lumbar: 0.25, abdomen: 0.25 }],
   ['Sentadilla en multipower', 'maquina', 'cuadriceps', { gluteos: 0.5, aductores: 0.5 }],
   ['Sentadilla goblet', 'mancuernas', 'cuadriceps', { gluteos: 0.5, aductores: 0.75 }],
   ['Sentadilla sumo con mancuerna', 'mancuernas', 'cuadriceps', { aductores: 0.75, gluteos: 0.5 }],
@@ -36,18 +36,19 @@ const CATALOG_RAW = [
   ['Sentadilla isométrica en pared', 'corporal', 'cuadriceps', {}, 'time', 'mono'],
   ['Sentadilla con banda', 'banda', 'cuadriceps', { gluteos: 0.5 }],
   // ---- Glúteos y femoral ----
-  ['Peso muerto', 'barra', 'gluteos', { femoral: 0.5, espalda: 0.5, cuadriceps: 0.5, aductores: 0.25, trapecio: 0.25, antebrazo: 0.25 }],
-  ['Peso muerto sumo', 'barra', 'gluteos', { cuadriceps: 0.5, aductores: 0.75, espalda: 0.5, femoral: 0.25, trapecio: 0.25, antebrazo: 0.25 }],
-  ['Peso muerto con barra hexagonal', 'barra', 'gluteos', { cuadriceps: 0.5, espalda: 0.5, femoral: 0.25, trapecio: 0.25, antebrazo: 0.25 }],
-  ['Peso muerto rumano', 'barra', 'femoral', { gluteos: 0.75, aductores: 0.25, espalda: 0.25 }],
-  ['Peso muerto rumano con mancuernas', 'mancuernas', 'femoral', { gluteos: 0.75, aductores: 0.25, espalda: 0.25 }],
+  ['Peso muerto', 'barra', 'gluteos', { femoral: 0.5, lumbar: 0.5, cuadriceps: 0.5, aductores: 0.25, trapecio: 0.25, antebrazo: 0.25 }],
+  ['Peso muerto sumo', 'barra', 'gluteos', { cuadriceps: 0.5, aductores: 0.75, lumbar: 0.5, femoral: 0.25, trapecio: 0.25, antebrazo: 0.25 }],
+  ['Peso muerto con barra hexagonal', 'barra', 'gluteos', { cuadriceps: 0.5, lumbar: 0.5, femoral: 0.25, trapecio: 0.25, antebrazo: 0.25 }],
+  ['Peso muerto rumano', 'barra', 'femoral', { gluteos: 0.75, aductores: 0.25, lumbar: 0.25 }],
+  ['Peso muerto rumano con mancuernas', 'mancuernas', 'femoral', { gluteos: 0.75, aductores: 0.25, lumbar: 0.25 }],
   ['Peso muerto a una pierna', 'mancuernas', 'femoral', { gluteos: 0.75 }],
-  ['Buenos días', 'barra', 'femoral', { gluteos: 0.5, espalda: 0.5 }],
+  ['Buenos días', 'barra', 'femoral', { gluteos: 0.5, lumbar: 0.5 }],
   ['Hip thrust', 'barra', 'gluteos', {}],
   ['Hip thrust en máquina', 'maquina', 'gluteos', {}],
   ['Puente de glúteo', 'corporal', 'gluteos', {}, 'bw'],
-  ['Hiperextensiones', 'maquina', 'espalda', { gluteos: 0.5, femoral: 0.5 }],
-  ['Swing con kettlebell', 'kettlebell', 'gluteos', { femoral: 0.5, espalda: 0.25 }],
+  ['Hiperextensiones', 'maquina', 'lumbar', { gluteos: 0.5, femoral: 0.5 }],
+  ['Extensión lumbar en máquina', 'maquina', 'lumbar', { gluteos: 0.25 }, 'wr', 'mono'],
+  ['Swing con kettlebell', 'kettlebell', 'gluteos', { femoral: 0.5, lumbar: 0.25 }],
   ['Patada de glúteo en polea', 'polea', 'gluteos', {}, 'wr', 'mono'],
   ['Abducción de cadera en máquina', 'maquina', 'gluteos', {}, 'wr', 'mono'],
   ['Aducción de cadera en máquina', 'maquina', 'aductores', {}, 'wr', 'mono'],
@@ -162,13 +163,13 @@ const CATALOG_RAW = [
   ['Dead bug', 'corporal', 'abdomen', {}, 'bw', 'mono'],
   ['Leñador en polea', 'polea', 'abdomen', {}, 'wr', 'mono'],
   // ---- Halterofilia y cuerpo completo ----
-  ['Arrancada', 'barra', 'cuadriceps', { gluteos: 0.5, espalda: 0.5, delt_ant: 0.25, femoral: 0.25 }],
-  ['Dos tiempos', 'barra', 'cuadriceps', { gluteos: 0.5, espalda: 0.5, delt_ant: 0.25, triceps: 0.25 }],
-  ['Cargada de potencia', 'barra', 'cuadriceps', { gluteos: 0.5, espalda: 0.5, trapecio: 0.25, femoral: 0.25 }],
-  ['Arrancada de potencia', 'barra', 'cuadriceps', { gluteos: 0.5, espalda: 0.5, delt_ant: 0.25 }],
+  ['Arrancada', 'barra', 'cuadriceps', { gluteos: 0.5, lumbar: 0.5, delt_ant: 0.25, femoral: 0.25 }],
+  ['Dos tiempos', 'barra', 'cuadriceps', { gluteos: 0.5, lumbar: 0.5, delt_ant: 0.25, triceps: 0.25 }],
+  ['Cargada de potencia', 'barra', 'cuadriceps', { gluteos: 0.5, lumbar: 0.5, trapecio: 0.25, femoral: 0.25 }],
+  ['Arrancada de potencia', 'barra', 'cuadriceps', { gluteos: 0.5, lumbar: 0.5, delt_ant: 0.25 }],
   ['Jerk', 'barra', 'delt_ant', { triceps: 0.5, cuadriceps: 0.25 }],
-  ['Tirón de arrancada', 'barra', 'espalda', { trapecio: 0.5, gluteos: 0.5, femoral: 0.25, cuadriceps: 0.25 }],
-  ['Tirón de cargada', 'barra', 'espalda', { trapecio: 0.5, gluteos: 0.5, femoral: 0.25, cuadriceps: 0.25 }],
+  ['Tirón de arrancada', 'barra', 'lumbar', { trapecio: 0.5, gluteos: 0.5, femoral: 0.25, cuadriceps: 0.25 }],
+  ['Tirón de cargada', 'barra', 'lumbar', { trapecio: 0.5, gluteos: 0.5, femoral: 0.25, cuadriceps: 0.25 }],
   ['Thruster', 'barra', 'cuadriceps', { delt_ant: 0.5, gluteos: 0.5, triceps: 0.25 }],
   ['Turkish get-up', 'kettlebell', 'abdomen', { delt_ant: 0.25, gluteos: 0.25 }],
   ['Burpees', 'corporal', null, {}, 'bw'],
@@ -182,6 +183,26 @@ const CATALOG_RAW = [
   ['Natación', 'otro', null, {}, 'dist'],
   ['Comba', 'otro', null, {}, 'time'],
 ];
+/* Músculos de la v3 de los ejercicios que cambian en la v4 (lumbar separado de espalda). Si un atleta tiene el ejercicio
+ * exactamente así, se actualiza; si lo cambió, se respeta y se le pide revisarlo. [principal, { secundario: peso }] */
+const LEGACY_MUSCLES_V3 = {
+  'Sentadilla trasera': ['cuadriceps', { gluteos: 0.75, aductores: 0.75, espalda: 0.25 }],
+  'Sentadilla frontal': ['cuadriceps', { gluteos: 0.5, aductores: 0.75, espalda: 0.25, abdomen: 0.25 }],
+  'Peso muerto': ['gluteos', { femoral: 0.5, espalda: 0.5, cuadriceps: 0.5, aductores: 0.25, trapecio: 0.25, antebrazo: 0.25 }],
+  'Peso muerto sumo': ['gluteos', { cuadriceps: 0.5, aductores: 0.75, espalda: 0.5, femoral: 0.25, trapecio: 0.25, antebrazo: 0.25 }],
+  'Peso muerto con barra hexagonal': ['gluteos', { cuadriceps: 0.5, espalda: 0.5, femoral: 0.25, trapecio: 0.25, antebrazo: 0.25 }],
+  'Peso muerto rumano': ['femoral', { gluteos: 0.75, aductores: 0.25, espalda: 0.25 }],
+  'Peso muerto rumano con mancuernas': ['femoral', { gluteos: 0.75, aductores: 0.25, espalda: 0.25 }],
+  'Buenos días': ['femoral', { gluteos: 0.5, espalda: 0.5 }],
+  'Hiperextensiones': ['espalda', { gluteos: 0.5, femoral: 0.5 }],
+  'Swing con kettlebell': ['gluteos', { femoral: 0.5, espalda: 0.25 }],
+  'Arrancada': ['cuadriceps', { gluteos: 0.5, espalda: 0.5, delt_ant: 0.25, femoral: 0.25 }],
+  'Dos tiempos': ['cuadriceps', { gluteos: 0.5, espalda: 0.5, delt_ant: 0.25, triceps: 0.25 }],
+  'Cargada de potencia': ['cuadriceps', { gluteos: 0.5, espalda: 0.5, trapecio: 0.25, femoral: 0.25 }],
+  'Arrancada de potencia': ['cuadriceps', { gluteos: 0.5, espalda: 0.5, delt_ant: 0.25 }],
+  'Tirón de arrancada': ['espalda', { trapecio: 0.5, gluteos: 0.5, femoral: 0.25, cuadriceps: 0.25 }],
+  'Tirón de cargada': ['espalda', { trapecio: 0.5, gluteos: 0.5, femoral: 0.25, cuadriceps: 0.25 }],
+};
 const CATALOG = CATALOG_RAW.map(([name, kit, primary, sw, mode = 'wr', joint = 'multi']) => ({ name, kit, primary, sw, mode, joint }));
 
 // Músculos por defecto de la versión anterior (todos los secundarios a 0,5), para saber si un usuario los cambió.

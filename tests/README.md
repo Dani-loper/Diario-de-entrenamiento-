@@ -58,3 +58,4 @@ npm run lint                         # revisión estática del código
 | 34-calculos-documentados | Las cifras del ejemplo de `docs/como-se-calcula.md` (1RM, volumen, series por músculo, peso sugerido, calentamiento…) |
 | 35-copia-automatica | Copia automática en Documentos/DiarioEntreno (app Android simulada): cuándo escribe, últimos 10 días, permisos, Ajustes |
 | 36-rir-dudoso-y-crear-ejercicio | Aviso de RIR dudoso (una serie posterior rinde ≥ 5 % más) y crear un ejercicio desde el buscador con la ficha completa |
+| 37-lumbar | Lumbar separado de espalda: migración desde la v3 (catálogo, ejercicios cambiados y propios), barra sin referencia, figura del cuerpo y referencia propia |

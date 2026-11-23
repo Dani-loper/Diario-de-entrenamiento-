@@ -42,7 +42,7 @@ Cada **serie efectiva** (RIR ≤ 4, sin calentamientos) cuenta:
 - Un ensayo aleatorizado de 2025 comparó el peso muerto con piernas rígidas con el curl nórdico, midiendo con ecografía 3D. El peso muerto hizo crecer los isquiotibiales un ≈ 7 % y el nórdico un ≈ 11 %, con patrones distintos (semimembranoso frente a semitendinoso). Lo conozco solo por resúmenes: no he podido consultar el artículo original.
 - Los ejercicios con la cadera flexionada favorecen a los isquiotibiales que también extienden la cadera ([estudio de 2024, curl nórdico frente a excéntrico en posición estirada](https://pubmed.ncbi.nlm.nih.gov/38857522/)). El curl sentado (isquiotibial estirado) creció más que el tumbado, un 14 % frente a un 9 % ([Maeo et al., 2021](https://pubmed.ncbi.nlm.nih.gov/33009197/)).
 
-→ Peso muerto rumano y buenos días: **femoral principal, glúteo ¾**. Peso muerto convencional: **glúteo principal**, con femoral, espalda (erectores) y cuádriceps a ½. No hay estudios de crecimiento que separen mejor estos tres.
+→ Peso muerto rumano y buenos días: **femoral principal, glúteo ¾**. Peso muerto convencional: **glúteo principal**, con femoral, lumbar (erectores) y cuádriceps a ½. No hay estudios de crecimiento que separen mejor estos tres.
 
 ### Remo y jalón → bíceps ½ (¾ con agarre supino)
 - [Mannarino et al. (2021)](https://paulogentil.com/pdf/Single-Joint%20Exercise%20Results%20in%20Higher%20Hypertrophy%20of%20Elbow%20Flexors%20Than%20Multijoint%20Exercise.pdf): el remo con mancuerna hizo crecer los flexores del codo un 5,2 %, frente a un 11,1 % con curl. Es decir, **≈ 0,47 del curl**.
@@ -99,13 +99,34 @@ Los ejercicios que habías personalizado conservan tus músculos. Los nuevos lle
 
 ## 4. Catálogo ampliado
 
-154 ejercicios, cada uno con su **material** (barra, mancuernas, máquina, polea, peso corporal, kettlebell, bandas). Esto permite filtrar en el selector y montar entrenamientos de **gimnasio comercial** (máquinas guiadas, poleas, multipower, hack, péndulo, prensa, contractor…) o **doméstico** (peso corporal, mancuernas, kettlebell, bandas). Los 15 músculos tienen al menos 4 ejercicios como principal.
+155 ejercicios, cada uno con su **material** (barra, mancuernas, máquina, polea, peso corporal, kettlebell, bandas). Esto permite filtrar en el selector y montar entrenamientos de **gimnasio comercial** (máquinas guiadas, poleas, multipower, hack, péndulo, prensa, contractor…) o **doméstico** (peso corporal, mancuernas, kettlebell, bandas). Los 16 músculos tienen al menos 4 ejercicios como principal.
+
+## 4 bis. Lumbar, separado de espalda (v4)
+
+Hasta la v3, «Espalda» mezclaba dos cosas distintas:
+- el **dorsal y la espalda alta**, que trabajan remos, dominadas y jalones;
+- los **erectores de la columna**, que trabajan sentadillas, pesos muertos, buenos días, hiperextensiones y halterofilia.
+
+Las referencias de Israetel para espalda (MEV 10, MRV 25) se refieren a lo primero. Sumarles el trabajo de los erectores hacía que quien hace mucha sentadilla y peso muerto viera la espalda más trabajada de lo que estaba.
+
+Desde la v4:
+- **«Espalda»** es solo dorsal y espalda alta.
+- **«Lumbar»** recoge los erectores, **con el mismo peso** que tenían antes en espalda:
+  - sentadillas y peso muerto rumano: ¼;
+  - peso muerto convencional, sumo y hexagonal, buenos días y halterofilia: ½;
+  - hiperextensiones, extensión lumbar y tirones: lumbar como principal.
+- **Sin referencia.** Israetel no publica cifras para los erectores y no hay estudios de dosis y respuesta fiables. La app muestra el recuento en gris, sin zonas. Se puede poner una referencia propia en Ajustes › Volumen por músculo.
+- **Migración de los datos existentes:**
+  - los ejercicios del catálogo que el atleta no había cambiado se actualizan solos;
+  - los propios o cambiados con «Espalda» en un ejercicio de cadera o pierna se marcan para revisar. La app no adivina.
+- **Las semanas pasadas también cambian:** «Espalda» baja y aparece «Lumbar».
 
 ## 5. Limitaciones
 
 - **Muestras pequeñas y casi siempre de principiantes.** En personas entrenadas, la contribución de los secundarios probablemente sea menor; el caso del bíceps en el jalón es el más dudoso.
 - **La activación (EMG) no equivale a crecimiento.** Donde solo hay EMG, el valor es una estimación por biomecánica.
-- **Quedan fuera** los erectores de la columna (siguen dentro de «Espalda») y los músculos profundos de la cadera.
+- **Quedan fuera** los músculos profundos de la cadera. Los oblicuos van dentro de «Abdomen».
+- **Lumbar no tiene referencia de volumen** (ver apartado 4 bis).
 - **Los valores son la mejor aproximación con los datos disponibles, no medidas exactas.** Cada entrenador puede ajustarlos por ejercicio.
 
 ## Referencias

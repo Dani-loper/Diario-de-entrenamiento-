@@ -82,10 +82,10 @@ Cada serie suma **1 al músculo principal** y a cada secundario **su fracción**
 |---|---|---|---|
 | Press banca | pectoral 1 · tríceps ½ · deltoides anterior ½ | 3 | pectoral 3 · tríceps 1,5 · deltoides ant. 1,5 |
 | Remo con barra | espalda 1 · bíceps ½ · deltoides posterior ½ · trapecio ¼ | 3 (la de RIR 5 no) | espalda 3 · bíceps 1,5 · deltoides post. 1,5 · trapecio 0,75 |
-| Sentadilla trasera | cuádriceps 1 · glúteos ¾ · aductores ¾ · espalda ¼ | 3 (+1 sin RIR) | cuádriceps 3 · glúteos 2,25 · aductores 2,25 · espalda 0,75 |
+| Sentadilla trasera | cuádriceps 1 · glúteos ¾ · aductores ¾ · lumbar ¼ | 3 (+1 sin RIR) | cuádriceps 3 · glúteos 2,25 · aductores 2,25 · lumbar 0,75 |
 
 Resultado:
-- **Espalda = 3 + 0,75 = 3,75.**
+- **Espalda = 3** (solo el remo; la sentadilla suma a «Lumbar», 0,75).
 - La serie sin RIR de sentadilla aparece como «+1» junto a cuádriceps, sin sumar.
 - La de remo a RIR 5 se indica debajo: «2,3 series con RIR > 4 no cuentan» (1 + ½ + ½ + ¼ = 2,25).
 
@@ -98,7 +98,7 @@ Resultado:
 | Rango adaptativo | **Bien** (verde) | entre MAV mínimo y máximo |
 | Alto / por encima del MRV | **Mucho** (naranja) | más que el MAV máximo |
 
-Pectoral 3 está por debajo de su mantenimiento (4), así que sale en gris.
+Pectoral 3 está por debajo de su mantenimiento (4), así que sale en gris. **Lumbar** no tiene referencia publicada: siempre sale en gris, solo con el recuento.
 
 Con un microciclo de otra duración, las referencias se escalan en proporción. Por ejemplo, con 10 días se multiplican por 10/7.
 

@@ -66,7 +66,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   // Selector agrupado por músculo
   await p.click('[data-action=add-exercise]');
   const groups = await p.$$eval('.picker-cat', (x) => x.map((e) => e.textContent));
-  assert(groups[0] === 'Pectoral' && groups.at(-1) === 'Sin músculo (cardio y otros)' && groups.length === 16, 'selector agrupado por músculo: ' + groups.join(', '));
+  assert(groups[0] === 'Pectoral' && groups.at(-1) === 'Sin músculo (cardio y otros)' && groups.length === 17, 'selector agrupado por músculo (16 músculos + sin músculo): ' + groups.join(', '));
   await p.click('#modal [data-action=close-modal]');
   // Modo índice de estrés: reparto del IE
   await p.click('[data-action=cycle-system]');

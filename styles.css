@@ -548,3 +548,5 @@ h1 + .sgroup { margin-top: 8px; }
 .rest-line .rest-field { flex: 1; }
 .vid-quick { min-width: 40px; min-height: 34px; height: 34px; padding: 4px; color: var(--muted); margin-left: auto; }
 .vid-quick.on { color: var(--danger); }
+.mb-h.z-none { background: var(--muted); }
+.zc.z-none { background: var(--card2); }

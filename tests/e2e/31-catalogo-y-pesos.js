@@ -17,7 +17,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   assert(c.n >= 120 && c.dup === 0 && !c.bad.length, `catálogo: ${c.n} ejercicios, sin duplicados ni datos inválidos ${c.bad.join(',')}`);
   assert(Object.values(c.perMuscle).every((n) => n >= 3), 'al menos 3 ejercicios con cada músculo como principal: ' + JSON.stringify(c.perMuscle));
   assert(c.perKit.corporal >= 15 && c.perKit.banda >= 8 && c.perKit.mancuernas >= 15 && c.perKit.kettlebell >= 3, 'cubre gimnasio doméstico (peso corporal, bandas, mancuernas, kettlebell): ' + JSON.stringify(c.perKit));
-  assert(c.seeded === c.n && c.v === 3, 'un usuario nuevo recibe el catálogo completo (versión 3)');
+  assert(c.seeded === c.n && c.v === 4, 'un usuario nuevo recibe el catálogo completo (versión 4)');
   // ---- Músculos nuevos: aductores, trapecio y antebrazo ----
   const nm = await p.evaluate(() => ['aductores', 'trapecio', 'antebrazo'].map((m) => [m, !!MUSCLES[m], !!LANDMARKS[m], FRONT.shapes.concat(BACK.shapes).some((x) => x[0] === m), CATALOG.filter((x) => x.primary === m).length]));
   assert(nm.every(([, a, b, c, n]) => a && b && c && n >= 4), 'aductores, trapecio y antebrazo: con referencias, en la figura y con ≥ 4 ejercicios propios: ' + JSON.stringify(nm));
@@ -34,22 +34,22 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   });
   await p.reload();
   const m = await p.evaluate(() => Object.fromEntries(['Sentadilla trasera', 'Press banca', 'Zancadas', 'Mi ejercicio'].map((n) => { const e = db.exercises.find((x) => x.name === n); return [n, [e.secondary.join('+'), JSON.stringify(e.sw || null), e.kit || '']]; })));
-  assert(m['Sentadilla trasera'][0] === 'gluteos+aductores+espalda' && m['Sentadilla trasera'][1] === '{"gluteos":0.75,"aductores":0.75,"espalda":0.25}' && m['Sentadilla trasera'][2] === 'barra', 'sentadilla por defecto: glúteo ¾, aductores ¾, espalda ¼, material barra');
+  assert(m['Sentadilla trasera'][0] === 'gluteos+aductores+lumbar' && m['Sentadilla trasera'][1] === '{"gluteos":0.75,"aductores":0.75,"lumbar":0.25}' && m['Sentadilla trasera'][2] === 'barra', 'sentadilla por defecto: glúteo ¾, aductores ¾, lumbar ¼, material barra');
   assert(m['Press banca'][0] === 'triceps' && m['Press banca'][1] === 'null', 'press banca personalizado: se respetan sus músculos');
   assert(m['Zancadas'][0] === 'gluteos+aductores' && m['Zancadas'][1] === '{"gluteos":0.75,"aductores":0.5}', 'zancadas: el femoral deja de contar (sin crecimiento medible), glúteo ¾');
   assert(m['Mi ejercicio'][0] === 'espalda' && m['Mi ejercicio'][1] === 'null', 'ejercicio propio intacto');
-  assert(await p.evaluate(() => db.exercises.length === CATALOG.length + 1 && db.musclesV === 3), 'se añaden los ejercicios nuevos sin duplicar los que ya tenía');
+  assert(await p.evaluate(() => db.exercises.length === CATALOG.length + 1 && db.musclesV === 4), 'se añaden los ejercicios nuevos sin duplicar los que ya tenía');
   assert(await p.evaluate(() => JSON.stringify(db.exercises.find((e) => e.name === 'Face pull').sw)) === '{"trapecio":0.5}', 'face pull por defecto: la «espalda» pasa a trapecio ½');
   // ---- Volumen con pesos ----
   const acc = await p.evaluate(() => { const sq = db.exercises.find((e) => e.name === 'Sentadilla trasera'), pb = db.exercises.find((e) => e.name === 'Press inclinado');
     return sessionMuscles({ exercises: [{ exerciseId: sq.id, sets: [1, 2, 3, 4].map(() => ({ type: 'E', w: 100, reps: 5, rir: 2, done: true })) }, { exerciseId: pb.id, sets: [1, 2].map(() => ({ type: 'E', w: 60, reps: 8, rir: 2, done: true })) }] }, 'sets'); });
-  assert(JSON.stringify(acc) === '{"cuadriceps":4,"gluteos":3,"aductores":3,"espalda":1,"pectoral":2,"delt_ant":1.5,"triceps":1}', '4 sentadillas + 2 press inclinado: cuád. 4 · glúteo 3 · aductores 3 · espalda 1 · pecho 2 · delt. ant. 1,5 · tríceps 1: ' + JSON.stringify(acc));
+  assert(JSON.stringify(acc) === '{"cuadriceps":4,"gluteos":3,"aductores":3,"lumbar":1,"pectoral":2,"delt_ant":1.5,"triceps":1}', '4 sentadillas + 2 press inclinado: cuád. 4 · glúteo 3 · aductores 3 · lumbar 1 · pecho 2 · delt. ant. 1,5 · tríceps 1: ' + JSON.stringify(acc));
   // ---- Editar pesos en el formulario ----
   const sid = await p.evaluate(() => db.exercises.find((e) => e.name === 'Sentadilla trasera').id);
   await p.goto(`http://localhost:8123/#/exercise/${sid}`);
-  assert((await p.textContent('#app')).includes('Cuádriceps · sec.: Glúteos ¾, Aductores ¾, Espalda ¼'), 'la ficha muestra cuánto cuenta cada músculo');
+  assert((await p.textContent('#app')).includes('Cuádriceps · sec.: Glúteos ¾, Aductores ¾, Lumbar ¼'), 'la ficha muestra cuánto cuenta cada músculo');
   await p.click('[data-action=exercise-form]');
-  await p.click('#ef-sec [data-m=espalda]');      // ¼ → quitar
+  await p.click('#ef-sec [data-m=lumbar]');       // ¼ → quitar
   await p.click('#ef-sec [data-m=femoral]');      // nada → ½
   await p.click('#ef-sec [data-m=femoral]');      // ½ → ¾
   await p.click('[data-action=save-exercise]');
