@@ -28,7 +28,7 @@ const TOURS = {
     ['[data-ex="0"] .suggest', 'Peso sugerido', 'Calculado con tu 1RM estimado y el RIR que buscas. «Rellenar» lo escribe por ti.'],
     ['[data-ex="0"] tbody tr:first-child', 'Peso y repeticiones', 'Escribe los kg y las repeticiones que has hecho. Con coma o con punto, como prefieras.'],
     ['[data-set="0:0:rir"], [data-set="0:0:rpe"]', 'RIR: repeticiones en reserva', 'Cuántas repeticiones más podrías haber hecho con buena técnica: 0 = al fallo; 2 = te quedaban dos. Es la clave para que el 1RM, las series efectivas y las sugerencias salgan bien. Si dudas, la app te avisará cuando algo no cuadre.'],
-    ['[data-action=toggle-done][data-i="0"][data-j="0"]', 'Marca la serie', 'Al terminar cada serie, márcala con ✓: arranca el cronómetro del descanso. Las series que vienen de una tabla solo cuentan cuando las marcas.'],
+    ['[data-action=toggle-done][data-i="0"][data-j="0"]', 'Marca la serie', 'Al terminar cada serie, márcala con ✓: arranca el cronómetro del descanso (si prefieres iniciarlo tú, cámbialo en Ajustes › Descansos). Las series que vienen de una tabla solo cuentan cuando las marcas.'],
     ['[data-action=cycle-type][data-i="0"][data-j="0"]', 'Tipo de serie', 'Tócalo para cambiarlo: C = calentamiento (no cuenta en las estadísticas), D = drop set, F = al fallo.'],
     ['[data-action=set-menu][data-i="0"][data-j="0"]', 'Más opciones', 'Grabar un vídeo de la serie, compartirla o borrarla.'],
     ['[data-action=finish-session]', 'Finalizar', 'Cuando acabes, finaliza la sesión: se guarda la duración y ves el resumen completo con los músculos trabajados.'],

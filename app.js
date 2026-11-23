@@ -1498,9 +1498,12 @@ function viewSettings() {
     </div>
     <h2>Descansos</h2>
     <div class="card">
+      <label>Cronómetro de descanso</label>
+      <select data-setting-str="timerMode">${[['auto', 'Se inicia solo al marcar ✓ la serie'], ['manual', 'Lo inicio yo (botón «Iniciar» en la serie)']].map(([v, l]) => `<option value="${v}" ${(db.settings.timerMode || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <div style="height:10px"></div>
       <label>Descanso por defecto entre series (segundos)</label>
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
-      <div class="muted small" style="margin-top:6px">El temporizador arranca al marcar una serie como hecha (0 = sin temporizador). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
+      <div class="muted small" style="margin-top:6px">${timerAuto() ? 'El cronómetro arranca al marcar una serie como hecha' : 'Al marcar una serie como hecha, aparece «Iniciar» en su fila del descanso: tócalo cuando empieces a descansar'}: cuenta atrás con el descanso por defecto (0 = solo cuenta el tiempo, sin aviso). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
     </div>
     ${window.closeSettingsHTML ? closeSettingsHTML() : ''}
     ${window.weightsSettingsHTML ? weightsSettingsHTML() : ''}
@@ -1857,6 +1860,13 @@ function openPicker() {
 /* ---------- Temporizador de descanso ---------- */
 let timer = { end: 0, int: null };
 // Con objetivo (sec > 0): cuenta atrás y avisa. Sin objetivo: solo cuenta el tiempo transcurrido.
+// Cronómetro de descanso: automático al marcar ✓ (por defecto) o manual (botón «Iniciar» en la fila del descanso).
+const timerAuto = () => (db.settings.timerMode || 'auto') === 'auto';
+// Arranca el cronómetro con el descanso objetivo del ejercicio (en superserie, el mayor del grupo).
+function startRestTimer(s, i) {
+  const g = ssGroupOf(s, i), grp = g ? s.exercises.slice(g.a, g.b + 1) : [s.exercises[i]];
+  startTimer(Math.max(...grp.map((e) => e.restTarget ?? restTarget(exById(e.exerciseId)))), true);
+}
 function startTimer(sec, stopwatch = false) {
   if (!sec && !stopwatch) return;
   timer.start = Date.now();
@@ -1968,7 +1978,13 @@ function restRowHTML(ex, i, j, colspan) {
   // Botón de vídeo a la derecha de la fila del descanso: graba directamente (o abre el vídeo si ya tiene).
   const vid = set.type === 'C' ? '' : `<button class="icon ghost vid-quick ${set.videoId ? 'on' : ''}" data-action="${set.videoId ? 'set-menu' : 'video-pick'}" data-src="cam" data-i="${i}" data-j="${j}"
       aria-label="${set.videoId ? `Ver el vídeo de la serie ${j + 1}` : `Grabar vídeo de la serie ${j + 1}`}">${ic('video')}</button>`;
-  return `<tr class="rest-row"><td colspan="${colspan}"><div class="rest-line"><label class="rest-field">${ic('timer')} Descanso
+  // En una superserie no se descansa entre sus ejercicios: el botón solo sale en el último del grupo.
+  const cs = currentSession(), g = cs ? ssGroupOf(cs, i) : null;
+  // Solo en la última serie marcada de la sesión: es la única cuyo descanso empieza ahora.
+  const latest = cs ? Math.max(0, ...cs.exercises.flatMap((e) => e.sets.filter((x) => x.done && x.type !== 'C').map((x) => x.doneAt || 0))) : 0;
+  const manual = !timerAuto() && set.done && set.rest == null && !running && set.type !== 'C' && !ui.rest && !(g && i < g.b) && (set.doneAt || 0) === latest;
+  const go = manual ? `<button class="small-btn rest-go" data-action="rest-start" data-i="${i}" data-j="${j}" aria-label="Iniciar el cronómetro del descanso de la serie ${j + 1}">${ic('timer')} Iniciar</button>` : '';
+  return `<tr class="rest-row"><td colspan="${colspan}"><div class="rest-line">${go}<label class="rest-field">${go ? '' : `${ic('timer')} Descanso`}
       <input data-rest="${i}:${j}" inputmode="numeric" placeholder="m:ss" value="${set.rest != null ? fmtSec(set.rest) : ''}" aria-label="Descanso después de la serie ${j + 1} (m:ss)">
       ${running ? '<span class="rest-live" id="rest-live">en marcha…</span>' : ''}</label>${vid}</div></td></tr>`;
 }
@@ -2051,11 +2067,12 @@ const actions = {
   'toggle-done': (el) => {
     const s = currentSession(), i = +el.dataset.i, j = +el.dataset.j, ex = s.exercises[i], set = ex.sets[j];
     set.done = !set.done;
+    const auto = timerAuto();
     if (set.done) {
       set.doneAt = Date.now();
       // El cronómetro mide el descanso de ESTA serie. Si corría el de otra, se descarta sin rellenar nada
-      // (ese tiempo incluiría la ejecución de la serie).
-      ui.rest = { sid: s.id, i, j, start: Date.now() };
+      // (ese tiempo incluiría la ejecución de la serie). En modo manual no arranca: botón «Iniciar» en la serie.
+      if (auto) ui.rest = { sid: s.id, i, j, start: Date.now() };
     } else {
       delete set.doneAt;
       if (ui.rest && ui.rest.sid === s.id && ui.rest.i === i && ui.rest.j === j) { ui.rest = null; stopTimer(); }
@@ -2065,9 +2082,14 @@ const actions = {
       // Superserie: entre ejercicios del grupo no hay descanso; el cronómetro arranca tras el último.
       const g = ssGroupOf(s, i);
       if (g && i < g.b) { toast(`Superserie: ahora ${exById(s.exercises[i + 1].exerciseId)?.name || 'el siguiente'}`); return; }
-      const grp = g ? s.exercises.slice(g.a, g.b + 1) : [ex];
-      startTimer(Math.max(...grp.map((e) => e.restTarget ?? restTarget(exById(e.exerciseId)))), true);
+      if (auto) startRestTimer(s, i);
     }
+  },
+  // Modo manual: el atleta inicia el cronómetro del descanso de una serie cuando quiere.
+  'rest-start': (el) => {
+    const s = currentSession(), i = +el.dataset.i, j = +el.dataset.j;
+    ui.rest = { sid: s.id, i, j, start: Date.now() };
+    rerender(); startRestTimer(s, i);
   },
   // «⏹ Parar»: escribe el tiempo transcurrido en el campo de descanso de la serie (editable después).
   'timer-save-rest': () => {
@@ -2431,7 +2453,7 @@ document.addEventListener('input', (e) => {
   if (t.dataset.setting) { db.settings[t.dataset.setting] = num(t.value) ?? 0; save(); if (['weekLen', 'weekDow'].includes(t.dataset.setting)) rerender(); return; }
   if (t.dataset.settingStr) {
     if (t.dataset.settingStr === 'cycleAnchor' && !t.value) return;
-    db.settings[t.dataset.settingStr] = t.value; save(); if (t.dataset.settingStr === 'cycleAnchor') rerender(); return;
+    db.settings[t.dataset.settingStr] = t.value; save(); if (['cycleAnchor', 'timerMode'].includes(t.dataset.settingStr)) rerender(); return;
   }
   if (t.dataset.reportNote != null) { db.reportNote = t.value; save(); return; }
   const s = currentSession(); if (!s) return;
