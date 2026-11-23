@@ -41,14 +41,26 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
 
   // Añadir vídeo desde el menú de la serie
   await p.click('[data-action=set-menu][data-i="0"][data-j="0"]');
-  assert(await p.isVisible('[data-action=video-pick]'), 'menú de la serie con «Grabar o elegir vídeo»');
-  await p.click('[data-action=video-pick]');
+  assert(await p.isVisible('#modal [data-action=video-pick][data-src=cam]') && await p.isVisible('#modal [data-action=video-pick][data-src=gal]'), 'menú de la serie con «Grabar vídeo» y «De la galería»');
+  await p.click('#modal [data-action=video-pick][data-src=gal]');
   await p.setInputFiles('#video-file', vpath);
   await p.waitForFunction(() => currentSession().exercises[0].sets[0].videoId);
   await p.waitForSelector('#vid-slot video');
   const vid = await p.evaluate(async () => { const id = currentSession().exercises[0].sets[0].videoId; const r = await videoGet(id); return { id, size: r?.size, user: r?.user === profiles.active }; });
   assert(vid.size > 1000 && vid.user, `vídeo guardado en IndexedDB (${vid.size} bytes) del usuario activo`);
   assert(await p.$('.settype.has-video'), 'indicador de vídeo en la serie');
+  // Grabar: el campo con «capture» abre la cámara (en Android, la grabadora del sistema)
+  assert(await p.getAttribute('#video-cam', 'capture') === 'environment' && await p.getAttribute('#video-cam', 'accept') === 'video/*', 'campo de grabación con capture="environment"');
+  const oldVid = await p.evaluate(() => currentSession().exercises[0].sets[0].videoId);
+  await p.click('#modal [data-action=video-pick][data-src=cam]');
+  await p.setInputFiles('#video-cam', vpath);
+  await p.waitForFunction((o) => currentSession().exercises[0].sets[0].videoId !== o, oldVid);
+  await p.waitForSelector('#vid-slot video');
+  assert(!(await p.evaluate((o) => videoGet(o), oldVid)), '«Grabar otro» sustituye el vídeo y borra el anterior');
+  await p.click('#modal [data-action=close-modal]');
+  assert(await p.$('.vid-quick.on[data-i="0"][data-j="0"]'), 'botón de vídeo junto al descanso, resaltado si la serie tiene vídeo');
+  await p.click('.vid-quick.on[data-i="0"][data-j="0"]');
+  await p.waitForSelector('#vid-slot video');
   await p.screenshot({ path: out + '/8menu.png' });
 
   // Compartir: imagen

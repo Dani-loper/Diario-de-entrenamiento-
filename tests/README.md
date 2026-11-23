@@ -55,3 +55,6 @@ npm run lint                         # revisión estática del código
 | 31-catalogo-y-pesos | Catálogo de 154 ejercicios y músculos nuevos (aductores, trapecio, antebrazo), pesos por músculo secundario, migración desde la versión anterior, editor de pesos, filtro por material |
 | 32-almacenamiento-y-version | Datos en IndexedDB, migración desde localStorage, recuperación de cambios pendientes, más de 5 MB, sin IndexedDB, aviso de versión nueva |
 | 33-pantallas-sencillas | Avisos tras la campana, calendario plegable, botón «Repetir o tabla», resumen plegado y sin comparar en la sesión abierta, historial de 5, tarjetas vacías ocultas, Ajustes en tres grupos |
+| 34-calculos-documentados | Las cifras del ejemplo de `docs/como-se-calcula.md` (1RM, volumen, series por músculo, peso sugerido, calentamiento…) |
+| 35-copia-automatica | Copia automática en Documentos/DiarioEntreno (app Android simulada): cuándo escribe, últimos 10 días, permisos, Ajustes |
+| 36-rir-dudoso-y-crear-ejercicio | Aviso de RIR dudoso (una serie posterior rinde ≥ 5 % más) y crear un ejercicio desde el buscador con la ficha completa |

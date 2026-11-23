@@ -34,6 +34,8 @@
   <dialog id="modal"><div id="modal-body"></div></dialog>
 
   <input type="file" id="video-file" accept="video/*" class="hidden">
+  <!-- capture: abre directamente la cámara para grabar (en Android, la grabadora de vídeo del sistema) -->
+  <input type="file" id="video-cam" accept="video/*" capture="environment" class="hidden">
 
   <!-- storage.js carga los datos (IndexedDB) y después el resto de la app, en orden. -->
   <script src="native.js"></script>

@@ -28,6 +28,7 @@ Los datos se conservan mientras el usuario no los borre.
 - **Ajustes › Borrar sus datos** elimina los del usuario activo.
 - **Usuarios › borrar** elimina un perfil y sus vídeos.
 - **Desinstalar la app**, o borrar los datos del sitio en el navegador, elimina todo, incluidas las copias automáticas internas.
+- **Excepción, app Android:** la copia automática en el móvil (activada por defecto, desactivable en Ajustes › Copia de seguridad) se guarda en la carpeta pública *Documentos/DiarioEntreno* del propio dispositivo, precisamente para que sobreviva a la desinstalación. No sale del dispositivo, pero otras apps con acceso a archivos pueden leerla, y para borrarla hay que eliminar esa carpeta con el gestor de archivos.
 
 ## Uso por entrenadores
 Quien registre en su dispositivo datos de otras personas (por ejemplo, un entrenador con sus atletas) es responsable de esos datos. Debe contar con su consentimiento y, en el caso de menores, con el de sus padres o tutores.

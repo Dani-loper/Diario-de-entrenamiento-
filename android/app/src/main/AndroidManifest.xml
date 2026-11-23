@@ -3,6 +3,7 @@
 
     <application
         android:allowBackup="true"
+        android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -35,7 +36,16 @@
         </provider>
     </application>
 
+    <!-- Android 11+: sin esto, la app no «ve» la grabadora de vídeo del sistema y el campo con capture abre la galería -->
+    <queries>
+        <intent><action android:name="android.media.action.VIDEO_CAPTURE" /></intent>
+        <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Copia automática en Documentos/DiarioEntreno: solo Android 10 o anterior necesita estos permisos -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
 </manifest>
