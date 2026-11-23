@@ -222,7 +222,9 @@ Ejemplos:
 ## 16. Otras cifras de la sesión
 
 - **RIR medio:** media del RIR de las series de trabajo que lo tienen.
-- **Descanso medio:** media de los descansos anotados en las series de trabajo. La app no los inventa: solo cuenta los que escribes o los que rellena «Parar» en el cronómetro.
+- **Descanso medio:** media de los descansos anotados en las series de trabajo. Solo cuenta los que escribes, los que rellena «Parar» en el cronómetro y, si eliges el cronómetro «De una serie a la siguiente» (Ajustes › Descansos), los que se guardan solos.
+  - En ese modo, el descanso de una serie es el tiempo entre su ✓ y el ✓ de la siguiente. **Incluye lo que tardas en hacer la siguiente serie** (unos 20-60 s), así que sale algo más largo que el descanso real.
+  - Más de 20 minutos no se guarda: se toma como una pausa o un olvido.
 - **Duración:** desde que se crea la sesión hasta «Finalizar». Si se cierra sola por inactividad, hasta la hora de la última serie marcada.
 
 ## 17. Aviso «¿te quedaban más repeticiones?» (RIR dudoso)

@@ -1499,11 +1499,11 @@ function viewSettings() {
     <h2>Descansos</h2>
     <div class="card">
       <label>Cronómetro de descanso</label>
-      <select data-setting-str="timerMode">${[['auto', 'Se inicia solo al marcar ✓ la serie'], ['manual', 'Lo inicio yo (botón «Iniciar» en la serie)']].map(([v, l]) => `<option value="${v}" ${(db.settings.timerMode || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select data-setting-str="timerMode">${[['auto', 'Se inicia solo al marcar ✓ la serie'], ['manual', 'Lo inicio yo (botón «Iniciar» en la serie)'], ['between', 'De una serie a la siguiente (se guarda solo)']].map(([v, l]) => `<option value="${v}" ${(db.settings.timerMode || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <div style="height:10px"></div>
       <label>Descanso por defecto entre series (segundos)</label>
       <input type="number" inputmode="numeric" step="15" data-setting="rest" value="${db.settings.rest}">
-      <div class="muted small" style="margin-top:6px">${timerAuto() ? 'El cronómetro arranca al marcar una serie como hecha' : 'Al marcar una serie como hecha, aparece «Iniciar» en su fila del descanso: tócalo cuando empieces a descansar'}: cuenta atrás con el descanso por defecto (0 = solo cuenta el tiempo, sin aviso). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
+      <div class="muted small" style="margin-top:6px">${{ auto: 'El cronómetro arranca al marcar una serie como hecha', manual: 'Al marcar una serie como hecha, aparece «Iniciar» en su fila del descanso: tócalo cuando empieces a descansar', between: 'El cronómetro arranca al marcar una serie como hecha y, al marcar la siguiente, el tiempo entre las dos se guarda solo como descanso de la primera. <b>Incluye lo que tardas en hacer la serie</b> (unos 20-60 s), así que sale algo más largo que el descanso real. Más de 20 minutos no se guarda (pausa u olvido)' }[timerMode()]}. El cronómetro hace la cuenta atrás con el descanso por defecto (0 = solo cuenta el tiempo, sin aviso). El descanso es un dato tuyo: escríbelo en el campo «Descanso» bajo cada serie, o pulsa <b>«Parar»</b> en el cronómetro y se rellenará con el tiempo transcurrido. Siempre puedes corregirlo. ${isSimple() ? '' : 'Cada ejercicio puede tener su propio descanso objetivo (botón del cronómetro en la tarjeta del ejercicio).'}</div>
     </div>
     ${window.closeSettingsHTML ? closeSettingsHTML() : ''}
     ${window.weightsSettingsHTML ? weightsSettingsHTML() : ''}
@@ -1860,8 +1860,27 @@ function openPicker() {
 /* ---------- Temporizador de descanso ---------- */
 let timer = { end: 0, int: null };
 // Con objetivo (sec > 0): cuenta atrás y avisa. Sin objetivo: solo cuenta el tiempo transcurrido.
-// Cronómetro de descanso: automático al marcar ✓ (por defecto) o manual (botón «Iniciar» en la fila del descanso).
-const timerAuto = () => (db.settings.timerMode || 'auto') === 'auto';
+// Cronómetro de descanso: automático al marcar ✓ (por defecto), manual (botón «Iniciar» en la fila del descanso) o
+// «entre series»: como el automático, pero al marcar ✓ la siguiente serie se guarda solo el tiempo transcurrido.
+const timerMode = () => db.settings.timerMode || 'auto';
+const timerAuto = () => timerMode() !== 'manual';
+const BETWEEN_MAX = 20 * 60; // más de 20 min entre dos series: pausa u olvido, no se guarda
+// Rellena el descanso de la serie marcada justo antes (en toda la sesión) con el tiempo hasta esta. Se calcula con las
+// horas de ✓ guardadas, así que funciona aunque la app se haya cerrado entre medias. No toca descansos ya escritos
+// ni el de un ejercicio que no es el último de una superserie (ahí no se descansa).
+function fillRestBetween(s, i, j) {
+  const now = s.exercises[i].sets[j].doneAt;
+  let prev = null;
+  s.exercises.forEach((e, a) => e.sets.forEach((x, b) => {
+    if ((a === i && b === j) || !x.done || !x.doneAt || x.doneAt >= now) return;
+    if (!prev || x.doneAt > prev.x.doneAt) prev = { x, a };
+  }));
+  if (!prev || prev.x.rest != null) return;
+  const g = ssGroupOf(s, prev.a);
+  if (g && prev.a < g.b) return;
+  const sec = Math.round((now - prev.x.doneAt) / 1000);
+  if (sec > 0 && sec <= BETWEEN_MAX) prev.x.rest = sec;
+}
 // Arranca el cronómetro con el descanso objetivo del ejercicio (en superserie, el mayor del grupo).
 function startRestTimer(s, i) {
   const g = ssGroupOf(s, i), grp = g ? s.exercises.slice(g.a, g.b + 1) : [s.exercises[i]];
@@ -2070,6 +2089,8 @@ const actions = {
     const auto = timerAuto();
     if (set.done) {
       set.doneAt = Date.now();
+      // Modo «entre series»: el descanso de la serie anterior se rellena solo (incluye la ejecución de esta).
+      if (timerMode() === 'between') fillRestBetween(s, i, j);
       // El cronómetro mide el descanso de ESTA serie. Si corría el de otra, se descarta sin rellenar nada
       // (ese tiempo incluiría la ejecución de la serie). En modo manual no arranca: botón «Iniciar» en la serie.
       if (auto) ui.rest = { sid: s.id, i, j, start: Date.now() };

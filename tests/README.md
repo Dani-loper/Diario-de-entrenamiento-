@@ -62,3 +62,4 @@ npm run lint                         # revisión estática del código
 | 38-series-por-microciclo | Series por músculo de la semana o microciclo en curso, ‹ › a los anteriores, «Últimos N días» y marca del anterior |
 | 39-recorrido | Recorrido de primeros pasos: tras la bienvenida, sesión vacía y primera serie (RIR); saltar, Esc, repetir desde Ajustes; no sale solo a quien ya usa la app |
 | 40-cronometro-manual | Cronómetro de descanso automático (al marcar ✓) o manual (botón «Iniciar» en la serie), con calentamientos y superseries |
+| 41-descanso-entre-series | Cronómetro «de una serie a la siguiente»: guarda solo el tiempo entre ✓ (no sobrescribe, máx. 20 min, entre ejercicios, tras recargar, superseries) |
