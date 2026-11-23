@@ -90,8 +90,10 @@ function saveBackupFile(d = backupData(), label = '') {
 
 /* ---------- Interfaz ---------- */
 const agoDays = (t) => t ? Math.floor((Date.now() - t) / 864e5) : null;
+// Última copia fuera de la app: guardada a mano o automática en Documentos (app Android).
+const lastOutside = () => Math.max(localBk.lastExport || 0, (typeof autoEnabled === 'function' && autoEnabled() && localBk.autoLast) || 0) || null;
 function backupStatusHTML() {
-  const d = agoDays(localBk.lastExport);
+  const d = agoDays(lastOutside());
   const txt = d == null ? 'nunca' : d === 0 ? 'hoy' : d === 1 ? 'ayer' : `hace ${d} días`;
   const warn = d == null || d > REMIND_DAYS;
   return `<div class="${warn ? 'mismatch' : 'muted small'}" style="margin-bottom:8px">Última copia guardada fuera de la app: <b>${txt}</b>.</div>`;
@@ -111,7 +113,7 @@ function installReminderHTML() {
 }
 function backupReminderHTML() {
   const total = profiles.users.reduce((a, u) => a + ((u.id === profiles.active ? db : readUserData(u.id))?.sessions.length || 0), 0);
-  const d = agoDays(localBk.lastExport);
+  const d = agoDays(lastOutside());
   if (total < 3 || (d != null && d <= REMIND_DAYS)) return '';
   if (localBk.snoozeUntil && Date.now() < localBk.snoozeUntil) return '';
   return `<div class="card reminder">

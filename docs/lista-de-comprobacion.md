@@ -36,6 +36,11 @@ Las pruebas automáticas cubren la lógica, pero no un móvil real. Marca cada p
 - [ ] Ajustes › **Guardar copia en el móvil** → menú de compartir → guárdala y comprueba que el archivo existe.
 - [ ] Ajustes › **Enviar mis datos al entrenador** → envíatelo por WhatsApp o correo y comprueba que llega el archivo `.json`.
 
+## 6 bis. Copia automática (app Android)
+- [ ] Ajustes › Copia de seguridad: «Copia automática en el móvil» está marcada. Pulsa **Guardar una copia ahora**: aparece «Última: hoy a las…». En Android 10 o anterior, acepta el permiso.
+- [ ] Abre el gestor de archivos del móvil › **Documentos › DiarioEntreno**: está `diario-entreno-auto-AAAA-MM-DD.json`.
+- [ ] Finaliza una sesión, sal de la app y vuelve a Ajustes: la hora de «Última» se ha actualizado.
+
 ## 7. Cierre brusco (comprueba que no se pierden datos)
 - [ ] Marca ✓ una serie y **cierra la app enseguida** (desliza para quitarla de la multitarea).
 - [ ] Ábrela otra vez → la serie sigue marcada.

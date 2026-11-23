@@ -542,3 +542,4 @@ body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 
 /* Ajustes: grupos */
 .sgroup { margin: 28px 0 -6px; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 h1 + .sgroup { margin-top: 8px; }
+.auto-bk { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }

@@ -1500,6 +1500,7 @@ function viewSettings() {
     <div class="card">
       <div class="muted small" style="margin-bottom:8px">Tus datos se guardan solo en este dispositivo. Guarda una copia en los archivos del móvil con frecuencia y, de vez en cuando, pásala a un ordenador: si se borran los datos del navegador o pierdes el móvil, se pierde todo.</div>
       ${window.backupStatusHTML ? backupStatusHTML() : ''}
+      ${window.autoBackupSettingsHTML ? autoBackupSettingsHTML() : ''}
       <button class="primary block" data-action="export-all" style="margin-bottom:8px">${ic('save')} Guardar copia en el móvil (todos los usuarios)</button>
       <div class="muted small" style="margin-bottom:6px">Solo ${esc(activeUser().name)}:</div>
       <div class="grid2">
