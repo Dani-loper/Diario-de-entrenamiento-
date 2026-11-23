@@ -3,6 +3,7 @@
 PWA (app web instalable) para registrar sesiones de musculación y fitness desde el móvil. Sin dependencias ni compilación; funciona sin conexión.
 
 ## Funciones
+- **En el PC** (navegador o «Instalar app» en Chrome o Edge): a partir de 1024 px, menú lateral y dos columnas en Calendario, Progreso y la ficha de cada ejercicio, pensado para que el entrenador analice y prepare tablas o mesociclos. Intro pasa a la casilla siguiente al anotar series. Los datos de cada navegador son independientes: se pasan con los archivos de exportar e importar.
 - **Informe de error** (Ajustes › Acerca de): la app guarda los últimos 30 errores en el dispositivo; «Copiar informe» o «Enviar…» manda la versión, el dispositivo, recuentos y los errores, sin nombres ni datos de entrenamiento.
 - **Recorrido de primeros pasos**: la primera vez, explicaciones breves sobre el calendario, cómo empezar una sesión y cómo registrar una serie (peso, repeticiones, RIR, ✓, tipo de serie). Se puede saltar y repetir en Ajustes › Acerca de.
 - **Modo de atleta** (Ajustes, por usuario): *Sencillo* (series, peso, repeticiones, RIR y descansos) o *Avanzado* (todo lo demás: RPE, material, sensaciones, índice de estrés, %1RM, fatiga, análisis). Cambiar de modo no borra nada.

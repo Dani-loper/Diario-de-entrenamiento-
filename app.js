@@ -405,6 +405,7 @@ function render() {
   const u = activeUser();
   const bar = r.name === 'users' || r.name === 'report' ? '' : `<div class="userbar"><button class="userchip" data-action="go-users" aria-label="Usuario activo: ${esc(u.name)}. Cambiar de usuario">${avatar(u, 26)}<span>${esc(u.name)}</span><span class="muted">▾</span></button></div>`;
   renderMemo = {};
+  app.dataset.view = r.name; // en pantallas grandes, cada pantalla tiene su ancho y sus columnas (styles.css)
   try { app.innerHTML = bar + view(r.id); } finally { renderMemo = null; }
   if (r.name === 'settings' && window.fillVideoStats) fillVideoStats();
   if (r.name === 'settings' && window.fillSnapList) fillSnapList();
@@ -1086,7 +1087,8 @@ function viewCalendar() {
   }
 
   const offToday = folded ? sel !== today : sel !== today || ui.month !== today.slice(0, 7);
-  html += `<div class="card">
+  // Dos columnas en pantallas grandes: calendario a la izquierda; el día y las últimas sesiones a la derecha.
+  html += `<div class="cols cal-cols"><div class="col-a"><div class="card">
       <div class="row">
         <button class="icon ghost" data-action="${folded ? 'week' : 'month'}" data-d="-1" aria-label="${folded ? 'Semana' : 'Mes'} anterior">‹</button>
         <div class="spacer" style="text-align:center"><b>${title}</b>
@@ -1098,8 +1100,8 @@ function viewCalendar() {
         ${offToday ? '<button class="ghost small-btn" data-action="go-today">Ir a hoy</button>' : ''}<span class="spacer"></span>
         <button class="ghost small-btn" data-action="cal-fold" aria-expanded="${!folded}">${folded ? 'Ver el mes ▾' : 'Ver solo la semana ▴'}</button>
       </div>
-    </div>
-    <h2>${sel === today ? 'Hoy · ' : ''}${fmtDate(sel)}</h2>
+    </div></div><div class="col-b">
+    <h2 class="first">${sel === today ? 'Hoy · ' : ''}${fmtDate(sel)}</h2>
     ${window.dailyCardHTML ? dailyCardHTML(sel) : ''}
     ${window.mesoCardHTML ? mesoCardHTML(sel) : ''}
     <div class="grid2">
@@ -1111,7 +1113,7 @@ function viewCalendar() {
   html += daySessions.map(sessionCard).join('') || '<div class="muted" style="padding:8px 0 16px">Sin sesiones este día.</div>';
   const recent = sortedSessions().filter((s) => s.date !== sel).slice(0, 3);
   if (recent.length) html += `<h2>Últimas sesiones</h2>${recent.map(sessionCard).join('')}`;
-  return html;
+  return html + '</div></div>';
 }
 const shortDay = (iso) => new Date(iso + 'T12:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 
@@ -1391,7 +1393,9 @@ function viewExercises() {
   const q = norm(ui.search);
   const counts = {};
   for (const s of db.sessions) for (const e of s.exercises) counts[e.exerciseId] = (counts[e.exerciseId] || 0) + 1;
+  // Dos columnas en pantallas grandes: tarjetas de resumen a la izquierda; lista de ejercicios a la derecha.
   let html = `<div class="row"><h1 class="spacer">Progreso</h1><button data-action="exercise-form">＋ Nuevo ejercicio</button></div>
+    <div class="cols prog-cols"><div class="col-a">
     ${window.progressTopHTML ? progressTopHTML() : ''}
     ${isSimple() ? '' : `<a class="card list-item" href="#/analysis" style="display:flex;align-items:center;gap:10px">
       <span class="lead-ic">${ic('pulse')}</span><span class="spacer"><b>Análisis</b>
@@ -1402,6 +1406,7 @@ function viewExercises() {
     ${db.exercises.some((x) => x.reviewMuscles) ? `<div class="card reminder"><b>${ic('alert')} Revisa los músculos de ${db.exercises.filter((x) => x.reviewMuscles).length} ejercicio(s) propio(s)</b>
       <div class="muted small" style="margin:4px 0 8px">Sus músculos se asignaron automáticamente o pueden haber quedado anticuados (al dividir «Hombros» en deltoides, o al separar «Lumbar» de «Espalda»: si el ejercicio trabaja los erectores, pon «Lumbar» en lugar de «Espalda»).</div>
       <button class="primary block" data-action="review-muscles">Revisar</button></div>` : ''}
+    </div><div class="col-b">
     ${window.exercisesHeaderHTML ? exercisesHeaderHTML() : ''}
     <input type="search" data-action-input="search" placeholder="Buscar ejercicio…" value="${esc(ui.search)}">
     <div style="height:12px"></div>`;
@@ -1420,7 +1425,7 @@ function viewExercises() {
       <div class="muted small">${counts[e.id] ? `${counts[e.id]} ${counts[e.id] === 1 ? 'sesión' : 'sesiones'}${best ? ` · ${m.label} ${fmtM(best, m)}` : ''}` : esc(muscleLabel(e))}</div></a>`;
   }
   if (!q && unused) html += `<button class="block ghost" data-action="show-all-ex">${ui.showAllEx ? 'Ocultar los ejercicios sin registros' : `Ver también los ${unused} ejercicios sin registros`}</button>`;
-  return html;
+  return html + '</div></div>';
 }
 
 function viewExercise(id) {
@@ -1452,7 +1457,8 @@ function viewExercise(id) {
       ${usedEq.map((e) => `<button class="chip ${f === e.id ? 'on' : ''}" data-action="filter-eq" data-eq="${e.id}">Con ${esc(e.name)}</button>`).join('')}
     </div>`;
   }
-  html += `<div class="card" style="margin-top:12px"><div class="stats">
+  // Dos columnas en pantallas grandes: cifras y gráficas a la izquierda; historial a la derecha.
+  html += `<div class="cols exd-cols"><div class="col-a"><div class="card" style="margin-top:12px"><div class="stats">
       <div class="stat"><b>${best ? fmtM(best.v, m) : '–'}</b><span>mejor ${m.label} ${def.mode === 'wr' ? info('e1rm') : ''}</span></div>
       ${def.mode === 'wr' || def.mode === 'bw' ? `<div class="stat"><b>${topW ? fmt(topW.v) + ' kg' : '–'}</b><span>peso máximo</span></div>` : ''}
       <div class="stat"><b>${hist.length}</b><span>sesiones</span></div>
@@ -1469,7 +1475,7 @@ function viewExercise(id) {
     </div></div>`;
   }
 
-  html += `<h2>Historial</h2>`;
+  html += `</div><div class="col-b"><h2>Historial</h2>`;
   if (!hist.length) html += `<div class="empty">Sin registros${f !== 'all' ? ' con este filtro' : ''}.</div>`;
   const HIST_N = 5, showAll = ui.histAll === id;
   for (const h of showAll ? hist : hist.slice(0, HIST_N)) {
@@ -1482,7 +1488,7 @@ function viewExercise(id) {
     </a>`;
   }
   if (hist.length > HIST_N) html += `<button class="block ghost" data-action="hist-all" data-id="${id}">${showAll ? 'Ver solo las últimas 5' : `Ver todas (${hist.length})`}</button>`;
-  return html;
+  return html + '</div></div>';
 }
 
 function chart(pts, label = 'Evolución') {
@@ -2490,6 +2496,18 @@ document.addEventListener('click', (e) => {
   if (!el || !actions[el.dataset.action]) return;
   e.preventDefault();
   actions[el.dataset.action](el);
+});
+
+// Intro en una casilla de serie pasa a la siguiente (kg → reps → RIR → siguiente serie), en el teclado del PC y en la
+// tecla «Siguiente» del móvil. En la última, cierra el teclado.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  const t = e.target;
+  if (!t.matches?.('input[data-set], select[data-set], input[data-rest]')) return;
+  e.preventDefault();
+  const all = [...document.querySelectorAll('input[data-set], select[data-set]')].filter((x) => x.getClientRects().length);
+  const next = all[all.indexOf(t) + 1];
+  if (next) next.focus(); else t.blur();
 });
 
 // Edición en línea: actualiza datos sin re-renderizar (no se pierde el foco al teclear).
