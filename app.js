@@ -420,6 +420,30 @@ function rpeRirMismatch(set) {
   return Math.abs(d) >= 1 ? d : null;
 }
 // Caída del e1RM de la serie j respecto a la mejor serie efectiva anterior del mismo ejercicio.
+/* Coherencia del RIR: si una serie posterior del mismo ejercicio rinde bastante más (1RM estimado ≥ 5 % mayor, unas
+ * 2 repeticiones con cargas de 6-10) que una anterior, aunque llega con más fatiga, lo más probable es que en la anterior
+ * quedaran más repeticiones de las anotadas. Solo compara series con RIR (o RPE) anotado y dentro de la tabla RTS. */
+const RIR_JUMP = 5;
+function rirCheck(sets, j) {
+  const cur = sets[j];
+  if (!isWork(cur) || rirOf(cur) == null) return null;
+  const now = e1rm(cur); if (!now) return null;
+  let worst = null;
+  sets.slice(0, j).forEach((x, k) => {
+    if (!isWork(x) || rirOf(x) == null) return;
+    const e = e1rm(x); if (!e) return;
+    const jump = (now / e - 1) * 100;
+    if (jump >= RIR_JUMP && (!worst || jump > worst.jump)) worst = { k, jump, set: x };
+  });
+  if (!worst) return null;
+  // RIR con el que la serie anterior daría el mismo 1RM que esta (el más cercano de la tabla).
+  let implied = null, diff = Infinity;
+  for (let r = 0; r <= 10; r++) {
+    const p = RTS[(worst.set.reps + r - 1) * 2]; if (p == null) break;
+    const d = Math.abs(worst.set.w / (p / 100) - now); if (d < diff) { diff = d; implied = r; }
+  }
+  return { ...worst, implied: implied != null && implied > rirOf(worst.set) ? implied : null };
+}
 function setDrop(sets, j) {
   const cur = sets[j];
   if (!isWork(cur)) return null;
@@ -770,6 +794,10 @@ const GLOSSARY = {
     <li><b>C</b> Calentamiento: no cuenta para volumen, récords ni fatiga.</li>
     <li><b>D</b> Drop set: serie que sigue a otra sin descanso, bajando el peso.</li>
     <li><b>F</b> Al fallo: llevada hasta no poder completar otra repetición.</li></ul>`],
+  rir_check: ['¿RIR bien anotado?', `
+    <p>Con la fatiga, cada serie de un ejercicio suele rendir igual o algo menos que la anterior. Si una serie posterior rinde <b>bastante más</b> (su 1RM estimado es un 5 % mayor o más, unas 2 repeticiones), lo más probable es que en la serie anterior <b>te quedaran más repeticiones de las que anotaste</b>.</p>
+    <p>Es normal: calcular el RIR se aprende. Los estudios (p. ej. Halperin et al., 2022) encuentran que se falla de media en algo más de 1 repetición, sobre todo lejos del fallo y con poca experiencia.</p>
+    <p>Si lo ves claro, corrige el RIR de la serie anterior: afecta al 1RM estimado, a si cuenta como serie efectiva (RIR ≤ 4) y al peso sugerido. Otras causas posibles: la primera fue de aproximación (márcala como calentamiento), cambiaste de agarre, técnica o máquina, o descansaste mucho más.</p>`],
   drop: ['Caída de rendimiento', `
     <p>Compara el <b>1RM estimado de esta serie</b> con el de tu <b>mejor serie efectiva anterior</b> del mismo ejercicio en la sesión. Si cae más del umbral (por defecto 10%), es probable que la fatiga se esté acumulando.</p>
     <p>Ejemplo: serie 1 → 120 kg estimados; serie 3 → 105 kg estimados → caída del 12,5%.</p>
@@ -1257,6 +1285,9 @@ function exerciseCard(s, ex, i) {
       <td><button class="icon ghost" data-action="set-menu" data-i="${i}" data-j="${j}" aria-label="Opciones de la serie ${j + 1}: vídeo, compartir, borrar">⋯</button></td>
     </tr>${isPR ? `<tr><td></td><td colspan="${fields.length + 1}" class="pr" style="text-align:left">★ Récord: ${fmtM(est, m)} (${m.label}) ${info('pr')}</td></tr>` : ''}`;
     const restRow = restRowHTML(ex, i, j, fields.length + 3); // serie + campos + ✓ + ⋯
+    // ¿RIR bien anotado? También en modo sencillo: ayuda a aprender a calcularlo.
+    const rc = rirCheck(ex.sets, j);
+    if (rc) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="mismatch rir-check">${ic('alert')} Rinde un ${fmt(rc.jump, 0)} % más que la serie ${rc.k + 1} (${fmt(rc.set.w)} × ${rc.set.reps} @ RIR ${fmt(rirOf(rc.set))}): ¿te quedaban más repeticiones en esa?${rc.implied != null ? ` Encaja mejor con <b>RIR ${rc.implied}</b>.` : ''} ${info('rir_check')}</td></tr>`;
     if (simple) { rows += restRow; return; }
     const drop = setDrop(ex.sets, j);
     if (drop != null && drop >= db.settings.dropWarn) rows += `<tr><td></td><td colspan="${fields.length + 1}" class="fatigue">${ic('alert')} Rendimiento −${fmt(drop, 0)}% frente a tu mejor serie de hoy: posible fatiga acumulada ${info('drop')}</td></tr>`;
@@ -1790,12 +1821,8 @@ function pickerHTML(q = '') {
   const exact = db.exercises.some((e) => norm(e.name) === ql);
   if (!items.length) list += '<div class="muted">Sin resultados.</div>';
   return `${list}
-    ${ql && !exact ? `<div class="card" style="margin-top:10px"><b>Crear «${esc(q.trim())}»</b>
-      <div class="grid2" style="margin-top:8px">
-        <select id="new-ex-cat" aria-label="Músculo principal">${muscleOptions(null)}</select>
-        <select id="new-ex-mode">${Object.entries(MODES).map(([k, m]) => `<option value="${k}">${m.label}</option>`).join('')}</select>
-      </div>
-      <button class="primary block" style="margin-top:8px" data-action="create-exercise">Crear y añadir</button></div>` : ''}`;
+    ${ql && !exact ? `<button class="primary block" style="margin-top:10px" data-action="exercise-form" data-name="${esc(q.trim())}" data-then="add">＋ Crear «${esc(q.trim())}»…</button>
+      <div class="muted small" style="margin-top:4px">Se abre la ficha completa (músculos, material, tipo) y después se añade.</div>` : ''}`;
 }
 function openPicker() {
   openModal(`<div class="row"><h3 class="spacer">Añadir ejercicio</h3><button class="ghost" data-action="close-modal">✕</button></div>
@@ -1964,12 +1991,6 @@ const actions = {
     });
     save(); rerender();
     setTimeout(() => document.querySelector(`[data-ex="${s.exercises.length - 1}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
-  },
-  'create-exercise': () => {
-    const name = $('#picker-q').value.trim(); if (!name) return;
-    const e = { id: uid(), name, primary: $('#new-ex-cat').value || null, secondary: [], mode: $('#new-ex-mode').value };
-    db.exercises.push(e);
-    actions['pick-exercise']({ dataset: { id: e.id } });
   },
   'close-modal': () => closeModal(),
   'move-ex': (el) => {
@@ -2201,7 +2222,7 @@ const actions = {
     const used = e && db.sessions.some((s) => s.exercises.some((x) => x.exerciseId === e.id));
     openModal(`<div class="row"><h3 class="spacer">${e ? 'Editar' : 'Nuevo'} ejercicio</h3><button class="ghost" data-action="close-modal">✕</button></div>
       <div style="display:grid;gap:10px;margin-top:10px">
-        <div><label>Nombre</label><input id="ef-name" value="${esc(e?.name)}" placeholder="p. ej. Sentadilla búlgara"></div>
+        <div><label>Nombre</label><input id="ef-name" value="${esc(e?.name ?? el.dataset.name ?? '')}" placeholder="p. ej. Sentadilla búlgara"></div>
         <div><label>Músculo principal ${info('muscle_volume')}</label><select id="ef-cat" data-action-change="ef-primary">${muscleOptions(e?.primary ?? (e ? null : 'pectoral'))}</select></div>
         <div><label>Músculos secundarios y cuánto cuentan ${info('sec_weights')}</label>
           <div class="chips" id="ef-sec">${MUSCLE_KEYS.map((m) => { const w = e?.secondary?.includes(m) ? secWeight(e, m) : 0;
@@ -2211,7 +2232,7 @@ const actions = {
         <div><label>Tipo ${info('joint')}</label><select id="ef-joint">${Object.entries(JOINT).map(([k, v]) => `<option value="${k}" ${jointOf(e || {}) === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
         <div><label>Cómo se registra</label><select id="ef-mode" ${used ? 'disabled' : ''}>${Object.entries(MODES).map(([k, m]) => `<option value="${k}" ${e?.mode === k ? 'selected' : ''}>${m.label}</option>`).join('')}</select>
           ${used ? '<div class="muted small">No se puede cambiar: ya tiene series registradas.</div>' : ''}</div>
-        <button class="primary" data-action="save-exercise" data-id="${e?.id || ''}">Guardar</button>
+        <button class="primary" data-action="save-exercise" data-id="${e?.id || ''}" data-then="${el.dataset.then || ''}">${el.dataset.then === 'add' ? 'Guardar y añadir' : 'Guardar'}</button>
       </div>`);
   },
   'save-exercise': (el) => {
@@ -2221,6 +2242,8 @@ const actions = {
     let e = el.dataset.id && exById(el.dataset.id);
     if (!e) { e = { id: uid() }; db.exercises.push(e); }
     e.name = name; e.primary = $('#ef-cat').value || null; const secs = [...document.querySelectorAll('#ef-sec .chip.on:not(.hidden)')]; e.secondary = secs.map((x) => x.dataset.m); e.sw = Object.fromEntries(secs.map((x) => [x.dataset.m, +x.dataset.w])); e.kit = $('#ef-kit').value || undefined; delete e.reviewMuscles; e.joint = $('#ef-joint').value; if (!$('#ef-mode').disabled) e.mode = $('#ef-mode').value;
+    // Creado desde el buscador de «Añadir ejercicio»: se añade a la sesión (o a la tabla) en vez de abrir su ficha.
+    if (el.dataset.then === 'add') { save(); actions['pick-exercise']({ dataset: { id: e.id } }); return; }
     save(); closeModal(); location.hash = `#/exercise/${e.id}`; rerender();
   },
   'filter-eq': (el) => { ui.filterEq = el.dataset.eq; rerender(); },

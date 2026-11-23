@@ -221,3 +221,18 @@ Ejemplos:
 - **RIR medio:** media del RIR de las series de trabajo que lo tienen.
 - **Descanso medio:** media de los descansos anotados en las series de trabajo. La app no los inventa: solo cuenta los que escribes o los que rellena «Parar» en el cronómetro.
 - **Duración:** desde que se crea la sesión hasta «Finalizar». Si se cierra sola por inactividad, hasta la hora de la última serie marcada.
+
+## 17. Aviso «¿te quedaban más repeticiones?» (RIR dudoso)
+
+Con la fatiga, cada serie de un ejercicio suele rendir igual o algo menos que la anterior. La app avisa si una serie rinde **bastante más** que una anterior del mismo ejercicio en la misma sesión:
+
+> **Aviso si el 1RM estimado de la serie es un 5 % mayor (o más) que el de una serie anterior**
+
+- Solo se comparan series con RIR (o RPE) anotado y sin calentamientos.
+- Un 5 % son unas 2 repeticiones con cargas de 6-10. Así no salta por el error normal de ±1 repetición al estimar.
+
+Ejemplo:
+- 80 × 8 @ RIR 2 (1RM 108,3) y luego 80 × 10 @ RIR 2 (80 ÷ 0,680 = 117,6). La segunda rinde un **+9 %**.
+- El aviso sugiere el RIR con el que la primera daría el mismo 1RM: 80 × 8 @ **RIR 4** (80 ÷ 0,680 = 117,6).
+
+Corregir el RIR cambia el 1RM estimado, si la serie cuenta como efectiva (RIR ≤ 4) y el peso sugerido. Sale también en modo sencillo, porque ayuda a aprender a calcular el RIR. La prueba `tests/e2e/36-rir-dudoso-y-crear-ejercicio.js` comprueba este ejemplo.

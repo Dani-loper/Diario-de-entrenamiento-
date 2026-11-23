@@ -45,6 +45,7 @@ PWA (app web instalable) para registrar sesiones de musculación y fitness desde
   - *Copia automática en el móvil* (solo app Android, activada por defecto): cada día que cambian los datos se guarda una copia completa en *Documentos/DiarioEntreno* (últimos 10 días). Sobrevive a desinstalar la app; para no perderla con el móvil, sincroniza esa carpeta con Drive o pásala al ordenador.
   - *Aviso* en el calendario si hace más de 14 días que no se guarda una copia fuera de la app (la copia automática en el móvil cuenta).
 - **Cómo se calcula cada cifra**: [docs/como-se-calcula.md](docs/como-se-calcula.md), con un ejemplo comprobado por la prueba 34.
+- **¿RIR bien anotado?**: si una serie rinde un 5 % más (1RM estimado) que una anterior del mismo ejercicio, se avisa de que en la anterior probablemente quedaban más repeticiones y se sugiere el RIR que encaja (también en modo sencillo).
 - **Fatiga**: aviso de caída de rendimiento entre series (1RM estimado ≥10% por debajo de la mejor serie del día) y recuento de series al fallo, con RIR 0 o RPE ≥ 9,5.
 - **Carga interna** de la sesión (sRPE × minutos, método de Foster).
 - **Ayuda ⓘ** junto a los términos técnicos (RPE, RIR, 1RM estimado, volumen, carga interna, error estándar, correlación…), que abre una explicación.
