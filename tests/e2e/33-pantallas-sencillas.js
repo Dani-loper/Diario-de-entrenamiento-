@@ -73,11 +73,11 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   const groups = await p.$$eval('.sgroup', (x) => x.map((e) => e.textContent));
   assert(groups.join() === 'Entreno,Tus datos,Acerca de', 'Ajustes en tres grupos: ' + groups.join());
   const hs = await p.$$eval('h2', (x) => x.map((e) => e.textContent.trim()));
-  assert(!hs.some((h) => /^(Material|Avanzado|Series efectivas)/.test(h)), 'modo sencillo: sin material ni ajustes avanzados');
+  assert(!hs.some((h) => /^(Material|Microciclo|Volumen por músculo|Series efectivas)/.test(h)), 'modo sencillo: sin material ni ajustes avanzados');
   assert(hs.indexOf('Privacidad') > hs.indexOf('Copia de seguridad'), 'versión y privacidad al final');
   await p.evaluate(() => { db.settings.level = 'advanced'; save(true); rerender(); });
   const hs2 = await p.$$eval('h2', (x) => x.map((e) => e.textContent.trim()));
-  assert(hs2.includes('Material') && hs2.some((h) => h.startsWith('Series efectivas')), 'modo avanzado: vuelven a aparecer');
+  assert(hs2.includes('Material') && hs2.some((h) => h.startsWith('Microciclo')) && hs2.includes('Volumen por músculo') && hs2.some((h) => h.startsWith('Series efectivas')), 'modo avanzado: vuelven a aparecer (Microciclo, Volumen por músculo…)');
 
   assert(!errs.length, 'sin errores: ' + errs.join(' | '));
   await b.close();

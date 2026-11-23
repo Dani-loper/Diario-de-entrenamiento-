@@ -34,7 +34,7 @@ function muscleSetsBetween(from, to) {
 
 /* Referencias de volumen por músculo (series/semana), aproximadas a la tabla de Mike Israetel (Renaissance Periodization):
  * MV mantenimiento · MEV mínimo efectivo · MAV rango adaptativo (mín.-máx.) · MRV máximo recuperable.
- * Son orientativas (distintas ediciones publican cifras algo distintas) y se pueden editar por atleta en Ajustes › Avanzado.
+ * Son orientativas (distintas ediciones publican cifras algo distintas) y se pueden editar por atleta en Ajustes › Volumen por músculo.
  * Deltoides anterior: MEV 0 porque los empujes de pecho y hombro ya lo trabajan; lateral y posterior comparten cifras en la tabla original.
  * Trapecio: cifras de Israetel (MEV 0: remos y pesos muertos ya lo trabajan). Antebrazo y aductores: Israetel no publica
  * cifras propias para ellos (o no se han podido verificar); son estimaciones por analogía con músculos de tamaño y uso
@@ -263,10 +263,10 @@ function sameWeightHTML(def, hist) {
     <div class="muted small">Se muestran los pesos que has usado en al menos 2 sesiones; el número pequeño indica en cuántas.</div></div>`;
 }
 
-/* ---------- Editor de referencias (Ajustes › Avanzado) ---------- */
+/* ---------- Editor de referencias (Ajustes › Volumen por músculo) ---------- */
 function landmarksSettingsHTML() {
   const custom = !!db.settings.landmarks && Object.keys(db.settings.landmarks).length;
-  return `<details class="card lm-edit" ${ui.lmOpen ? 'open' : ''}><summary><b>Volumen por músculo (referencias de Israetel)</b> ${info('landmarks')}
+  return `<details class="card lm-edit" ${ui.lmOpen ? 'open' : ''}><summary><b>Referencias de Israetel</b> ${info('landmarks')}
       <div class="muted small">${custom ? 'Personalizadas para este atleta' : 'Valores aproximados por defecto'} · series efectivas por semana de 7 días</div></summary>
     <div class="gt-wrap"><table class="gt lm-table"><tr><th>Músculo</th>${LM_KEYS.map((k) => `<th>${k}</th>`).join('')}</tr>
     ${MUSCLE_KEYS.map((m) => { const v = db.settings.landmarks?.[m] || LANDMARKS[m]; return `<tr><td>${MUSCLES[m]}</td>${v.map((x, i) => `<td><input type="text" inputmode="numeric" data-lm="${m}:${i}" value="${x}" aria-label="${MUSCLES[m]} ${LM_KEYS[i]}"></td>`).join('')}</tr>`; }).join('')}

@@ -626,7 +626,7 @@ const pctTxt = (set) => { const p = pct1rm(set); return p ? `${Math.round(p)}%` 
 const siTxt = (set, def) => { const v = stressIndex(set, def); return v == null ? (isWork(set) && (set.reps || set.w) ? 'sin RIR' : '') : `IE ${fmt(v, 1)}`; };
 
 /* ---------- Análisis: carga semanal e intensidad ---------- */
-/* Semana del atleta (Ajustes › Avanzado): día de inicio y duración. Por defecto, lunes a domingo (7 días).
+/* Microciclo del atleta (Ajustes › Microciclo): día de inicio y duración. Por defecto, lunes a domingo (7 días).
  * Con una duración distinta de 7 es un microciclo: empieza en la fecha de referencia y se repite cada N días. */
 const DOW = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const DOW1 = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
@@ -812,7 +812,7 @@ const GLOSSARY = {
   ex_change: ['Cambio en el periodo', `
     <p>Compara la media de tus <b>3 primeras sesiones</b> del periodo con la media de las <b>3 últimas</b> (con menos de 6 sesiones, la primera con la última). Usar medias evita que un día bueno o malo distorsione el resultado.</p>
     <p>La métrica es la de cada ejercicio: 1RM estimado, repeticiones, tiempo o distancia.</p>`],
-  athlete_week: ['Semana del atleta', `
+  athlete_week: ['Microciclo', `
     <p>Periodo con el que se agrupan los datos semanales: series por músculo, constancia, análisis de carga, informes y calendario.</p>
     <p>Por defecto es la semana natural de <b>lunes a domingo</b>. Puedes cambiar el día en que empieza (p. ej. si tu semana de entrenamiento va de sábado a viernes).</p>
     <p>Si tu programación usa <b>microciclos</b> de otra duración (p. ej. 8 o 10 días), elige la duración y la fecha en que empieza uno de ellos: la app repetirá el ciclo cada N días hacia delante y hacia atrás. Las referencias de volumen por músculo están pensadas para 7 días; con otra duración se ajustan en proporción.</p>`],
@@ -1459,9 +1459,8 @@ function viewSettings() {
       <div class="row" style="margin-top:10px"><input id="new-eq" placeholder="Nuevo material (p. ej. Rodilleras 7mm)"><button data-action="add-equipment">Añadir</button></div>
       ${used.size ? '<div class="muted small" style="margin-top:6px">El material ya usado en sesiones no se puede borrar.</div>' : ''}
     </div>
-    <h2>Avanzado</h2>
+    <h2>Microciclo ${info('athlete_week')}</h2>
     <div class="card">
-      <label>Semana del atleta ${info('athlete_week')}</label>
       <div class="grid2">
         <div><label>Duración</label><select data-setting="weekLen">${[5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((n) => `<option value="${n}" ${cycleLen() === n ? 'selected' : ''}>${n} días${n === 7 ? ' (semana)' : ''}</option>`).join('')}</select></div>
         <div>${isCustomCycle()
@@ -1474,7 +1473,7 @@ function viewSettings() {
         Se usa en las series por músculo, la constancia, el análisis semanal y los informes${isCustomCycle() ? '' : ', y el calendario empieza ese día'}. Por defecto, de lunes a domingo.</div>
     </div>
 `}
-    ${simple ? '' : (window.landmarksSettingsHTML ? landmarksSettingsHTML() : '')}
+    ${simple || !window.landmarksSettingsHTML ? '' : `<h2>Volumen por músculo</h2>${landmarksSettingsHTML()}`}
     ${simple ? '' : `    <h2>Series efectivas</h2>
     <div class="card">
       <label>Cuenta como serie efectiva ${info('hard_sets')}</label>
