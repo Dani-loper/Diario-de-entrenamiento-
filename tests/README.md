@@ -60,3 +60,4 @@ npm run lint                         # revisión estática del código
 | 36-rir-dudoso-y-crear-ejercicio | Aviso de RIR dudoso (una serie posterior rinde ≥ 5 % más) y crear un ejercicio desde el buscador con la ficha completa |
 | 37-lumbar | Lumbar separado de espalda: migración desde la v3 (catálogo, ejercicios cambiados y propios), barra sin referencia, figura del cuerpo y referencia propia |
 | 38-series-por-microciclo | Series por músculo de la semana o microciclo en curso, ‹ › a los anteriores, «Últimos N días» y marca del anterior |
+| 39-recorrido | Recorrido de primeros pasos: tras la bienvenida, sesión vacía y primera serie (RIR); saltar, Esc, repetir desde Ajustes; no sale solo a quien ya usa la app |

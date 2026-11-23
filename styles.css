@@ -555,3 +555,13 @@ h1 + .sgroup { margin-top: 8px; }
 i.mb-prev-key { display: inline-block; width: 2px; height: 11px; background: var(--text); opacity: .55; }
 .mw-nav { margin-top: 4px; }
 .mw-nav .icon { min-height: 36px; }
+/* Recorrido de primeros pasos (tour.js) */
+.tour { position: fixed; inset: 0; z-index: 40; }
+.tour-hole { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(10, 14, 20, .62); outline: 2px solid var(--accent); outline-offset: 2px;
+  transition: left .2s, top .2s, width .2s, height .2s; pointer-events: none; }
+.tour-tip { position: fixed; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35); transition: top .2s, left .2s; }
+.tour-tip b { font-size: 1.02rem; }
+.tour-tip p { margin: 4px 0 8px; font-size: .9rem; line-height: 1.4; color: var(--muted); }
+.tour-count { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+@media (prefers-reduced-motion: reduce) { .tour-hole, .tour-tip { transition: none; } }

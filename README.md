@@ -3,6 +3,7 @@
 PWA (app web instalable) para registrar sesiones de musculación y fitness desde el móvil. Sin dependencias ni compilación; funciona sin conexión.
 
 ## Funciones
+- **Recorrido de primeros pasos**: la primera vez, explicaciones breves sobre el calendario, cómo empezar una sesión y cómo registrar una serie (peso, repeticiones, RIR, ✓, tipo de serie). Se puede saltar y repetir en Ajustes › Acerca de.
 - **Modo de atleta** (Ajustes, por usuario): *Sencillo* (series, peso, repeticiones, RIR y descansos) o *Avanzado* (todo lo demás: RPE, material, sensaciones, índice de estrés, %1RM, fatiga, análisis). Cambiar de modo no borra nada.
 - **Evolución por ejercicio**: gráfica de la mejor serie de cada sesión (1RM estimado, reps, tiempo o distancia) con eje de fechas real, periodo de 3 M, 6 M, 1 año o todo, línea de récord vigente, récords marcados y detalle al tocar un punto.
 - **Series efectivas por músculo** (pantalla Progreso): series de trabajo con RIR ≤ 4 (configurable a ≤ 3) de la semana o microciclo en curso (con ‹ › para los anteriores, «Últimos N días» como alternativa y una marca de lo hecho en el anterior), en recuento fraccionado (principal 1, secundario 0,5), comparadas con las referencias de volumen de Israetel de cada músculo (MV, MEV, MAV, MRV; aproximadas y editables por atleta en Ajustes › Avanzado); las series sin RIR se muestran aparte. Al tocar un músculo, su evolución en 12 semanas.

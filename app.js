@@ -392,6 +392,7 @@ function render() {
   if (r.name === 'settings' && window.fillVideoStats) fillVideoStats();
   if (r.name === 'settings' && window.fillSnapList) fillSnapList();
   if (r.name === 'settings' && window.fillStorageInfo) fillStorageInfo();
+  if (window.tourRefresh) setTimeout(tourRefresh, 60); // recorrido de primeros pasos (tour.js)
 }
 function rerender() { const y = scrollY; render(); scrollTo(0, y); }
 // Al cambiar de pantalla (también con «atrás») se cierra cualquier ventana abierta.
@@ -1579,6 +1580,7 @@ function viewSettings() {
     </div>
     <p class="muted small">${esc(activeUser().name)}: ${db.sessions.length} ${db.sessions.length === 1 ? 'sesión guardada' : 'sesiones guardadas'}.</p>
     <div class="sgroup">Acerca de</div>
+    ${window.tourSettingsHTML ? tourSettingsHTML() : ''}
     ${window.versionSettingsHTML ? versionSettingsHTML() : ''}
     ${window.privacySettingsHTML ? privacySettingsHTML() : ''}`;
 }
