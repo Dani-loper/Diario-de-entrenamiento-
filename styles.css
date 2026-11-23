@@ -569,3 +569,35 @@ i.mb-prev-key { display: inline-block; width: 2px; height: 11px; background: var
 .rest-go { margin: 0 0 4px 40px; min-height: 34px; color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .rest-go + .rest-field { margin-left: 8px; }
 @media (max-width: 380px) { .rest-go { margin-left: 28px; } }
+
+/* ---------- Pantallas grandes (PC y tabletas en horizontal) ----------
+ * Menú lateral en lugar de la barra inferior, contenido más ancho y dos columnas en Calendario, Progreso y la ficha
+ * del ejercicio. El móvil no cambia: todo está dentro de esta regla. */
+.side-brand { display: none; }
+.cols { display: block; }
+@media (min-width: 1024px) {
+  body, body.timer-on { padding-bottom: 0; padding-left: 220px; }
+  .tabbar { top: 0; bottom: 0; right: auto; width: 220px; flex-direction: column; gap: 4px; border-top: 0; border-right: 1px solid var(--line);
+    padding: calc(20px + var(--sa-top)) 12px 16px; }
+  .side-brand { display: block; font-weight: 800; font-size: 1.05rem; padding: 4px 14px 18px; color: var(--text); }
+  .tabbar a { flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; text-align: left; }
+  .tabbar a .ic { margin: 0; width: 22px; height: 22px; }
+  .tabbar a span { display: inline; font-size: .95rem; }
+  .tabbar a:hover { background: var(--card2); color: var(--text); }
+  .tabbar a.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  main { max-width: 1180px; padding: 24px 36px 48px; }
+  .timer { left: 240px; right: 24px; bottom: 24px; max-width: 760px; }
+  .toast, body.timer-on .toast { bottom: 24px; }
+  /* Pantallas de una columna: ancho cómodo para leer y escribir */
+  #app[data-view=session], #app[data-view=settings], #app[data-view=users], #app[data-view=records], #app[data-view=report],
+  #app[data-view=analysis], #app[data-view=templates], #app[data-view=template], #app[data-view=meso] { max-width: 840px; margin: 0 auto; }
+  /* Dos columnas */
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .prog-cols { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+  .cal-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+  .cal-cols .col-a { position: sticky; top: 16px; }
+  .col-b > h2.first, .col-b > h2:first-child, .col-b > .row:first-child { margin-top: 0 !important; }
+  .toast { left: calc(50% + 110px); }
+  .cols .col-a > .card:first-child { margin-top: 0 !important; }
+  dialog { max-width: 640px; }
+}

@@ -65,3 +65,4 @@ npm run lint                         # revisión estática del código
 | 41-descanso-entre-series | Cronómetro «de una serie a la siguiente»: guarda solo el tiempo entre ✓ (no sobrescribe, máx. 20 min, entre ejercicios, tras recargar, superseries) |
 | 42-rendimiento | 3 años de datos: récords del informe y memoria del historial iguales al cálculo directo; tiempos de pintado con límites holgados |
 | 43-informe-de-error | Registro de errores (también promesas y fallos al guardar), límite de 30, informe sin datos personales, copiar, enviar en Android y borrar |
+| 44-escritorio | Pantallas grandes: menú lateral, dos columnas (calendario, Progreso, ficha), sesión a 840 px, Intro avanza de casilla, móvil sin cambios |
