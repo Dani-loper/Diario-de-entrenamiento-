@@ -10,9 +10,11 @@ pw.chromium.launch = async (...args) => {
   const newContext = browser.newContext.bind(browser);
   // La ventana de bienvenida (primer arranque) se da por vista salvo en las pruebas que la piden: newContext({ welcome: true }).
   browser.newContext = async (opts = {}, ...rest) => {
-    const { welcome, ...o } = opts || {};
+    const { welcome, tour, ...o } = opts || {};
     const ctx = await newContext(o, ...rest);
     if (!welcome) await ctx.addInitScript(() => { try { localStorage.setItem('diario-entreno.bienvenida', '1'); } catch (e) { /* nada */ } });
+    // Igual con el recorrido de primeros pasos: newContext({ tour: true }) para verlo.
+    if (!tour) await ctx.addInitScript(() => { try { localStorage.setItem('diario-entreno.recorrido', '{"app":1,"sesion":1,"series":1}'); } catch (e) { /* nada */ } });
     await ctx.clock.install({ time: new Date(FIXED) });
     await ctx.clock.resume();
     // La app carga sus datos (IndexedDB) antes del resto de scripts: tras cada navegación se espera a que esté lista.

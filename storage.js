@@ -84,7 +84,7 @@ const kv = (() => {
 
 // Carga el resto de la app cuando los datos ya están en memoria (en orden, sin bloquear el primer pintado).
 const APP_SCRIPTS = ['app.js', 'pdf.js', 'media.js', 'backup.js', 'autobackup.js', 'templates.js', 'records.js', 'progress.js',
-  'daily.js', 'suggest.js', 'share.js', 'meso.js', 'profile.js', 'autoclose.js', 'privacy.js', 'update.js'];
+  'daily.js', 'suggest.js', 'share.js', 'meso.js', 'profile.js', 'tour.js', 'autoclose.js', 'privacy.js', 'update.js'];
 kv.ready.then(() => {
   APP_SCRIPTS.forEach((src, i) => {
     const s = document.createElement('script'); s.src = src; s.async = false;

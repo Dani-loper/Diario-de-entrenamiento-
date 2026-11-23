@@ -11,7 +11,7 @@ const espree = require('espree');
 const globals = require('globals');
 
 const APP_FILES = ['native.js', 'catalog.js', 'storage.js', 'app.js', 'pdf.js', 'media.js', 'backup.js', 'autobackup.js', 'templates.js',
-  'records.js', 'progress.js', 'daily.js', 'suggest.js', 'share.js', 'meso.js', 'profile.js', 'autoclose.js', 'privacy.js', 'update.js', 'sw.js'];
+  'records.js', 'progress.js', 'daily.js', 'suggest.js', 'share.js', 'meso.js', 'profile.js', 'tour.js', 'autoclose.js', 'privacy.js', 'update.js', 'sw.js'];
 const PAGE_FILES = APP_FILES.filter((f) => f !== 'sw.js');
 
 const declared = {}; // nombre → [archivos]
