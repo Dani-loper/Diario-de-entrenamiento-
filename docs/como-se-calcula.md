@@ -74,7 +74,10 @@ La tabla completa está en la app: toca la (i) junto a «1RM est.» y, dentro, l
 
 ## 5. Series efectivas por músculo (Progreso)
 
-Se cuentan las **series efectivas de los últimos 7 días**, de hoy hacia atrás. En el ejemplo, del 16 al 22 nov; el 9 nov queda fuera.
+Se cuentan las **series efectivas de la semana (o microciclo) en curso**, según Ajustes › Microciclo. En el ejemplo, la semana del lunes 16 al domingo 22 nov; el 9 nov queda fuera.
+
+- Con ‹ › se ven las semanas anteriores. «Últimos 7 días» muestra la ventana móvil de hoy hacia atrás.
+- En la semana en curso, una **marca vertical** en cada barra indica lo que hiciste en la semana anterior completa. Así, el día 1, con todo a 0, se ve hacia dónde vas.
 
 Cada serie suma **1 al músculo principal** y a cada secundario **su fracción** (¼, ½ o ¾ según el ejercicio). El porqué de cada fracción está en [volumen-por-musculo.md](volumen-por-musculo.md); se ve y se cambia en Editar ejercicio.
 

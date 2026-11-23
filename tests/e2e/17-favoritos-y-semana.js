@@ -77,8 +77,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.goto('http://localhost:8123/#/exercises');
   await p.waitForSelector('.heat');
   assert(await p.$eval('.heat', (e) => e.viewBox.baseVal.height) === 10 * 13, 'constancia: 10 filas (días del ciclo)');
-  const sub = await p.textContent('.card:has(.mbars) .muted');
-  assert(sub.includes('Últimos 10 días') && await p.evaluate(() => landmarksOf('cuadriceps').mrv) === 28.6, 'series por músculo: 10 días y referencias escaladas (MRV cuádriceps 20 → 28,6): ' + sub.replace(/\s+/g, ' ').trim());
+  const sub = await p.textContent('.mw-nav');
+  assert(/Microciclo en curso · día \d+ de 10/.test(sub) && await p.evaluate(() => landmarksOf('cuadriceps').mrv) === 28.6, 'series por músculo: microciclo de 10 días y referencias escaladas (MRV cuádriceps 20 → 28,6): ' + sub.replace(/\s+/g, ' ').trim());
   // Volver al valor por defecto
   await p.goto('http://localhost:8123/#/settings');
   await p.selectOption('[data-setting=weekLen]', '7');
