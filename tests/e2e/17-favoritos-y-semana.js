@@ -59,6 +59,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   const w0 = await p.evaluate(() => [weekStart('2026-11-22'), weekStart('2026-11-16')]);
   assert(w0.join() === '2026-11-16,2026-11-16', 'por defecto: lunes (domingo 22 → lunes 16)');
   await p.goto('http://localhost:8123/#/settings');
+  assert(!(await p.$('[data-setting=weekDow]')), 'modo sencillo: la semana del atleta no aparece en Ajustes');
+  await p.evaluate(() => { db.settings.level = 'advanced'; save(true); rerender(); });
   await p.selectOption('[data-setting=weekDow]', '6');
   const w1 = await p.evaluate(() => [weekStart('2026-11-22'), weekStart('2026-11-20'), weekEnd(weekStart('2026-11-22'))]);
   assert(w1.join() === '2026-11-21,2026-11-14,2026-11-27', 'semana de sábado a viernes: ' + w1.join());

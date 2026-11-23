@@ -82,7 +82,7 @@ function colsHTML(vals, { label, dec = 0 }) {
 }
 function activityHTML() {
   const any = Object.keys(db.daily || {}).length;
-  if (!any) return `<div class="card muted small"><b style="color:var(--text)">Pasos y calorías</b> ${info('daily')}<br>Puedes anotar opcionalmente tus pasos y las calorías consumidas cada día desde el calendario (tarjeta «Datos del día»). Aparecerán aquí con sus medias y una estimación de tus calorías de mantenimiento.</div>`;
+  if (!any) return ''; // sin datos no se muestra: se anotan en «Datos del día» del calendario
   const wk = dailyWeekly(12);
   const avg = (a) => a.length ? mean(a) : null;
   const last = wk[wk.length - 1], prev = wk[wk.length - 2];

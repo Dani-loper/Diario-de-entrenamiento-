@@ -10,7 +10,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
     await p.goto('http://localhost:8123/'); await p.waitForSelector('.cal');
     return p;
   };
-  const warn = (p) => p.isVisible('text=Instala la app para no perder tus datos');
+  // Los avisos del calendario van tras el icono de la campana: se abre si está.
+  const warn = async (p) => { if (await p.$('[data-action=notices][aria-expanded=false]')) await p.click('[data-action=notices]'); return p.isVisible('text=Instala la app para no perder tus datos'); };
   let p = await open('iPhone 13', false);
   assert(await warn(p), 'iPhone desde Safari (sin instalar): aviso visible');
   await p.click('[data-action=dismiss-install]');

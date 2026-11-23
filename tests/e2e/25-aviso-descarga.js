@@ -34,7 +34,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   assert((await p.textContent('.deload')).includes('valora una semana de descarga'), 'tarjeta en Progreso');
   await (await p.$('.deload')).screenshot({ path: out + '/25deload.png' });
   await p.goto('http://localhost:8123/#/'); await p.waitForSelector('.cal');
-  assert(await p.isVisible('.deload-mini'), 'aviso compacto en el calendario, que lleva a Progreso');
+  if (await p.$('[data-action=notices]')) await p.click('[data-action=notices]');
+  assert(!(await p.$('.deload-mini')), 'el aviso de descarga solo sale en Progreso (no se repite en el calendario)');
   await p.goto('http://localhost:8123/#/exercises'); await p.waitForSelector('.deload');
   await p.click('[data-action=deload-snooze]');
   assert(!(await p.isVisible('.deload')), '«Ocultar durante 7 días»');

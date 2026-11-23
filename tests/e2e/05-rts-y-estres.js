@@ -51,6 +51,8 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
   await p.click('[data-action=toggle-done][data-j="0"]');
   await p.click('[data-action=timer-stop]');
   await (await p.$('[data-ex="0"]')).screenshot({ path: out + '/5card.png' });
+  assert(await p.isVisible('.sum-mini') && !(await p.$('.sum-mini h3')), 'sesión abierta: resumen plegado (3 cifras)');
+  await p.click('[data-action=sum-open]');
   const sum = await p.$('h3:has-text("Índice de estrés")');
   assert(!!sum, 'resumen muestra índice de estrés');
   await sum.scrollIntoViewIfNeeded();

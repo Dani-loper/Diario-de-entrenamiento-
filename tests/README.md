@@ -54,3 +54,4 @@ npm run lint                         # revisión estática del código
 | 30-app-android | Dentro de la app Android (puente simulado): archivos por la hoja de compartir nativa, sin service worker |
 | 31-catalogo-y-pesos | Catálogo de 154 ejercicios y músculos nuevos (aductores, trapecio, antebrazo), pesos por músculo secundario, migración desde la versión anterior, editor de pesos, filtro por material |
 | 32-almacenamiento-y-version | Datos en IndexedDB, migración desde localStorage, recuperación de cambios pendientes, más de 5 MB, sin IndexedDB, aviso de versión nueva |
+| 33-pantallas-sencillas | Avisos tras la campana, calendario plegable, botón «Repetir o tabla», resumen plegado y sin comparar en la sesión abierta, historial de 5, tarjetas vacías ocultas, Ajustes en tres grupos |
