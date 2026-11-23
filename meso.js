@@ -4,7 +4,7 @@
  *   según la opción, una serie más por ejercicio cada semana o cada dos (copia de la última serie efectiva).
  * - Semana de descarga (k = N): la mitad de series efectivas, RIR 4 y el 90 % del %1RM de la primera semana.
  * - El peso de cada serie lo calcula la tabla con el 1RM estimado del atleta (o el % explícito si la tabla lo trae).
- * - La semana va por la «semana del atleta» (Ajustes › Avanzado). Las sesiones quedan enlazadas (sess.meso) para
+ * - La semana va por la «semana del atleta» (Ajustes › Microciclo). Las sesiones quedan enlazadas (sess.meso) para
  *   saber qué día toca. Los mesociclos son de cada atleta; las tablas, comunes. */
 
 const mesoList = () => (db.mesos = db.mesos || []);
