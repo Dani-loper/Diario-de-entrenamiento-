@@ -63,3 +63,5 @@ npm run lint                         # revisión estática del código
 | 39-recorrido | Recorrido de primeros pasos: tras la bienvenida, sesión vacía y primera serie (RIR); saltar, Esc, repetir desde Ajustes; no sale solo a quien ya usa la app |
 | 40-cronometro-manual | Cronómetro de descanso automático (al marcar ✓) o manual (botón «Iniciar» en la serie), con calentamientos y superseries |
 | 41-descanso-entre-series | Cronómetro «de una serie a la siguiente»: guarda solo el tiempo entre ✓ (no sobrescribe, máx. 20 min, entre ejercicios, tras recargar, superseries) |
+| 42-rendimiento | 3 años de datos: récords del informe y memoria del historial iguales al cálculo directo; tiempos de pintado con límites holgados |
+| 43-informe-de-error | Registro de errores (también promesas y fallos al guardar), límite de 30, informe sin datos personales, copiar, enviar en Android y borrar |

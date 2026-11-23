@@ -172,7 +172,8 @@ function consistencyHTML() {
     const iso = addDays(start, w * len + d); if (iso > today) continue;
     cells += `<rect x="${L + w * (C + G)}" y="${d * (C + G)}" width="${C}" height="${C}" rx="2" class="${days.has(iso) ? 'on' : ''}"><title>${iso}</title></rect>`;
   }
-  const weeks = lastWeeks(NW).map((w) => db.sessions.filter((s) => weekStart(s.date) === w).length);
+  const perWeek = {}; for (const s of db.sessions) { const w = weekStart(s.date); perWeek[w] = (perWeek[w] || 0) + 1; } // una pasada
+  const weeks = lastWeeks(NW).map((w) => perWeek[w] || 0);
   const closed = weeks.slice(0, -1), last4 = closed.slice(-4), last12 = closed.slice(-12);
   let streak = 0; for (let i = weeks.length - 1; i >= 0; i--) { if (weeks[i]) streak++; else if (i === weeks.length - 1) continue; else break; }
   const W = L + NW * (C + G), H = len * (C + G);
@@ -338,7 +339,9 @@ document.addEventListener('toggle', (e) => { if (e.target.classList?.contains('l
 function deloadSignal() {
   const today = todayISO(), d14 = isoFromNum(dayNum(today) - 13);
   // Series de trabajo por semana: la referencia de «semana normal» y las semanas suaves (descargas).
-  const weekSets = (w) => db.sessions.filter((s) => weekStart(s.date) === w).reduce((a, s) => a + s.exercises.reduce((b, e) => b + e.sets.filter(isWork).length, 0), 0);
+  const setsByWeek = {}; // series de trabajo por semana, en una sola pasada
+  for (const s of db.sessions) { const w = weekStart(s.date); setsByWeek[w] = (setsByWeek[w] || 0) + s.exercises.reduce((b, e) => b + e.sets.filter(isWork).length, 0); }
+  const weekSets = (w) => setsByWeek[w] || 0;
   const closed = lastWeeks(13).slice(0, -1), sets = closed.map(weekSets);
   // Semana «normal» de referencia: percentil 75 de las semanas con entrenamiento (la mediana la arrastran las propias descargas).
   const active = sets.filter((x) => x > 0).sort((x, y) => x - y), typical = active.length ? active[Math.floor((active.length - 1) * 0.75)] : 0;

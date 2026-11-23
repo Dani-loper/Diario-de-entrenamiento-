@@ -25,7 +25,7 @@ const kv = (() => {
   const persist = (op, key, val) => {
     if (!idb) {
       try { if (op === 'put') localStorage.setItem(key, val); else localStorage.removeItem(key); }
-      catch (e) { lastError = e; alert('No se pudo guardar: ' + e.message); }
+      catch (e) { lastError = e; window.errLog?.('No se pudo guardar (localStorage): ' + e.message); alert('No se pudo guardar: ' + e.message); }
       return;
     }
     const entry = JSON.stringify({ op, v: op === 'put' ? val : null });
@@ -34,7 +34,7 @@ const kv = (() => {
     pending++;
     tx('readwrite', (st) => (op === 'put' ? st.put(val, key) : st.delete(key)))
       .then(() => { if (journaled && localStorage.getItem(JOURNAL + key) === entry) localStorage.removeItem(JOURNAL + key); })
-      .catch((e) => { lastError = e; alert('No se pudo guardar en el almacenamiento: ' + (e?.message || e)); })
+      .catch((e) => { lastError = e; window.errLog?.('No se pudo guardar (IndexedDB): ' + (e?.message || e)); alert('No se pudo guardar en el almacenamiento: ' + (e?.message || e)); })
       .finally(() => { pending--; });
   };
   async function open() {

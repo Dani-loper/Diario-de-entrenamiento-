@@ -15,6 +15,9 @@ Tus datos se guardan **solo en tu dispositivo**. La app no tiene servidor ni cue
 
 Algunos de estos datos, como el peso corporal o las molestias anotadas, pueden considerarse **datos relativos a la salud**. Se guardan únicamente en el dispositivo y solo para mostrarlos al propio usuario.
 
+## Registro de errores
+Si la app falla, guarda en el dispositivo una descripción técnica de los últimos errores: mensaje, archivo, pantalla y hora. No incluye nombres ni datos de entrenamiento. Solo sale del dispositivo si el usuario copia o envía el informe desde Ajustes › Informe de error. Ese informe añade la versión de la app, el modelo de navegador o dispositivo y recuentos (número de usuarios y sesiones).
+
 ## Cuándo salen del dispositivo
 Solo por decisión expresa del usuario: al guardar o enviar una copia de seguridad, un informe PDF, una imagen o un vídeo de una serie, o los datos para un entrenador. Se envían al destino que el usuario elija (gestor de archivos, almacenamiento en la nube, mensajería, correo…). A partir de ese momento se aplican las condiciones de ese servicio.
 
